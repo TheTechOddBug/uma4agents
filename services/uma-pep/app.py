@@ -54,6 +54,15 @@ PEP_KID = "uma-pep-1"
 # reconstructs the signed components from configuration rather than trusting
 # forwarded headers (the ext_authz hop rewrites Host).
 EXPECTED_AUTHORITY = os.environ.get("UMA_EXPECTED_AUTHORITY", "gateway.uma.lab")
+# Origins allowed to drive the gateway from a browser context. Agents are not
+# browsers and send no Origin; the check only bites when one is present.
+ALLOWED_ORIGINS = {
+    o for o in os.environ.get(
+        "UMA_ALLOWED_ORIGINS",
+        f"https://{os.environ.get('UMA_EXPECTED_AUTHORITY', 'gateway.uma.lab')},"
+        "https://portal.uma.lab",
+    ).split(",") if o
+}
 
 # Alice's vault tool surface: tool -> (resource_id, scopes). This is what the
 # gateway registers at her AS on startup.
@@ -63,7 +72,17 @@ TOOLS = {
     "execute_trade": ("alice-vault/execute_trade", ["trades:execute"]),
 }
 SINGLE_USE_TOOLS = {"execute_trade"}
-OPEN_METHODS = {"initialize", "notifications/initialized", "tools/list", "ping"}
+# Deny by default. An allow-list of open methods silently admits every method
+# a future protocol revision invents — 2026-07-28 alone added tasks/*,
+# server/discover and subscriptions/listen — so the protected set is named
+# instead, and anything unrecognised is refused rather than forwarded.
+PROTECTED_METHODS = {"tools/call"}
+OPEN_METHODS = {
+    "initialize", "notifications/initialized", "ping",
+    "tools/list", "prompts/list", "resources/list", "resources/templates/list",
+    "completion/complete", "logging/setLevel",
+    "server/discover",          # 2026-07-28 replacement for initialize
+}
 
 log = logging.getLogger("uma-pep")
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -296,11 +315,39 @@ async def check(request: Request, rest: str = "") -> Response:
     body = await request.body()
     method, tool, args = parse_mcp(body) if body else (None, None, None)
 
-    # Session bootstrap and discovery are open; invocation is protected.
-    if request.method != "POST" or method in OPEN_METHODS or method is None and tool is None and not body:
+    # MCP 2026-07-28 makes Origin validation a MUST: a browser page on another
+    # origin must not be able to drive an agent's local MCP plumbing.
+    if (origin := request.headers.get("origin")) and origin not in ALLOWED_ORIGINS:
+        event("access.denied", reason="bad-origin", origin=origin)
+        return deny(403, {"error": "invalid_origin"})
+
+    # SEP-2243 mirrors the JSON-RPC method into an Mcp-Method header so an L7
+    # proxy can route without parsing the body. That convenience is also a new
+    # confusion attack: a PEP that trusts the header while the resource obeys
+    # the body can be walked straight past. Any gateway enforcing on these
+    # headers has to reconcile the two.
+    if (hdr_method := request.headers.get("mcp-method")) and method and hdr_method != method:
+        event("access.denied", reason="header-body-mismatch",
+              header_method=hdr_method, body_method=method)
+        return deny(400, {"error": "header_body_mismatch",
+                          "error_description": "Mcp-Method disagrees with the JSON-RPC body"})
+    if (hdr_name := request.headers.get("mcp-name")) and tool and hdr_name != tool:
+        event("access.denied", reason="header-body-mismatch",
+              header_name=hdr_name, body_name=tool)
+        return deny(400, {"error": "header_body_mismatch",
+                          "error_description": "Mcp-Name disagrees with the JSON-RPC body"})
+
+    # Non-POST and bodiless requests carry no invocation to authorize.
+    if request.method != "POST" or (method is None and tool is None and not body):
         return Response(status_code=200)
-    if method != "tools/call":
+    # Deny by default: only named-open methods pass unauthenticated, and only
+    # named-protected methods reach enforcement. An unknown method is neither.
+    if method in OPEN_METHODS:
         return Response(status_code=200)
+    if method not in PROTECTED_METHODS:
+        event("access.denied", reason="unknown-method", mcp_method=method)
+        return deny(403, {"error": "unknown_method",
+                          "error_description": f"{method} is not enforceable by this PEP"})
     if tool not in TOOLS:
         event("access.denied", reason="unknown-tool", tool=tool)
         return deny(403, {"error": "unknown_tool"})
