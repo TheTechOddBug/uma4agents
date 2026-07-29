@@ -292,6 +292,33 @@ it). Alice's decision resolves it: approve → grant (and, for a connection
 request, the standing relationship is recorded); deny → `request_denied`;
 expiry → `invalid_grant`.
 
+**The pend is a state to render, not a call to hold open.** A requesting side
+that can express waiting to its own user should hand the wait up rather than
+block. The shim does: after a short window it asks Bob the one question he can
+answer — keep waiting, or stop — and on MCP 2026-07-28 the SDK turns that into
+an `InputRequiredResult` with a `request_state` handle, so the call is
+suspended and resumable instead of held. Alice's decision is still Alice's;
+Bob's client just stops hanging on it.
+
+What cannot be said in that structure is *who* is being waited on. MRTR's
+`input_requests` is a closed union of `CreateMessageRequest |
+ListRootsRequest | ElicitRequest`, all three of which address the client's own
+user. A pend on a different principal has no typed slot, so the subject rides
+in prose today and is what the MCP binding proposes adding:
+
+```jsonc
+"subject": {
+  "party": "resource_owner",
+  "is_requesting_party": false,
+  "reachable_by_client": false,   // the client MUST NOT try to satisfy this
+  "notified": true
+}
+```
+
+`reachable_by_client` is the load-bearing field: without it a conforming
+client will try to satisfy the wait from its own user, who has no part in the
+decision.
+
 ### Beat 4 — Grant
 
 ```json

@@ -132,6 +132,16 @@ class TermsDecision(BaseModel):
     approve: bool
 
 
+class KeepWaiting(BaseModel):
+    keep_waiting: bool
+
+
+# How long the shim polls Alice's AS before handing the wait back to Bob.
+# Short on purpose: the point is that a pend is a protocol state to be
+# *rendered*, not a call to be held open.
+PEND_HANDBACK_S = int(os.environ.get("UMA4A_PEND_HANDBACK", 15))
+
+
 class Upstream:
     """Minimal MCP streamable-http client with the grant dance built in."""
 
@@ -277,10 +287,15 @@ class Upstream:
             async def approve(template: dict) -> bool:
                 return await approve_terms(ctx, tool, template)
 
+            async def still_waiting(pend: dict) -> bool:
+                return await keep_waiting(ctx, tool, pend)
+
             rpt = await run_grant_async(
                 self.client, as_uri, ticket, keys, approve,
                 operation=operation, on_status=log,
                 on_receipt=store_receipt,
+                max_wait_s=PEND_HANDBACK_S,
+                on_pending=still_waiting,
             )
             headers = signed_headers("POST", AUTHORITY, MCP_PATH, rpt, keys)
             r, payload = await self.request("tools/call", params, headers=headers)
@@ -293,6 +308,49 @@ class Upstream:
             return payload["result"]["content"][0]["text"]
         except (KeyError, IndexError, TypeError):
             return json.dumps(payload)
+
+
+async def keep_waiting(ctx: Context, tool: str, pend: dict) -> bool:
+    """Hand a third party's pending decision back to the requesting human.
+
+    This is the U4A case MCP has no type for. On 2026-07-28 the SDK turns this
+    elicitation into an `InputRequiredResult` with a `request_state` handle, so
+    the call stops being held open and Bob's client can render the wait and
+    come back — exactly the machinery a pend needs.
+
+    What it cannot express is *who* is being waited on. MRTR's `input_requests`
+    is a closed union of CreateMessageRequest | ListRootsRequest |
+    ElicitRequest — three requests that all address the client's own user.
+    There is no slot for "blocked on a different principal, who is not on this
+    connection and cannot be reached through it." So the only question that can
+    be asked here is the one Bob can actually answer — keep waiting, or stop —
+    and the real subject is described in prose:
+
+        subject:  party=resource_owner
+                  is_requesting_party=false
+                  reachable_by_client=false
+
+    That block is what the ext-auth proposal adds to an input request.
+    Without it a conforming client will try to satisfy the wait from its own
+    user, who has nothing to do with the decision.
+    """
+    message = (
+        f"`{tool}` is waiting on the resource owner's decision.\n\n"
+        f"• who must decide: the resource owner — not you, and not reachable "
+        f"from this connection\n"
+        f"• where: {pend['as_uri']}\n"
+        f"• they have been notified and the request is holding\n\n"
+        f"Keep waiting?"
+    )
+    try:
+        result = await ctx.elicit(message=message, schema=KeepWaiting)
+    except MCPError:
+        log("client cannot render the pend; continuing to hold the call open")
+        return True
+    if result.action == "accept" and result.data:
+        return result.data.keep_waiting
+    log("requesting side stopped waiting")
+    return False
 
 
 async def approve_terms(ctx: Context, tool: str, template: dict) -> bool:

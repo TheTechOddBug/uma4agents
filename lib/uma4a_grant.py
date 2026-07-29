@@ -263,8 +263,18 @@ async def run_grant_async(
     on_status: Callable[[str], None] = lambda s: None,
     on_receipt: Callable[[str], None] = lambda r: None,
     max_wait_s: int = 120,
+    on_pending=None,   # async Callable[[dict], bool] | None
 ) -> str:
-    """Async twin of run_grant — the shim awaits elicitation mid-dance."""
+    """Async twin of run_grant — the shim awaits elicitation mid-dance.
+
+    `on_pending` is called each time the owner's decision is still outstanding,
+    with the pend's details, and returns whether to keep waiting. It exists so
+    the requesting side does not have to *block* through someone else's
+    decision: a caller that can express waiting to its own user (MCP's
+    input_required) hands the question up instead of holding the call open.
+    Omit it and the loop polls to `max_wait_s`, which is what a headless
+    driver wants.
+    """
     import asyncio
 
     token_url = f"{as_uri}/token"
@@ -298,7 +308,18 @@ async def run_grant_async(
     while body.get("error") == "request_submitted":
         on_status("Alice has been asked — holding the ticket")
         if time.time() > deadline:
-            raise GrantDenied("timed out waiting for the owner")
+            if on_pending is None:
+                raise GrantDenied("timed out waiting for the owner")
+            # Hand the wait up rather than deciding to abandon it here: only
+            # the requesting human knows whether this is still worth waiting
+            # for. Answering resets the window.
+            if not await on_pending({
+                "as_uri": as_uri,
+                "interval": body.get("interval", 3),
+                "waited_s": max_wait_s,
+            }):
+                raise GrantDenied("the requesting side stopped waiting for the owner")
+            deadline = time.time() + max_wait_s
         await asyncio.sleep(body.get("interval", 3))
         r = await client.post(
             token_url, data={"grant_type": GRANT_TYPE, "ticket": body["ticket"]}
