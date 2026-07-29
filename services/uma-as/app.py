@@ -124,12 +124,22 @@ KID = "uma-as-1"
 app = FastAPI(title="uma-as")
 
 # ---------------------------------------------------------------------------
-# In-memory state. TICKETS is keyed by the *current* ticket string; each
-# presentation consumes it (UMA 2.0 single-use rule) and, if the negotiation
-# continues, a rotated ticket inherits the same negotiation record.
+# In-memory state.
+#
+# The negotiation record is keyed by its *family* and lives for the whole
+# negotiation; TICKETS is only a rotating index into it. Each presentation
+# consumes the current ticket (UMA 2.0 single-use rule) and, if the
+# negotiation continues, a fresh ticket is indexed to the same family.
+#
+# Keying the record by the ticket instead — the obvious first design — makes
+# the record invisible between the pop and the re-insert, so a concurrent
+# /owner/pending misses it and /owner/pending/{family}/decision 404s on a
+# negotiation that plainly exists. The family is the stable identity here;
+# the ticket is a credential for it.
 # ---------------------------------------------------------------------------
 RESOURCES: dict[str, dict] = {}
-TICKETS: dict[str, dict] = {}
+NEGOTIATIONS: dict[str, dict] = {}  # family -> negotiation record
+TICKETS: dict[str, str] = {}        # rotating ticket -> family
 RPTS: dict[str, dict] = {}          # jti -> {consumed, operation, family, handle}
 LEDGER: list[dict] = []             # promised / touched / approved entries
 OWNER_QUEUE: list[asyncio.Queue] = []  # SSE subscribers (portal)
@@ -164,14 +174,64 @@ async def owner_notify(payload: dict) -> None:
 
 
 def new_ticket(record: dict) -> str:
+    """Mint a ticket and index it to the record's family. The record itself
+    stays in NEGOTIATIONS throughout."""
     ticket = f"tkt_{secrets.token_urlsafe(24)}"
     record["expires"] = now() + (PENDING_TTL if record.get("state") == "awaiting-owner" else TICKET_TTL)
-    TICKETS[ticket] = record
+    NEGOTIATIONS[record["family"]] = record
+    TICKETS[ticket] = record["family"]
     return ticket
 
 
 def consume_ticket(ticket: str) -> dict | None:
-    rec = TICKETS.pop(ticket or "", None)
+    """Burn the presented ticket and return its negotiation.
+
+    Only the index entry is removed — the negotiation remains addressable by
+    family, so the owner's portal can see and decide a pending request even in
+    the window between one ticket being consumed and its rotation being
+    issued.
+    """
+    family = TICKETS.pop(ticket or "", None)
+    if family is None:
+        return None
+    rec = NEGOTIATIONS.get(family)
+    if not rec or rec["expires"] < now():
+        return None
+    return rec
+
+
+def close_negotiation(rec: dict | None) -> None:
+    """Drop a finished negotiation and any ticket still indexed to it.
+
+    Every path out of the grant loop is terminal except need_info and
+    awaiting-owner, so without this the record set grows for the life of the
+    process. The ledger, not this dict, is the audit trail.
+    """
+    if not rec:
+        return
+    family = rec.get("family")
+    NEGOTIATIONS.pop(family, None)
+    for t in [t for t, f in TICKETS.items() if f == family]:
+        TICKETS.pop(t, None)
+
+
+def reap_expired() -> None:
+    """Sweep negotiations whose ticket window has closed with nobody returning."""
+    stale = [f for f, r in NEGOTIATIONS.items() if r["expires"] < now()]
+    for family in stale:
+        close_negotiation(NEGOTIATIONS.get(family))
+
+
+def peek_ticket(ticket: str) -> dict | None:
+    """Resolve a ticket to its negotiation *without* consuming it.
+
+    Read-only observation advances no state, so the single-use rule — which
+    exists to stop a replayed ticket escalating into a grant — does not apply.
+    """
+    family = TICKETS.get(ticket or "")
+    if family is None:
+        return None
+    rec = NEGOTIATIONS.get(family)
     if not rec or rec["expires"] < now():
         return None
     return rec
@@ -684,9 +744,8 @@ async def register_permission(request: Request) -> JSONResponse:
     return JSONResponse({"ticket": ticket}, status_code=201)
 
 
-@app.post("/introspect")
-async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
-    require_pat(request)
+def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
+    """Decode and look up an RPT. Returns (claims, record, error_code)."""
     try:
         claims = jwt.decode(
             token,
@@ -695,27 +754,42 @@ async def introspect(request: Request, token: str = Form(...), consume: str = Fo
             issuer=ISSUER,
             options={"verify_aud": False},
         )
-    except jwt.InvalidTokenError as exc:
-        event("rpt.introspected", details_result=f"invalid: {exc}")
-        return {"active": False}
-
-    jti = claims.get("jti", "")
-    rec = RPTS.get(jti)
+    except jwt.ExpiredSignatureError:
+        return None, None, "expired"
+    except jwt.InvalidTokenError:
+        return None, None, "invalid_signature"
+    rec = RPTS.get(claims.get("jti", ""))
     if rec is None:
-        return {"active": False}
-    conn = CONNECTIONS.get(rec.get("handle", ""))
-    if conn is not None and conn["status"] != "active":
-        event("rpt.introspected", corr=rec["family"], result="connection-revoked")
-        return {"active": False}
-    if conn is not None:
+        return claims, None, "unknown_token"
+    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
+        if conn["status"] != "active":
+            return claims, rec, "connection_revoked"
+    if claims.get("single_use") and rec["consumed"]:
+        return claims, rec, "already_consumed"
+    return claims, rec, ""
+
+
+@app.post("/introspect")
+async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
+    require_pat(request)
+    claims, rec, err = _decode_rpt(token)
+    if err:
+        # RFC 7662 permits additional members. Without a reason the PEP cannot
+        # tell "come back after re-negotiating" from "the owner revoked you and
+        # re-negotiating is pointless" — and sends revoked agents round a loop.
+        event("rpt.introspected", corr=(rec or {}).get("family"), result=err)
+        return {"active": False, "error": err}
+
+    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
         conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    if claims.get("single_use"):
-        if rec["consumed"]:
-            event("rpt.introspected", corr=rec["family"], result="already-consumed")
-            return {"active": False}
-        if consume == "true":
-            rec["consumed"] = True
-            event("rpt.consumed", corr=rec["family"], jti=jti)
+    # Consumption is no longer done here by default: the PEP has not yet
+    # verified proof-of-possession at this point, so burning the token now
+    # lets an unsigned replay destroy a grant the owner just approved. The
+    # PEP calls /consume once every check has passed. The parameter is kept
+    # for the single-shot case where a caller has already verified.
+    if claims.get("single_use") and consume == "true":
+        rec["consumed"] = True
+        event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
 
     event("rpt.introspected", corr=rec["family"], result="active")
     return {
@@ -730,6 +804,26 @@ async def introspect(request: Request, token: str = Form(...), consume: str = Fo
         "single_use": claims.get("single_use", False),
         "operation": claims.get("operation"),
     }
+
+
+@app.post("/consume")
+async def consume_rpt(request: Request, token: str = Form(...)) -> dict:
+    """Burn a single-use RPT — the last step of enforcement, not the first.
+
+    Split out of introspection so the PEP can verify proof-of-possession and
+    the operation binding *before* anything is spent. Check-then-act, so the
+    burn itself has to be the atomic step: a caller that loses the race is
+    told so and must deny.
+    """
+    require_pat(request)
+    claims, rec, err = _decode_rpt(token)
+    if err:
+        return {"consumed": False, "error": err}
+    if not claims.get("single_use"):
+        return {"consumed": False, "error": "not_single_use"}
+    rec["consumed"] = True
+    event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
+    return {"consumed": True, "family": rec["family"]}
 
 
 @app.post("/audit/access")
@@ -1003,6 +1097,7 @@ async def token(
     if grant_type != "urn:ietf:params:oauth:grant-type:uma-ticket":
         return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
 
+    reap_expired()
     rec = consume_ticket(ticket)
     if rec is None:
         event("ticket.presented", corr=None, result="invalid_grant")
@@ -1020,6 +1115,7 @@ async def token(
             "tier": rec.get("tier"),
             "terms_uri": rec.get("template", {}).get("terms_uri"),
         })
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Pending ask-me ticket being re-presented (beat 3, taking longer).
@@ -1029,6 +1125,7 @@ async def token(
     tier_id, tier = policy.tier_for_resource(rec["resource_id"])
     if tier_id is None:
         event("policy.evaluated", corr=family, result="no-tier")
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Beat 2: no contract yet -> dictate Alice's terms.
@@ -1044,6 +1141,7 @@ async def token(
         contract, signer_jwk = verify_contract(claim_token, rec)
     except Exception as exc:
         event("contract.rejected", corr=family, reason=str(exc))
+        close_negotiation(rec)
         return JSONResponse(
             {"error": "request_denied", "error_description": str(exc)}, status_code=403
         )
@@ -1108,7 +1206,9 @@ async def token(
     conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     event("policy.evaluated", corr=family, result="auto-grant", tier=rec["tier"],
           connection=handle)
-    return JSONResponse(issue_rpt(rec, contract_hash, signer_jwk, None))
+    granted = issue_rpt(rec, contract_hash, signer_jwk, None)
+    close_negotiation(rec)
+    return JSONResponse(granted)
 
 
 async def pending_poll(rec: dict) -> JSONResponse:
@@ -1133,12 +1233,13 @@ async def pending_poll(rec: dict) -> JSONResponse:
         # Tier policy still applies after connection: an ask-me tier needs its
         # per-operation approval, which Alice's single tap covered only if this
         # negotiation carried the operation (it did — the contract binds it).
-        return JSONResponse(
-            issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
-                      rec["contract"].get("operation"))
-        )
+        granted = issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
+                            rec["contract"].get("operation"))
+        close_negotiation(rec)
+        return JSONResponse(granted)
     if rec.get("decision") == "denied":
         event("policy.evaluated", corr=family, result="owner-denied", tier=rec["tier"])
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
     rotated = new_ticket(rec)  # still pending: rotate and keep waiting
     return JSONResponse(
@@ -1154,7 +1255,7 @@ async def pending_poll(rec: dict) -> JSONResponse:
 async def owner_pending(request: Request) -> list:
     require_owner(request)
     out = []
-    for rec in {id(r): r for r in TICKETS.values()}.values():
+    for rec in NEGOTIATIONS.values():
         if rec["state"] == "awaiting-owner" and rec.get("decision") is None:
             out.append(
                 {
@@ -1178,13 +1279,10 @@ async def owner_decision(family: str, request: Request) -> dict:
     decision = body.get("decision")
     if decision not in ("approved", "denied"):
         raise HTTPException(status_code=400, detail="decision must be approved|denied")
-    found = False
-    for rec in TICKETS.values():
-        if rec["family"] == family and rec["state"] == "awaiting-owner":
-            rec["decision"] = decision
-            found = True
-    if not found:
+    rec = NEGOTIATIONS.get(family)
+    if rec is None or rec["state"] != "awaiting-owner":
         raise HTTPException(status_code=404, detail="no pending negotiation for that family")
+    rec["decision"] = decision
     event("owner.decision", corr=family, decision=decision)
     # Record both outcomes: "what did I decide" is an audit question, and a
     # denial is as much a decision as an approval.

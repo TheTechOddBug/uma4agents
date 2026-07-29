@@ -212,16 +212,33 @@ async def mint_ticket(resource_id: str, scopes: list[str]) -> str | None:
         return None
 
 
-async def introspect(token: str, consume: bool) -> dict:
+async def introspect(token: str) -> dict:
+    """Ask the AS about an RPT. Never consumes — see consume_rpt."""
     async with httpx.AsyncClient() as client:
         r = await client.post(
             f"{AS_INTERNAL}/introspect",
-            data={"token": token, "consume": "true" if consume else "false"},
+            data={"token": token, "consume": "false"},
             headers=await pat_headers(client),
             timeout=5.0,
         )
         r.raise_for_status()
         return r.json()
+
+
+async def consume_rpt(token: str) -> bool:
+    """Burn a single-use RPT after every other check has passed."""
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"{AS_INTERNAL}/consume",
+                data={"token": token},
+                headers=await pat_headers(client),
+                timeout=5.0,
+            )
+            r.raise_for_status()
+            return bool(r.json().get("consumed"))
+    except httpx.HTTPError:
+        return False
 
 
 async def report_access(family: str, tool: str, summary: str) -> None:
@@ -297,9 +314,21 @@ async def check(request: Request, rest: str = "") -> Response:
                           "error_description": "RPTs are PoP tokens here, not Bearer"})
     rpt = authz[4:]
 
-    info = await introspect(rpt, consume=(tool in SINGLE_USE_TOOLS))
+    # Enforcement order matters, and the naive order is a live denial of
+    # service: consuming a single-use RPT here — before the signature is
+    # checked — lets anyone who observes the token destroy a grant the owner
+    # personally approved, just by replaying it unsigned. Nothing is spent
+    # until every check below has passed.
+    info = await introspect(rpt)
     if not info.get("active"):
-        event("access.denied", reason="inactive-rpt", tool=tool)
+        reason = info.get("error", "inactive")
+        event("access.denied", reason=f"inactive-rpt: {reason}", tool=tool)
+        # A revoked connection is a settled decision, not a missing one.
+        # Re-challenging would send the agent round a negotiation loop whose
+        # outcome the owner has already fixed.
+        if reason == "connection_revoked":
+            return deny(403, {"error": "access_revoked",
+                              "error_description": "the resource owner revoked this agent"})
         return await challenge(tool, original_path)
 
     rid, _ = TOOLS[tool]
@@ -340,6 +369,13 @@ async def check(request: Request, rest: str = "") -> Response:
                   expected=expected, actual=actual)
             return deny(403, {"error": "operation_mismatch",
                               "error_description": "RPT authorizes a different operation"})
+        # Everything has verified; now spend it. The burn is the atomic step,
+        # so losing the race means another caller got there first and this
+        # request must not proceed.
+        if not await consume_rpt(rpt):
+            event("access.denied", reason="consume-lost-race", tool=tool)
+            return deny(403, {"error": "already_consumed",
+                              "error_description": "this single-use grant was already spent"})
 
     family = info.get("family", "?")
     contract = info.get("contract")

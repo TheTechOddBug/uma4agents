@@ -46,7 +46,14 @@ GET    /rreg/{_id}      read one resource description
 PUT    /rreg/{_id}      update a resource description
 DELETE /rreg/{_id}      deregister
 POST   /perm            register attempted permissions -> ticket
-POST   /introspect      RPT introspection (permissions array); consume=true burns single-use
+POST   /introspect      RPT introspection (permissions array). Never consumes by
+                        default; an inactive answer carries an `error` reason
+                        (invalid_signature | unknown_token | connection_revoked |
+                        already_consumed | expired) so the PEP can tell a
+                        re-negotiable failure from a settled one
+POST   /consume         burn a single-use RPT — the atomic last step of
+                        enforcement, called only after PoP and operation binding
+                        have passed
 POST   /audit/access    the PEP reports an allowed call (grounds the ledger's "touched")
 
 # Token endpoint (agent-facing UMA 2.0 Grant shape, plus RS-facing PAT issuance)
@@ -338,12 +345,27 @@ for *this trade*, not trading authority:
 
 The agent retries the original MCP call — RFC 9421-signed over
 `@method @authority @path authorization`, with the RPT in the `Authorization:
-PoP …` header. The PEP introspects (`POST /introspect`, PAT-authorized),
-verifies the request signature against the RPT's `cnf` key (this is what makes
-the RPT proof-of-possession rather than bearer), checks the tool against
-`permissions`, and — for single-use RPTs — requires an exact
-`operation.params_s256` match and consumes the token. The call then reaches
-alice-vault-mcp.
+PoP …` header. The PEP then enforces **in this order**, and the order is
+normative:
+
+1. `POST /introspect` (PAT-authorized, non-consuming) — is the token live, and
+   does the connection behind it still stand?
+2. The tool maps to a `resource_id` present in `permissions`.
+3. The request signature verifies against the RPT's `cnf` key — this is what
+   makes the RPT proof-of-possession rather than bearer.
+4. For single-use RPTs, an exact `operation.params_s256` match.
+5. `POST /consume` — only now is the grant spent.
+
+Consuming earlier, at step 1, is the intuitive placement and it is a denial of
+service: anyone who observes the token can replay it unsigned and destroy an
+approval the owner personally gave, without ever passing a check. Because the
+sequence is check-then-act, the burn has to be both last and atomic; a caller
+that loses the race is told `consumed: false` and must deny.
+
+An inactive introspection carries a reason. `connection_revoked` is terminal —
+the PEP answers `403 access_revoked` rather than a fresh challenge, because
+re-negotiating cannot change an outcome the owner has already settled.
+Everything else re-challenges. The call then reaches alice-vault-mcp.
 
 ## Standing relationships (the day-1 handshake)
 

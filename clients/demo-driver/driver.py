@@ -117,8 +117,13 @@ def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,
               simulate_alice: bool = False, owner_token=None,
               as_internal: str | None = None,
               resource_metadata: dict | None = None,
-              resource_url: str | None = None) -> dict:
-    """tools/call with the full grant dance on 401."""
+              resource_url: str | None = None,
+              on_grant=None) -> dict:
+    """tools/call with the full grant dance on 401.
+
+    on_grant, if given, runs after the RPT is issued but before the authorized
+    call — the window where a replay attack would land.
+    """
     params = {"name": tool, "arguments": args}
     r, payload = session.request("tools/call", params)
     if r.status_code == 200:
@@ -176,6 +181,9 @@ def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,
     rpt = run_grant(client, as_uri, ticket, keys, approve_terms,
                     operation=operation, on_status=say, on_receipt=hold_receipt)
 
+    if on_grant is not None:
+        on_grant(rpt)
+
     headers = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, rpt, keys)
     r, payload = session.request("tools/call", params, headers=headers)
     if r.status_code != 200:
@@ -194,7 +202,8 @@ def show_result(payload: dict) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--act", default="all", choices=["tier1", "tier2", "tier3", "all"])
+    ap.add_argument("--act", default="all",
+                    choices=["tier1", "tier2", "tier3", "revocation", "all"])
     ap.add_argument("--gateway", default="https://gateway.uma.lab/mcp")
     ap.add_argument("--as-internal", default="https://alice-as.uma.lab")
     ap.add_argument("--cacert", default="certs/rootCA.pem")
@@ -235,7 +244,8 @@ def main() -> int:
         except EnrollmentDenied as exc:
             print(f"enrollment failed: {exc}")
             return 1
-    acts = ["tier1", "tier2", "tier3"] if args.act == "all" else [args.act]
+    acts = (["tier1", "tier2", "tier3", "revocation"]
+            if args.act == "all" else [args.act])
 
     # The simulated Alice authenticates like the real one: a direct-access
     # grant at her IdP yields the OIDC token her AS's owner API requires.
@@ -298,10 +308,36 @@ def main() -> int:
             print("\n== Act 3 (afternoon): the market moves — Bob's agent proposes a trade ==")
             order = {"symbol": "VTI", "side": "sell", "quantity": 40}
             operation = {"tool": "execute_trade", "params": order}
+
+            # Between the grant and its one legitimate use, someone who has
+            # seen the token replays it without the agent's key. A single-use
+            # grant must survive that: if the resource spends the token before
+            # checking the signature, anyone who can observe it can destroy
+            # the approval Alice just gave.
+            replay_ok = {"held": False}
+
+            def replay_with_a_stolen_token(rpt: str) -> None:
+                print("\n== Act 3 interlude: someone replays the grant unsigned ==")
+                stolen = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, rpt, keys)
+                # Must match sign()'s exact key casing — a lowercase "signature"
+                # is a second header, not an override, and the forgery silently
+                # never happens.
+                stolen["Signature"] = "sig1=:" + "A" * 86 + ":"
+                r, _ = session.request(
+                    "tools/call", {"name": "execute_trade", "arguments": order},
+                    headers=stolen)
+                say(f"{r.status_code}: replay rejected — proof-of-possession failed")
+                replay_ok["held"] = r.status_code == 401
+
             out = call_tool(session, keys, "execute_trade", order, client,
                             operation=operation, simulate_alice=args.simulate_alice,
                             owner_token=owner_token, as_internal=args.as_internal,
-                            resource_metadata=prm, resource_url=args.gateway)
+                            resource_metadata=prm, resource_url=args.gateway,
+                            on_grant=replay_with_a_stolen_token)
+            if not replay_ok["held"]:
+                print("FAIL: a forged signature was not rejected with 401")
+                return 1
+            say("Alice's approval survived the replay — the honest call went through")
             show_result(out["payload"])
 
             print("\n== Act 3 epilogue: the same RPT, tried again ==")
@@ -314,6 +350,40 @@ def main() -> int:
             if r.status_code == 200:
                 print("FAIL: single-use RPT was accepted twice")
                 return 1
+
+        if "revocation" in acts:
+            print("\n== Act 4 (evening): Alice revokes the agent ==")
+            out = call_tool(session, keys, "get_positions", {}, client,
+                            simulate_alice=args.simulate_alice,
+                            owner_token=owner_token, as_internal=args.as_internal,
+                            resource_metadata=prm, resource_url=args.gateway)
+            say("agent holds a live grant for the holdings summary")
+
+            headers = {"Authorization": f"Bearer {owner_token()}"}
+            conns = client.get(f"{args.as_internal}/owner/connections",
+                               headers=headers).json()
+            handle = next((c["handle"] for c in conns if c["status"] == "active"), None)
+            if handle is None:
+                print("FAIL: no active connection to revoke")
+                return 1
+            revoked = client.post(
+                f"{args.as_internal}/owner/connections/{handle}/revoke",
+                headers=headers).json()
+            say(f"[alice] revoked {handle[:24]}… — "
+                f"{revoked['rpts_deactivated']} live grant(s) deactivated")
+
+            # A revoked relationship is a decision the owner already made.
+            # Answering 401 would invite the agent to negotiate again for an
+            # outcome that is settled, so enforcement has to say so terminally.
+            sig = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, out["rpt"], keys)
+            r, _ = session.request("tools/call",
+                                   {"name": "get_positions", "arguments": {}},
+                                   headers=sig)
+            say(f"{r.status_code}: {r.text[:80]}")
+            if r.status_code != 403:
+                print(f"FAIL: revoked agent got {r.status_code}, expected a terminal 403")
+                return 1
+            say("revocation is terminal — not an invitation to re-negotiate")
     except GrantDenied as exc:
         print(f"grant denied: {exc}")
         return 1
