@@ -2,18 +2,24 @@
 
 Fixture data through a real protocol path: positions, transaction history,
 and a pretend trade-execution endpoint, served over MCP streamable-http.
-This server never speaks UMA or AAuth — protection is conferred by the
-gateway in front of it (the whole point of primitive 5's transformation).
+
+This server holds no UMA or AAuth code of its own. That is a statement about
+*where the protection obligations are hosted*, not about the resource being
+naive: UMA's FedAuthz defines what a protected resource owes its owner's
+authorization server, and says nothing about what discharges it. Here a
+gateway does. An MCP framework, an in-process extension, or this server
+itself could instead — the obligations are relocatable, which is the actual
+finding behind primitive 5.
 """
 
 import json
 import pathlib
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 FIXTURES = json.loads((pathlib.Path(__file__).parent / "fixtures.json").read_text())
 
-mcp = FastMCP("alice-vault", host="0.0.0.0", port=9020)
+mcp = MCPServer("alice-vault")
 
 
 @mcp.tool()
@@ -42,4 +48,6 @@ def execute_trade(symbol: str, side: str, quantity: int) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    # SDK 2.0 moved host/port from the constructor to run(), and defaults host
+    # to 127.0.0.1 — which binds to nothing reachable from inside a container.
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=9020)

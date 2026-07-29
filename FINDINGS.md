@@ -122,9 +122,17 @@ behind a protected listing.** This is the same maneuver UMA already made on
 the client side (client registration is method-agnostic; DCR and now CIMD
 both fit). This POC runs both methods against an otherwise identical stack
 — `REGISTRATION_MODE=push|pull` — so the trade is measured, not argued.
-The gateway relocation stands in either mode: naive resources sit behind an
-MCP gateway that carries the FedAuthz obligations; the MCP server cannot
-tell it's protected.
+The relocation of the RS-side burden stands in either mode, and the
+sharper statement is that **the enforcement point is a role, not a
+product**: FedAuthz says what a protected resource owes the owner's AS and
+is silent on what discharges it. A gateway is one host — the one that lets
+a stock MCP server participate untouched — but an MCP framework, an
+in-process server extension (MCP SDK 2.x exposes
+`Extension.intercept_tool_call` for precisely this), or the resource itself
+can carry the same obligations against the same wire contract. What must
+not be read into this is a gateway requirement; the recommendation is that
+the spec name the obligations as a conformance profile any resource-side
+host may implement, rather than describing a deployment.
 
 *What the pull profile is.* The RS stops calling the AS and only publishes:
 a public RFC 9728 document carrying **structure** (tool surfaces + scopes,

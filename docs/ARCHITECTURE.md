@@ -26,7 +26,8 @@ contract itself — every endpoint, claim, and error — is in
 │        │           │            proof-of-possession, tool scoping)
 │        ▼           │
 │  alice-vault-mcp   │  Alice's brokerage data (positions, transactions,
-│  (unmodified MCP)  │  execute) — contains zero auth code
+│  (a stock MCP      │  execute) — holds no auth code *in this deployment*
+│   server)          │
 └────────────────────┘
 
 Supporting: person-server (the AAuth agent-identity component, present for the
@@ -37,8 +38,20 @@ hickory-dns.
 
 The defining split: **Alice reads and trades her own vault directly** through
 her portal (she owns it). **Other people's agents** reach the same vault only
-through the gateway, and only after negotiating a grant against her policy.
-The gateway and the grant loop exist for the second case.
+after negotiating a grant against her policy. That negotiation — not the
+gateway — is the subject of this lab.
+
+**The enforcement point is a role, not a product.** UMA 2.0's Federated
+Authorization defines what a protected resource owes its owner's authorization
+server (register the surface, hold a PAT, register attempted permissions,
+introspect) and is deliberately silent on what discharges those obligations.
+This deployment puts them in an ext_authz service behind a gateway, because
+that is the shape that lets a stock MCP server participate untouched. An MCP
+framework, an in-process server extension, or the resource itself could carry
+the same obligations against the same authorization server and the same wire
+contract — MCP SDK 2.x exposes `Extension.intercept_tool_call` for exactly
+that. Read the gateway here as one host for the role; the finding is that the
+role is relocatable.
 
 ## Services
 
@@ -47,7 +60,7 @@ The gateway and the grant loop exist for the second case.
 | `uma-as` | Alice's authorization server: the four-beat grant loop, tiered policy, ticket lifecycle, RPT issuance, connections, ledger, owner API, SSE | Python / FastAPI |
 | `uma-pep` | Policy-enforcement point behind the gateway: challenges, RPT introspection, proof-of-possession verification, tool→resource scoping, single-use operation binding | Python / FastAPI |
 | `agentgateway` | The MCP gateway/PEP host; delegates authz to `uma-pep` via HTTP ext_authz | Solo.io agentgateway |
-| `alice-vault-mcp` | Alice's brokerage vault as an MCP server (fixture data); unaware it is protected | Python / MCP SDK |
+| `alice-vault-mcp` | Alice's brokerage vault as an MCP server (fixture data); in this deployment the protection obligations sit outside it | Python / MCP SDK 2.x |
 | `alice-portal` | Meridian Wealth: dashboard, holdings, trade, and Settings → Security → Agent Authorization | Python / FastAPI + vanilla SPA |
 | `keycloak` | Alice's identity provider and OIDC login for the portal | Keycloak |
 | `person-server` | AAuth Person/Agent server — the agent-identity component for the identified-level path (the demo default signs pseudonymously) | upstream (pinned) |
