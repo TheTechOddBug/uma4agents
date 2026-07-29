@@ -179,8 +179,7 @@ respectively); none of them are configured strings.
 ## License & attribution
 
 Licensed under the [Apache License 2.0](LICENSE). A collaboration exploring
-UMA's fit for agentic authorization, with Eve Maler and the Kantara Initiative
-UMA Work Group.
+UMA's fit for agentic authorization, with Eve Maler.
 
 [NOTICE](NOTICE) carries the full attribution list: the specifications this
 profiles (UMA 2.0, RFC 9728, RFC 9421, AAuth, IEEE 7012), and the third-party
