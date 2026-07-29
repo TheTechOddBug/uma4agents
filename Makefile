@@ -158,7 +158,10 @@ smoke-test:
 		-H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
 		-d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"get_positions","arguments":{}}}'); \
 		echo "$$RESP" | grep -qi 'www-authenticate: UMA' && echo "$$RESP" | grep -q 'ticket=' \
-		&& echo "  gateway challenge: OK" || { echo "  gateway challenge: FAIL"; }
+		&& echo "  gateway challenge: OK" || { echo "  gateway challenge: FAIL"; }; \
+		echo "==> ext_authz denial body reaches the client verbatim..."; \
+		echo "$$RESP" | grep -q 'uma_challenge' \
+		&& echo "  ext_authz body passthrough: OK" || echo "  ext_authz body passthrough: FAIL"
 	@echo "==> Alice's portal..."
 	@$(CURL) https://portal.uma.lab/health | grep -q ok && echo "  portal: OK" || echo "  portal: FAIL"
 	@echo "==> Person server discovery..."
