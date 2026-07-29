@@ -178,7 +178,26 @@ respectively); none of them are configured strings.
 
 ## License & attribution
 
-A collaboration exploring UMA's fit for agentic authorization. AAuth components
-are built from their upstream reference implementations. Brokerage figures are
-fixture data flowing through a real protocol path — no market data or real
-orders.
+Licensed under the [Apache License 2.0](LICENSE). A collaboration exploring
+UMA's fit for agentic authorization, with Eve Maler and the Kantara Initiative
+UMA Work Group.
+
+[NOTICE](NOTICE) carries the full attribution list: the specifications this
+profiles (UMA 2.0, RFC 9728, RFC 9421, AAuth, IEEE 7012), and the third-party
+components the lab uses. Nothing third-party is vendored here — `make` and
+`docker compose` fetch each piece from its own origin, under its own license.
+
+Two things worth reading there before you build on this:
+
+- The **AAuth Person Server** is cloned from
+  [christian-posta/aauth-person-server](https://github.com/christian-posta/aauth-person-server),
+  which publishes no license. It is not redistributed by this project, and the
+  default demo path (pseudonymous agent keys) does not need it. If you want the
+  identified-agent path for anything beyond local evaluation, get the author's
+  permission or substitute your own AAuth person/agent server.
+- **Grafana and Loki** are AGPL-3.0, used unmodified as container images for
+  observability only. The dashboards under `observability/` are original to
+  this project.
+
+Brokerage figures are fixture data flowing through a real protocol path — no
+market data, real accounts, or real orders. "Meridian Wealth" is fictional.
