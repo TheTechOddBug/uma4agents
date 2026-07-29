@@ -21,7 +21,7 @@ import time
 import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from mcp.shared.context import RequestContext
+from mcp.client.session import ClientRequestContext
 from mcp.types import ElicitRequestParams, ElicitResult
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,7 +68,7 @@ def shim_params(keystore: str) -> StdioServerParameters:
 
 
 async def approve_elicitation(
-    context: RequestContext, params: ElicitRequestParams
+    context: ClientRequestContext, params: ElicitRequestParams
 ) -> ElicitResult:
     ELICITATIONS.append(params.message)
     print(f"   [bob-sees-in-his-agent]\n{params.message}\n", flush=True)

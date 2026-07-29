@@ -226,6 +226,7 @@ async def check(request: Request, rest: str = "") -> Response:
         origin=h.get("origin"),
         header_mcp_method=h.get("mcp-method"),
         header_mcp_name=h.get("mcp-name"),
+        protocol_version=h.get("mcp-protocol-version"),
     )
     d = await ENFORCER.authorize(facts)
 

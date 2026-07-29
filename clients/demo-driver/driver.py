@@ -51,18 +51,37 @@ def approve_terms(template: dict) -> bool:
     return ok
 
 
+# 2026-07-28 is only reachable through server/discover: the SDK caps the
+# `initialize` handshake at 2025-11-25 by construction.
+PROTOCOL_VERSION = "2026-07-28"
+# Client identity rides params._meta on every request instead of being
+# exchanged once — what makes the transport stateless (SEP-2567/2575).
+CLIENT_META = {
+    "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
+    "io.modelcontextprotocol/clientCapabilities": {},
+    "io.modelcontextprotocol/clientInfo": {
+        "name": "uma4agents-demo-driver", "version": "0.2",
+    },
+}
+
+
 class McpSession:
     def __init__(self, client: httpx.Client, url: str):
         self.client = client
         self.url = url
-        self.session_id: str | None = None
         self._id = 0
 
     def _post(self, msg: dict, headers: dict | None = None) -> httpx.Response:
+        # No session id: sessions are gone in 2026-07-28.
         h = {"accept": "application/json, text/event-stream",
-             "content-type": "application/json"}
-        if self.session_id:
-            h["mcp-session-id"] = self.session_id
+             "content-type": "application/json",
+             "MCP-Protocol-Version": PROTOCOL_VERSION}
+        # SEP-2243 routing headers. The receiver reconciles them against the
+        # body rather than trusting either alone.
+        if method := msg.get("method"):
+            h["Mcp-Method"] = method
+        if name := (msg.get("params") or {}).get("name"):
+            h["Mcp-Name"] = name
         if headers:
             h.update(headers)
         return self.client.post(self.url, json=msg, headers=h)
@@ -87,29 +106,24 @@ class McpSession:
 
     def request(self, method: str, params: dict | None = None,
                 headers: dict | None = None, notification: bool = False):
-        msg: dict = {"jsonrpc": "2.0", "method": method}
-        if params is not None:
-            msg["params"] = params
+        p = dict(params or {})
+        p["_meta"] = {**CLIENT_META, **(p.get("_meta") or {})}
+        msg: dict = {"jsonrpc": "2.0", "method": method, "params": p}
         if not notification:
             self._id += 1
             msg["id"] = self._id
         r = self._post(msg, headers)
-        if sid := r.headers.get("mcp-session-id"):
-            self.session_id = sid
         return r, self._payload(r)
 
     def initialize(self) -> None:
-        r, payload = self.request(
-            "initialize",
-            {
-                "protocolVersion": "2025-03-26",
-                "capabilities": {},
-                "clientInfo": {"name": "uma4agents-demo-driver", "version": "0.2"},
-            },
-        )
+        """The 2026-07-28 handshake, which is server/discover, not initialize."""
+        r, payload = self.request("server/discover", {})
         if r.status_code != 200:
-            raise RuntimeError(f"initialize failed: {r.status_code} {r.text[:200]}")
-        self.request("notifications/initialized", {}, notification=True)
+            raise RuntimeError(f"server/discover failed: {r.status_code} {r.text[:200]}")
+        versions = ((payload or {}).get("result") or {}).get("supportedVersions", [])
+        if PROTOCOL_VERSION not in versions:
+            raise RuntimeError(
+                f"resource does not speak {PROTOCOL_VERSION} (offers {versions})")
 
 
 def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,

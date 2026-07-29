@@ -63,6 +63,7 @@ class AuthzFacts:
     origin: str | None = None
     header_mcp_method: str | None = None
     header_mcp_name: str | None = None
+    protocol_version: str | None = None
 
 
 @dataclass
@@ -262,6 +263,19 @@ class Enforcer:
             self.event("access.denied", reason="unknown-method", mcp_method=f.mcp_method)
             return Decision(outcome="deny", status=403, error="unknown_method",
                             description=f"{f.mcp_method} is not enforceable by this PEP")
+        # On a protected method the routing headers are REQUIRED, not merely
+        # reconciled if supplied. Absent, an enforcement point that routes on
+        # them can be steered by omission — and the reference SDK rejects a
+        # missing mcp-name on tools/call for the same reason. Only checked for
+        # callers that already speak 2026-07-28, so an older client still gets
+        # a challenge rather than a confusing 400.
+        if f.protocol_version and f.protocol_version >= "2026-07-28":
+            if not f.header_mcp_method or not f.header_mcp_name:
+                self.event("access.denied", reason="missing-routing-headers",
+                           tool=f.tool)
+                return Decision(
+                    outcome="deny", status=400, error="missing_routing_headers",
+                    description="Mcp-Method and Mcp-Name are required on tools/call")
         if f.tool not in self.tools:
             self.event("access.denied", reason="unknown-tool", tool=f.tool)
             return Decision(outcome="deny", status=403, error="unknown_tool")

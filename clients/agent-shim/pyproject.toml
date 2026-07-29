@@ -4,10 +4,9 @@ version = "0.1.0"
 description = "Local MCP shim: lets an unmodified agent run the UMA-for-agents grant loop"
 requires-python = ">=3.11"
 dependencies = [
-    # Upper bound is deliberate: SDK 2.0 removed mcp.server.fastmcp and moved
-    # RequestContext. Migrating to it is the 2026-07-28 work, not an accident
-    # of a floating pin.
-    "mcp>=1.13,<2",
+    # Bounded on purpose: 2.x is where mcp.server.mcpserver and the
+    # 2026-07-28 protocol live, and a 3.x would be another rewrite.
+    "mcp>=2,<3",
     "httpx>=0.27",
     "pyjwt[crypto]>=2.8",
     "aauth==0.3.2",
