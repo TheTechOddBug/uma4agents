@@ -958,6 +958,54 @@ def connection_handle(identity: dict, signer_jwk: dict) -> str:
     return jwk_thumbprint(signer_jwk)
 
 
+_CIMD_CACHE: dict[str, dict] = {}
+
+
+def resolve_client_id(client_id: str) -> dict:
+    """Fetch and validate a Client ID Metadata Document.
+
+    Per draft-ietf-oauth-client-id-metadata-document the client_id is an https
+    URL and the document it resolves to MUST claim that same URL as its own
+    `client_id` — otherwise any site could publish metadata about someone
+    else's agent. Everything here is display-only, so a failure downgrades to
+    "unresolved" rather than rejecting the contract; what it must never do is
+    silently present unverified claims as though they were checked.
+    """
+    import httpx
+
+    if client_id in _CIMD_CACHE:
+        return _CIMD_CACHE[client_id]
+    out: dict = {"client_id": client_id, "verified": False}
+    try:
+        if not client_id.startswith("https://"):
+            raise ValueError("client_id must be an https URL")
+        r = httpx.get(client_id, timeout=5.0, follow_redirects=False,
+                      verify=AGENT_ISSUER_CA or True)
+        r.raise_for_status()
+        doc = r.json()
+        if doc.get("client_id") != client_id:
+            raise ValueError("document does not claim the URL it was fetched from")
+        out = {
+            "client_id": client_id,
+            "verified": True,
+            "client_name": doc.get("client_name"),
+            "client_uri": doc.get("client_uri"),
+            "logo_uri": doc.get("logo_uri"),
+            "policy_uri": doc.get("policy_uri"),
+            "tos_uri": doc.get("tos_uri"),
+            "contacts": doc.get("contacts"),
+        }
+        event("client_metadata.resolved", client_id=client_id,
+              client_name=out.get("client_name"))
+        # Only successes are cached: caching a transient failure would keep an
+        # agent nameless in Alice's dialog long after its operator recovered.
+        _CIMD_CACHE[client_id] = out
+    except Exception as exc:
+        out["error"] = str(exc)[:120]
+        event("client_metadata.unresolved", client_id=client_id, reason=str(exc)[:120])
+    return out
+
+
 def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
     """Verify the intent contract JWS and its echo of the dictated template.
 
@@ -980,6 +1028,13 @@ def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
                     "sub": agent_claims.get("sub")}
     else:
         raise ValueError("contract JWS must carry jwk or agent_token in its header")
+
+    # A CIMD URL, if offered, tells Alice *who operates* this agent. It is
+    # resolved and shown, never trusted: the connection handle below is still
+    # the key or the verified issuer subject, so a self-asserted name can
+    # never widen access. A resolution failure is not a contract failure.
+    if client_id := header.get("client_id"):
+        identity["client_metadata"] = resolve_client_id(client_id)
 
     key = OKPAlgorithm.from_jwk(json.dumps(signer_jwk))
     contract = jwt.decode(token, key, algorithms=["EdDSA"], audience=ISSUER)

@@ -58,6 +58,29 @@ class AgentKeys:
     keyid: str = "agent-req-1"
     agent_token: str | None = None  # aa-agent+jwt when enrolled
     stable: Ed25519PrivateKey | None = None  # long-term key (identified mode)
+    # Optional CIMD URL describing who operates this agent. Display metadata
+    # for the owner's approval dialog, never an authorization input.
+    client_id: str | None = None
+    # Optional Web Bot Auth directory URL, covered by the request signature.
+    signature_agent: str | None = None
+
+    def publish(self, client, operator_origin: str) -> str | None:
+        """Publish the signing key to the operator's Web Bot Auth directory.
+
+        Returns the `Signature-Agent` value to send, or None if the directory
+        is unreachable — discovery is additive, so a resource that cannot
+        resolve it still verifies against the key in the RPT's `cnf`. The
+        directory never becomes the authority; it only lets a stranger's
+        authorization server attribute a key it has never seen before.
+        """
+        try:
+            r = client.post(f"{operator_origin}/register",
+                            json={"keyid": self.keyid, "jwk": self.public_jwk()},
+                            timeout=5.0)
+            r.raise_for_status()
+            return f"{operator_origin}/.well-known/http-message-signatures-directory"
+        except Exception:
+            return None
 
     @staticmethod
     def _load_or_create_key(path: str) -> Ed25519PrivateKey:
@@ -178,6 +201,14 @@ def sign_contract(template: dict, keys: AgentKeys, as_uri: str,
         headers["agent_token"] = keys.agent_token
     else:
         headers["jwk"] = keys.public_jwk()
+    # Client ID Metadata Document (draft-ietf-oauth-client-id-metadata-document),
+    # the mechanism MCP now prefers over Dynamic Client Registration. Here it
+    # is applied to the requesting *agent*: a URL the owner's AS can resolve to
+    # a human-readable operator, name and policy. Purely descriptive — the
+    # connection is still keyed by the agent's key or its verified issuer, so
+    # this never becomes an authorization input.
+    if keys.client_id:
+        headers["client_id"] = keys.client_id
     jws = jwt.encode(contract, keys.key, algorithm="EdDSA", headers=headers)
     return base64.urlsafe_b64encode(jws.encode()).rstrip(b"=").decode()
 
@@ -247,9 +278,17 @@ def run_grant(
 
 def signed_headers(method: str, authority: str, path: str, rpt: str,
                    keys: AgentKeys) -> dict[str, str]:
-    """Authorization + RFC 9421 signature headers for a resource request."""
+    """Authorization + RFC 9421 signature headers for a resource request.
+
+    When the agent has published its key, the signature also covers a Web Bot
+    Auth `Signature-Agent` header naming the directory. That composes with
+    proof-of-possession rather than competing with it: the key that *verifies*
+    is still the one bound into the RPT's `cnf`, and the directory only says
+    where that key was published.
+    """
     authorization = f"PoP {rpt}"
-    sig = sign(method, authority, path, authorization, keys.key, keys.keyid)
+    sig = sign(method, authority, path, authorization, keys.key, keys.keyid,
+               signature_agent=keys.signature_agent, tag="web-bot-auth")
     return {"Authorization": authorization, **sig}
 
 

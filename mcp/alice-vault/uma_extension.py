@@ -99,6 +99,7 @@ class UmaEnforcement(Extension):
             header_mcp_method=headers.get("mcp-method"),
             header_mcp_name=headers.get("mcp-name"),
             protocol_version=headers.get("mcp-protocol-version"),
+            signature_agent=headers.get("signature-agent"),
         )
 
         d = await self.enforcer.authorize(facts)

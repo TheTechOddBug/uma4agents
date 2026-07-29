@@ -78,6 +78,9 @@ binds:
                   - mcp-protocol-version
                   # MCP 2026-07-28 requires Origin validation at the resource.
                   - origin
+                  # Web Bot Auth: covered by the request signature, so the
+                  # PEP must see it to reconstruct the signature base.
+                  - signature-agent
                 protocol:
                   http:
                     # CEL: forward the original path so the PEP can map

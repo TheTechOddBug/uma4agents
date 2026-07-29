@@ -36,6 +36,7 @@ services:
           - portal.uma.lab
           - grafana.uma.lab
           - ps.uma.lab
+          - agent.uma.lab
 
   keycloak:
     init: true
@@ -140,6 +141,20 @@ services:
       UMA_EXPECTED_AUTHORITY: gateway.uma.lab
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import socket;socket.create_connection(('localhost',9020),2)\""]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  # Bob's agent operator's public web presence: the CIMD document Alice's AS
+  # resolves for her approval dialog, and the Web Bot Auth key directory a
+  # resource can consult before any relationship exists.
+  agent-operator:
+    init: true
+    build: ./clients/agent-operator
+    environment:
+      AGENT_OPERATOR_ORIGIN: https://agent.uma.lab
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:9030/health')\""]
       interval: 3s
       timeout: 5s
       retries: 10

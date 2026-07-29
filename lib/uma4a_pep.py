@@ -64,6 +64,9 @@ class AuthzFacts:
     header_mcp_method: str | None = None
     header_mcp_name: str | None = None
     protocol_version: str | None = None
+    # Web Bot Auth: where this agent publishes its keys. Covered by the
+    # signature when present, so it cannot be swapped in transit.
+    signature_agent: str | None = None
 
 
 @dataclass
@@ -312,6 +315,10 @@ class Enforcer:
         # 3. Proof of possession. Covering the Authorization header is what
         #    makes the RPT sender-constrained rather than bearer.
         try:
+            # The verifying key is the one bound into the grant, always. A
+            # Signature-Agent directory is discovery, not authority: it is
+            # covered by the signature so it cannot be swapped, but it is
+            # never consulted to decide *which* key to trust.
             pub = OKPAlgorithm.from_jwk(json.dumps(info["cnf"]["jwk"]))
             verify(
                 method=f.http_method,
@@ -321,6 +328,7 @@ class Enforcer:
                 signature_input=f.signature_input,
                 signature=f.signature,
                 public_key=pub,
+                signature_agent=f.signature_agent,
             )
         except (KeyError, VerifyError) as exc:
             self.event("access.denied", reason=f"pop: {exc}", tool=f.tool,

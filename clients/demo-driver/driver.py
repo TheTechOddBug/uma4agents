@@ -232,6 +232,11 @@ def main() -> int:
                     help="Bob's agent server; pass --pseudonymous to skip enrollment")
     ap.add_argument("--pseudonymous", action="store_true",
                     help="run with a bare key instead of an enrolled agent token")
+    ap.add_argument("--agent-operator",
+                    default=os.environ.get("UMA4A_AGENT_OPERATOR",
+                                           "https://agent.uma.lab"),
+                    help="the operator's public presence: CIMD document and "
+                         "Web Bot Auth key directory (empty to run without)")
     ap.add_argument("--person-token",
                     default=os.environ.get("PS_ADMIN_TOKEN", "uma4agents-ps-admin"),
                     help="person API bearer standing in for Bob's approval tap")
@@ -258,6 +263,17 @@ def main() -> int:
         except EnrollmentDenied as exc:
             print(f"enrollment failed: {exc}")
             return 1
+    # Who operates this agent, and where its keys are published. Both are
+    # additive: the connection is still keyed by the agent's key (or its
+    # verified issuer subject), and the RPT's cnf key is still what verifies
+    # a request. These only let a party that has never met this agent say
+    # something true about it — the RqP != RO cold-start problem.
+    if args.agent_operator:
+        keys.client_id = f"{args.agent_operator}/agent.json"
+        keys.signature_agent = keys.publish(client, args.agent_operator)
+        say(f"operator metadata: {keys.client_id}")
+        say(f"key published for discovery: {keys.signature_agent or 'unavailable'}")
+
     acts = (["tier1", "tier2", "tier3", "revocation"]
             if args.act == "all" else [args.act])
 
