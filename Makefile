@@ -189,3 +189,21 @@ reset:
 .PHONY: shim-test
 shim-test:
 	docker compose --profile test run --rm shim-test
+
+## embedded-check: prove the grant works with the resource enforcing itself
+# Flips alice-vault to ENFORCEMENT_MODE=embedded, runs the four beats straight
+# at the resource (no gateway, no ext_authz), then restores gateway mode.
+.PHONY: embedded-check
+embedded-check:
+	ENFORCEMENT_MODE=embedded docker compose up -d --force-recreate alice-vault-mcp
+	@printf "Waiting for the vault"; \
+	for i in $$(seq 1 30); do \
+		docker compose exec -T alice-vault-mcp python3 -c \
+			"import socket;socket.create_connection(('localhost',9020),2)" >/dev/null 2>&1 && break; \
+		printf "."; sleep 1; \
+	done; echo
+	@docker compose --profile test run --rm embedded-check; status=$$?; \
+	echo "Restoring ENFORCEMENT_MODE=gateway"; \
+	docker compose up -d --force-recreate alice-vault-mcp >/dev/null 2>&1; \
+	docker compose restart agentgateway >/dev/null 2>&1; \
+	exit $$status

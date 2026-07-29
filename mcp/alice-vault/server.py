@@ -3,23 +3,48 @@
 Fixture data through a real protocol path: positions, transaction history,
 and a pretend trade-execution endpoint, served over MCP streamable-http.
 
-This server holds no UMA or AAuth code of its own. That is a statement about
-*where the protection obligations are hosted*, not about the resource being
-naive: UMA's FedAuthz defines what a protected resource owes its owner's
-authorization server, and says nothing about what discharges it. Here a
-gateway does. An MCP framework, an in-process extension, or this server
-itself could instead — the obligations are relocatable, which is the actual
-finding behind primitive 5.
+Where the protection obligations are *hosted* is a deployment choice, not a
+property of the resource. UMA's FedAuthz says what a protected resource owes
+its owner's authorization server and is silent on what discharges it, so this
+server runs either way, selected by ENFORCEMENT_MODE:
+
+  gateway  (default) — this process holds no auth code at all; an ext_authz
+                       service ahead of it carries the obligations.
+  embedded           — the same enforcement core runs in-process as an MCP
+                       SDK 2.x Extension (see uma_extension.py), and there
+                       need be no gateway in the path.
+
+Same authorization server, same ticket, same terms, same token in both. The
+one visible difference is beat 1's envelope: a gateway can answer 401 +
+WWW-Authenticate, an in-process interceptor has to raise a JSON-RPC error
+carrying the same ticket. That asymmetry is the finding, not a compromise.
 """
 
 import json
+import os
 import pathlib
 
 from mcp.server.mcpserver import MCPServer
 
 FIXTURES = json.loads((pathlib.Path(__file__).parent / "fixtures.json").read_text())
 
-mcp = MCPServer("alice-vault")
+# The tool surface, and which calls are single-use. In gateway mode the PEP
+# holds the same table; in embedded mode this is the one copy.
+TOOLS = {
+    "get_positions": ("alice-vault/get_positions", ["positions:read"]),
+    "get_transactions": ("alice-vault/get_transactions", ["transactions:read"]),
+    "execute_trade": ("alice-vault/execute_trade", ["trades:execute"]),
+}
+SINGLE_USE_TOOLS = {"execute_trade"}
+
+ENFORCEMENT_MODE = os.environ.get("ENFORCEMENT_MODE", "gateway")
+
+extensions = []
+if ENFORCEMENT_MODE == "embedded":
+    import uma_extension
+    extensions.append(uma_extension.build(TOOLS, SINGLE_USE_TOOLS))
+
+mcp = MCPServer("alice-vault", extensions=extensions)
 
 
 @mcp.tool()

@@ -123,7 +123,21 @@ services:
 
   alice-vault-mcp:
     init: true
-    build: ./mcp/alice-vault
+    build:
+      context: .
+      dockerfile: mcp/alice-vault/Dockerfile
+    environment:
+      # gateway (default): an ext_authz service ahead of this server carries
+      # the FedAuthz obligations and this process holds no auth code.
+      # embedded: the same enforcement core runs here as an MCP Extension, and
+      # the gateway is not in the authorization path at all.
+      ENFORCEMENT_MODE: ${ENFORCEMENT_MODE:-gateway}
+      UMA_AS_PUBLIC: https://alice-as.uma.lab
+      UMA_AS_INTERNAL: http://uma-as:9000
+      UMA_AS_RS_CLIENT_ID: meridian-gateway
+      UMA_AS_RS_CLIENT_SECRET: ${UMA_AS_RS_CLIENT_SECRET:-gateway-dev-secret}
+      UMA_REALM: alice-vault
+      UMA_EXPECTED_AUTHORITY: gateway.uma.lab
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import socket;socket.create_connection(('localhost',9020),2)\""]
       interval: 3s
@@ -227,6 +241,25 @@ services:
       - driver-keys:/driver/keys
     working_dir: /driver
     profiles: ["demo"]
+
+  # Verifies the four-beat grant against a resource that protects itself:
+  # ENFORCEMENT_MODE=embedded, no gateway and no ext_authz in the path.
+  embedded-check:
+    image: python:3.12-slim
+    entrypoint:
+      - /bin/bash
+      - -c
+      - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/embedded_check.py
+    environment:
+      PYTHONPATH: /driver/lib
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./clients/demo-driver/embedded_check.py:/driver/embedded_check.py:ro
+      - ./lib:/driver/lib:ro
+      - ./certs/rootCA.pem:/driver/rootCA.pem:ro
+      - driver-keys:/driver/keys
+    working_dir: /driver
+    profiles: ["test"]
 
   # Headless verification of the agent-shim under a scripted MCP client.
   shim-test:
