@@ -1,22 +1,23 @@
-"""uma-pep — the UMA policy-enforcement point for agentgateway.
+"""uma-pep — the UMA enforcement core hosted as an HTTP ext_authz service.
 
-HTTP-protocol ext_authz (Spike D). Full enforcement:
+The verdicts are not decided here. `lib/uma4a_pep.py` holds the enforcement
+core in terms of request facts, so the same code can protect a resource from
+in-process (see `mcp/alice-vault/uma_extension.py`). This module is the
+gateway-shaped host for that role: it turns an ext_authz callback into
+`AuthzFacts`, and a `Decision` back into an HTTP response — which is the one
+thing that genuinely differs between hosts, since only a host with a status
+line can answer beat 1 with `401 + WWW-Authenticate: UMA`.
 
-- At startup, registers Alice's vault tool surfaces as resources at her AS
-  (the FedAuthz obligation the gateway absorbs on behalf of naive MCPs).
-- MCP session bootstrap (initialize, notifications, tools/list) passes
-  unauthenticated: discovery is open, invocation is protected.
-- tools/call without authorization -> beat 1: real ticket from /perm, 401 +
-  WWW-Authenticate: UMA challenge.
-- tools/call with an RPT -> introspection at the AS, proof-of-possession
-  verification against the RPT's cnf key, tool/scope check, and for
-  single-use RPTs an exact operation-params match with atomic consumption.
-- Allowed calls are reported to the AS so the ledger's "touched" column is
-  grounded in enforcement.
+What is specific to this host:
+
+- Registering Alice's vault tool surfaces at her AS on startup, and re-pushing
+  when the AS reports an unknown resource id (push mode's RS-side obligation).
+- Publishing the resource's discovery layer: the RFC 9728 document, the AAuth
+  R3 encoding of the same structural facts, `jwks`, and the protected
+  owner-resources listing that only the owner's AS may query.
+- Rendering verdicts as HTTP.
 """
 
-import base64
-import hashlib
 import json
 import logging
 import os
@@ -31,6 +32,7 @@ from fastapi import FastAPI, Request, Response
 from jwt.algorithms import OKPAlgorithm
 
 from uma4a_http_sig import VerifyError, verify
+from uma4a_pep import AuthzFacts, Enforcer, parse_mcp, s256
 
 AS_PUBLIC = os.environ.get("UMA_AS_PUBLIC", "https://alice-as.uma.lab")
 AS_INTERNAL = os.environ.get("UMA_AS_INTERNAL", "http://uma-as:9000")
@@ -122,10 +124,6 @@ def event(name: str, corr: str | None = None, **details) -> None:
     )
 
 
-def s256(data: bytes) -> str:
-    return "s256:" + base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
-
-
 def deny(status: int, body: dict, headers: dict | None = None) -> Response:
     return Response(
         status_code=status,
@@ -135,31 +133,37 @@ def deny(status: int, body: dict, headers: dict | None = None) -> Response:
     )
 
 
-_PAT: dict = {"token": None, "expires": 0.0}
+# The enforcement core, shared with the in-process extension. Constructed
+# after the module config above; `repair` injects this host's re-registration
+# obligation for push mode.
+ENFORCER = Enforcer(
+    as_internal=AS_INTERNAL,
+    as_public=AS_PUBLIC,
+    client_id=RS_CLIENT_ID,
+    client_secret=RS_CLIENT_SECRET,
+    realm=REALM,
+    tools=TOOLS,
+    single_use_tools=SINGLE_USE_TOOLS,
+    protected_methods=PROTECTED_METHODS,
+    open_methods=OPEN_METHODS,
+    expected_authority=EXPECTED_AUTHORITY,
+    allowed_origins=ALLOWED_ORIGINS,
+    resource_metadata_url=(
+        f"https://{EXPECTED_AUTHORITY}/.well-known/oauth-protected-resource/mcp"),
+    event=event,
+    # Only push mode has an RS-side re-registration duty; in pull mode the AS
+    # repairs itself by re-reading the published metadata.
+    repair=((lambda client: register_tool_surfaces(client))
+            if REGISTRATION_MODE == "push" else None),
+)
 
 
 async def get_pat(client: httpx.AsyncClient, force: bool = False) -> str:
-    """The current PAT, refreshed via client_credentials before it expires."""
-    if force or _PAT["token"] is None or _PAT["expires"] < time.time() + 60:
-        r = await client.post(
-            f"{AS_INTERNAL}/token",
-            data={"grant_type": "client_credentials",
-                  "client_id": RS_CLIENT_ID,
-                  "client_secret": RS_CLIENT_SECRET,
-                  "scope": "uma_protection"},
-            timeout=5.0,
-        )
-        r.raise_for_status()
-        body = r.json()
-        _PAT["token"] = body["access_token"]
-        _PAT["expires"] = time.time() + body.get("expires_in", 300)
-        event("pat.obtained", client_id=RS_CLIENT_ID,
-              expires_in=body.get("expires_in"))
-    return _PAT["token"]
+    return await ENFORCER.pat(client, force=force)
 
 
 async def pat_headers(client: httpx.AsyncClient) -> dict:
-    return {"Authorization": f"Bearer {await get_pat(client)}"}
+    return await ENFORCER.pat_headers(client)
 
 
 async def register_tool_surfaces(client: httpx.AsyncClient) -> None:
@@ -191,245 +195,53 @@ async def register_resources() -> None:
     event("resources.registered_at_startup", tools=list(TOOLS))
 
 
-async def mint_ticket(resource_id: str, scopes: list[str]) -> str | None:
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{AS_INTERNAL}/perm",
-                json={"resource_id": resource_id, "resource_scopes": scopes},
-                headers=await pat_headers(client),
-                timeout=5.0,
-            )
-            if r.status_code == 401:
-                # PAT expired mid-flight or the AS restarted with new keys.
-                r = await client.post(
-                    f"{AS_INTERNAL}/perm",
-                    json={"resource_id": resource_id, "resource_scopes": scopes},
-                    headers={"Authorization": f"Bearer {await get_pat(client, force=True)}"},
-                    timeout=5.0,
-                )
-            if (REGISTRATION_MODE == "push" and r.status_code == 400
-                    and r.json().get("error") == "invalid_resource_id"):
-                # The AS restarted and lost the push-registered state; the RS is
-                # the party that has to notice and repair it. (FedAuthz makes
-                # the RS responsible for keeping registrations current — this
-                # re-push is that obligation, and its awkwardness is a finding.)
-                # In pull mode the repair burden sits with the AS instead: it
-                # re-reads the published metadata when it meets an unknown id.
-                event("resources.reregistered", reason="as_lost_registry")
-                await register_tool_surfaces(client)
-                r = await client.post(
-                    f"{AS_INTERNAL}/perm",
-                    json={"resource_id": resource_id, "resource_scopes": scopes},
-                    headers=await pat_headers(client),
-                    timeout=5.0,
-                )
-            r.raise_for_status()
-            return r.json()["ticket"]
-    except httpx.HTTPError as exc:
-        event("permission.register_failed", error=str(exc))
-        return None
-
-
-async def introspect(token: str) -> dict:
-    """Ask the AS about an RPT. Never consumes — see consume_rpt."""
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{AS_INTERNAL}/introspect",
-            data={"token": token, "consume": "false"},
-            headers=await pat_headers(client),
-            timeout=5.0,
-        )
-        r.raise_for_status()
-        return r.json()
-
-
-async def consume_rpt(token: str) -> bool:
-    """Burn a single-use RPT after every other check has passed."""
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{AS_INTERNAL}/consume",
-                data={"token": token},
-                headers=await pat_headers(client),
-                timeout=5.0,
-            )
-            r.raise_for_status()
-            return bool(r.json().get("consumed"))
-    except httpx.HTTPError:
-        return False
-
-
-async def report_access(family: str, tool: str, summary: str) -> None:
-    try:
-        async with httpx.AsyncClient() as client:
-            await client.post(
-                f"{AS_INTERNAL}/audit/access",
-                json={"family": family, "tool": tool, "summary": summary},
-                headers=await pat_headers(client),
-                timeout=5.0,
-            )
-    except httpx.HTTPError:
-        pass
-
-
-def parse_mcp(body: bytes) -> tuple[str | None, str | None, dict | None]:
-    """Returns (jsonrpc_method, tool_name, tool_args) from an MCP POST body."""
-    try:
-        msg = json.loads(body)
-    except (ValueError, UnicodeDecodeError):
-        return None, None, None
-    method = msg.get("method")
-    if method == "tools/call":
-        params = msg.get("params", {})
-        return method, params.get("name"), params.get("arguments", {})
-    return method, None, None
-
-
-async def challenge(tool: str, original_path: str) -> Response:
-    rid, scopes = TOOLS[tool]
-    ticket = await mint_ticket(rid, scopes)
-    if ticket is None:
-        return deny(503, {"error": "as_unreachable"})
-    event("challenge.issued", corr=None, tool=tool, resource_id=rid, path=original_path)
-    # RFC 9728 §5.1: the challenge names the resource's metadata document, so
-    # the client can corroborate as_uri against what the resource publishes
-    # instead of taking the header's word for it.
-    prm_url = (f"https://{EXPECTED_AUTHORITY}"
-               f"/.well-known/oauth-protected-resource/mcp")
-    return deny(
-        401,
-        {"error": "uma_challenge"},
-        {
-            "WWW-Authenticate": (
-                f'UMA realm="{REALM}", as_uri="{AS_PUBLIC}", ticket="{ticket}", '
-                f'resource_metadata="{prm_url}"'
-            )
-        },
-    )
-
-
 @app.api_route("/check{rest:path}", methods=["GET", "POST", "HEAD", "DELETE"])
 async def check(request: Request, rest: str = "") -> Response:
+    """agentgateway's ext_authz callback: HTTP facts in, HTTP verdict out.
+
+    Everything that decides the verdict lives in lib/uma4a_pep.py, so the
+    in-process extension reaches the same conclusions from the same code. All
+    this adapter does is read the HTTP request and render a Decision — which
+    for this host means a status line and, on a challenge, the UMA header.
+    """
     original_path = rest or "/"
     body = await request.body()
     method, tool, args = parse_mcp(body) if body else (None, None, None)
 
-    # MCP 2026-07-28 makes Origin validation a MUST: a browser page on another
-    # origin must not be able to drive an agent's local MCP plumbing.
-    if (origin := request.headers.get("origin")) and origin not in ALLOWED_ORIGINS:
-        event("access.denied", reason="bad-origin", origin=origin)
-        return deny(403, {"error": "invalid_origin"})
-
-    # SEP-2243 mirrors the JSON-RPC method into an Mcp-Method header so an L7
-    # proxy can route without parsing the body. That convenience is also a new
-    # confusion attack: a PEP that trusts the header while the resource obeys
-    # the body can be walked straight past. Any gateway enforcing on these
-    # headers has to reconcile the two.
-    if (hdr_method := request.headers.get("mcp-method")) and method and hdr_method != method:
-        event("access.denied", reason="header-body-mismatch",
-              header_method=hdr_method, body_method=method)
-        return deny(400, {"error": "header_body_mismatch",
-                          "error_description": "Mcp-Method disagrees with the JSON-RPC body"})
-    if (hdr_name := request.headers.get("mcp-name")) and tool and hdr_name != tool:
-        event("access.denied", reason="header-body-mismatch",
-              header_name=hdr_name, body_name=tool)
-        return deny(400, {"error": "header_body_mismatch",
-                          "error_description": "Mcp-Name disagrees with the JSON-RPC body"})
-
-    # Non-POST and bodiless requests carry no invocation to authorize.
+    # Nothing to authorize: no body, or a method that carries no invocation.
     if request.method != "POST" or (method is None and tool is None and not body):
         return Response(status_code=200)
-    # Deny by default: only named-open methods pass unauthenticated, and only
-    # named-protected methods reach enforcement. An unknown method is neither.
-    if method in OPEN_METHODS:
-        return Response(status_code=200)
-    if method not in PROTECTED_METHODS:
-        event("access.denied", reason="unknown-method", mcp_method=method)
-        return deny(403, {"error": "unknown_method",
-                          "error_description": f"{method} is not enforceable by this PEP"})
-    if tool not in TOOLS:
-        event("access.denied", reason="unknown-tool", tool=tool)
-        return deny(403, {"error": "unknown_tool"})
 
-    authz = request.headers.get("authorization")
-    if not authz:
-        return await challenge(tool, original_path)
+    h = request.headers
+    facts = AuthzFacts(
+        tool=tool,
+        args=args,
+        mcp_method=method,
+        http_method=request.method,
+        authority=EXPECTED_AUTHORITY,
+        path=original_path,
+        authorization=h.get("authorization"),
+        signature=h.get("signature", ""),
+        signature_input=h.get("signature-input", ""),
+        origin=h.get("origin"),
+        header_mcp_method=h.get("mcp-method"),
+        header_mcp_name=h.get("mcp-name"),
+    )
+    d = await ENFORCER.authorize(facts)
 
-    if not authz.startswith("PoP "):
-        return deny(401, {"error": "invalid_token",
-                          "error_description": "RPTs are PoP tokens here, not Bearer"})
-    rpt = authz[4:]
-
-    # Enforcement order matters, and the naive order is a live denial of
-    # service: consuming a single-use RPT here — before the signature is
-    # checked — lets anyone who observes the token destroy a grant the owner
-    # personally approved, just by replaying it unsigned. Nothing is spent
-    # until every check below has passed.
-    info = await introspect(rpt)
-    if not info.get("active"):
-        reason = info.get("error", "inactive")
-        event("access.denied", reason=f"inactive-rpt: {reason}", tool=tool)
-        # A revoked connection is a settled decision, not a missing one.
-        # Re-challenging would send the agent round a negotiation loop whose
-        # outcome the owner has already fixed.
-        if reason == "connection_revoked":
-            return deny(403, {"error": "access_revoked",
-                              "error_description": "the resource owner revoked this agent"})
-        return await challenge(tool, original_path)
-
-    rid, _ = TOOLS[tool]
-    perms = {p["resource_id"] for p in info.get("permissions", [])}
-    if rid not in perms:
-        event("access.denied", reason="permission-scope", tool=tool, granted=sorted(perms))
-        return await challenge(tool, original_path)
-
-    # Proof of possession: the request signature must verify against the
-    # RPT's cnf key, over components that include the Authorization header.
-    try:
-        jwk = info["cnf"]["jwk"]
-        pub = OKPAlgorithm.from_jwk(json.dumps(jwk))
-        verify(
-            method=request.method,
-            authority=EXPECTED_AUTHORITY,
-            path=original_path,
-            authorization=authz,
-            signature_input=request.headers.get("signature-input", ""),
-            signature=request.headers.get("signature", ""),
-            public_key=pub,
-        )
-    except (KeyError, VerifyError) as exc:
-        event("access.denied", reason=f"pop: {exc}", tool=tool,
-              method=request.method, authority=request.headers.get("host", ""),
-              path=original_path,
-              signature_input=request.headers.get("signature-input", ""))
-        return deny(401, {"error": "invalid_token",
-                          "error_description": f"proof-of-possession failed: {exc}"})
-
-    # Single-use operation binding: this trade, not trading authority.
-    if tool in SINGLE_USE_TOOLS:
-        op = info.get("operation") or {}
-        expected = op.get("params_s256")
-        actual = s256(json.dumps(args or {}, sort_keys=True).encode())
-        if op.get("tool") != tool or expected != actual:
-            event("access.denied", reason="operation-binding", tool=tool,
-                  expected=expected, actual=actual)
-            return deny(403, {"error": "operation_mismatch",
-                              "error_description": "RPT authorizes a different operation"})
-        # Everything has verified; now spend it. The burn is the atomic step,
-        # so losing the race means another caller got there first and this
-        # request must not proceed.
-        if not await consume_rpt(rpt):
-            event("access.denied", reason="consume-lost-race", tool=tool)
-            return deny(403, {"error": "already_consumed",
-                              "error_description": "this single-use grant was already spent"})
-
-    family = info.get("family", "?")
-    contract = info.get("contract")
-    event("access.allowed", corr=family, tool=tool, contract=contract,
-          single_use=info.get("single_use", False))
-    await report_access(family, tool, summary=json.dumps(args or {}, sort_keys=True))
-    return Response(status_code=200, headers={"x-uma-contract": contract or ""})
+    if d.outcome == "allow":
+        return Response(status_code=200,
+                        headers={"x-uma-contract": d.contract or ""})
+    if d.outcome == "challenge":
+        # Beat 1 at an HTTP hop: 401 plus the UMA challenge, naming the
+        # metadata document so the client can corroborate as_uri (RFC 9728
+        # 5.1) instead of trusting this header.
+        return deny(d.status, {"error": d.error},
+                    {"WWW-Authenticate": ENFORCER.www_authenticate(d)})
+    body_out = {"error": d.error}
+    if d.description:
+        body_out["error_description"] = d.description
+    return deny(d.status, body_out)
 
 
 def prm_document() -> dict:
