@@ -1,0 +1,183 @@
+# The MCP binding
+
+How the UMA-for-agents grant rides Model Context Protocol 2026-07-28. A
+companion to [PROTOCOL.md](PROTOCOL.md), which is the binding-independent wire
+contract; everything here is about encoding, not semantics.
+
+Written against a running implementation: `make demo-all`, `make shim-test`
+and `make embedded-check` exercise every mechanism below.
+
+## Why MCP is the urgent binding
+
+MCP's 2026-07-28 revision independently arrived at most of the machinery this
+grant needs, from a completely different direction:
+
+| UMA 2.0 (2018) | MCP 2026-07-28 |
+|---|---|
+| Permission ticket: opaque, server-minted, single-use, rotated per step | MRTR `request_state`: opaque, server-minted, echoed back unmodified (SEP-2322) |
+| `request_submitted` — a negotiation that is waiting, not failed | `input_required` — a call that is waiting, not failed |
+| `interval` for re-presenting a held ticket | `pollIntervalMs` on a task (SEP-2663) |
+| Ticket state survives the connection | Sessions removed; state rides the message (SEP-2567/2575) |
+
+The convergence is the argument. Two designs reaching the same shapes eight
+years apart suggests the shapes are forced. What MCP does *not* have is the
+thing UMA exists for — a second principal — and that gap is now expressible in
+MCP's own terms rather than as an abstract complaint.
+
+## Discovery: three channels, one registry
+
+A client can learn it must negotiate a grant, and where, before its first
+call. Which channel it uses depends on the deployment, and all three are
+generated from the same tool registry.
+
+1. **RFC 9728 Protected Resource Metadata** — `authorization_servers`,
+   `tool_surfaces`, `jwks_uri`, `signed_metadata`. Mandatory for MCP servers
+   since 2026-07-28; fetched, not negotiated.
+2. **AAuth resource metadata** — the same structural facts under an R3
+   content-addressed vocabulary, for the AAuth binding.
+3. **`capabilities.extensions`** — new here. A resource enforcing in-process
+   advertises `dev.uma4agents/uma-enforcement` in its `server/discover`
+   response:
+
+   ```jsonc
+   "extensions": {
+     "dev.uma4agents/uma-enforcement": {
+       "grant_type": "urn:ietf:params:oauth:grant-type:uma-ticket",
+       "authorization_servers": ["https://alice-as.uma.lab"],
+       "challenge": {"jsonrpc_error_code": -32001}
+     }
+   }
+   ```
+
+   This is the only one that is *negotiated* rather than fetched — it arrives
+   in the handshake the client was already doing, with no extra round trip and
+   no well-known URI.
+
+**`server/discover`, not `initialize`.** 2026-07-28 is unreachable through the
+legacy handshake by construction: the reference SDK splits
+`HANDSHAKE_PROTOCOL_VERSIONS` (topping out at 2025-11-25) from
+`MODERN_PROTOCOL_VERSIONS`. A client that asks `initialize` for 2026-07-28 is
+answered 2025-11-25 and nothing appears wrong. Clients should assert the
+negotiated version rather than assume it.
+
+## Beat 1: the challenge has two encodings
+
+The parameters are fixed — `as_uri`, `ticket`, `resource_metadata`, `realm`.
+How they travel depends on whether the enforcement point has a status line.
+
+**Gateway host** (an ext_authz service ahead of the resource):
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: UMA realm="alice-vault", as_uri="https://alice-as.uma.lab",
+  ticket="tkt_…", resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"
+```
+
+**In-process host** (an MCP `Extension`), which has no status line to set:
+
+```jsonc
+{"jsonrpc": "2.0", "id": 4, "error": {
+  "code": -32001,
+  "message": "authorization required: present this ticket to the resource owner's AS",
+  "data": {"error": "uma_challenge", "as_uri": "https://alice-as.uma.lab",
+           "ticket": "tkt_…", "resource_metadata": "…", "realm": "alice-vault"}}}
+```
+
+A client should accept both; the shim in this repo does, and negotiates
+identically after either.
+
+> **An ext_authz service can never answer beat 1 with a JSON-RPC *result*.**
+> In agentgateway a 2xx from the auth service means *allow* and the body is
+> discarded — only non-2xx bodies reach the client. Any design that has a
+> gateway-hosted PEP return `InputRequiredResult` or `CreateTaskResult` is
+> impossible, which is why the challenge is an error in both encodings and why
+> an authorization plane hosted at a gateway needs its own route rather than a
+> body trick.
+
+## Beats 2–4 are not MCP
+
+The negotiation happens at the owner's authorization server over HTTP, exactly
+as in [PROTOCOL.md](PROTOCOL.md). MCP carries the challenge and the eventual
+call; it does not carry the grant. This is deliberate — it is what lets the
+same grant serve the AAuth and OAuth+DPoP bindings unchanged.
+
+## The pend: `input_required`, and what it cannot say
+
+When the owner's decision is outstanding, a requesting side that can render a
+wait should hand it up rather than hold the call open. On 2026-07-28 the SDK
+turns a server-side elicitation into an `InputRequiredResult` carrying a
+`request_state` handle, so the call suspends and resumes instead of hanging.
+
+That machinery is right. The type is not:
+
+```
+input_requests: dict[str, CreateMessageRequest | ListRootsRequest | ElicitRequest]
+```
+
+All three address the client's own user — its model, its filesystem, its
+human. **There is no member for "blocked on a different principal, who is not
+on this connection and cannot be reached through it."** So today the shim asks
+Bob the only question that is genuinely his — keep waiting, or stop — and
+describes the owner's role in prose. A conforming client reading only the
+typed structure sees an elicitation and will try to satisfy the wait from its
+own user, which is precisely wrong.
+
+The proposal, in [ext-auth-third-party-authorization.md](ext-auth-third-party-authorization.md),
+adds a `subject` block whose load-bearing field is `reachable_by_client`.
+
+## SEP-2243 routing headers: a new confusion class
+
+`Mcp-Method` and `Mcp-Name` are required on 2026-07-28 and let an enforcement
+point route and decide without parsing a body. They also let it be *steered*:
+send `Mcp-Method: tools/list` (open) with a `tools/call` body (protected) and a
+header-trusting PEP waves it through to a resource that dispatches on the
+body. Two parsers over one message is the request-smuggling shape, arriving in
+a new protocol.
+
+Any enforcement point that reads these headers **MUST** reconcile them against
+the body, and **SHOULD** require them on protected methods rather than merely
+checking them when present — an absent header is as steerable as a lying one.
+The reference SDK rejects both cases for `mcp-name`, which is corroboration
+that this is real. The spec does not currently say so.
+
+## Tasks (SEP-2663): not implemented, and why
+
+MRTR already carries the pend, so Tasks would add durable server-side handles
+for the case where the owner is asleep for hours rather than seconds. It is
+**explicitly future here**, not stubbed — `tasks/*` is refused with
+`unknown_method` rather than half-answered.
+
+Two things should be settled before implementing it, and both are findings
+rather than blockers:
+
+- **`taskId` should not be a bearer token.** SEP-2663 says it cannot scope
+  `tasks/list` because "servers cannot reliably correlate two unrelated
+  handles to the same caller," and settles for unguessable ids. U4A does not
+  need to correlate handles: authority to observe or act on a negotiation is a
+  signature verifying against the key that signed the intent contract, over a
+  single-use rotating ticket. With that, `taskId` can be a stable, public
+  `u4a:<family>` and `tasks/list` becomes scopeable — "negotiations bound to
+  the key that signed this request."
+- **A U4A task augments the *authorization decision*, not the work.** SEP-2663
+  assumes a task wraps the tool call, so `completed` means the tool finished.
+  An ext_authz PEP structurally cannot observe the tool result. A
+  `taskKind: "authorization"` would let `completed` honestly mean "the decision
+  resolved — retry your original request."
+
+One refinement worth carrying into any implementation: **`tasks/get` should
+verify the ticket without consuming it.** UMA's single-use rule exists to stop
+a replayed ticket escalating into a grant; a read-only observation advances no
+state, and a consuming poll makes a lost response brick the negotiation.
+
+## Conformance summary
+
+| Mechanism | Status |
+|---|---|
+| `server/discover`, stateless transport, `_meta` client identity | implemented |
+| RFC 9728 PRM, AAuth R3 metadata, `capabilities.extensions` | implemented |
+| Challenge in both encodings; one client understands both | implemented |
+| MRTR pend hand-back with `request_state` | implemented |
+| `Mcp-Method`/`Mcp-Name` reconciliation, required on protected methods | implemented |
+| Origin validation | implemented |
+| `subject` on an input request | **proposed** |
+| Tasks (`tasks/get|update|cancel`), `taskKind`, `proofOfPossession` | **future** |

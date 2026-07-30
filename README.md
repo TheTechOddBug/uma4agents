@@ -18,8 +18,11 @@ proof-of-possession.
 > the two, and shows what it looks like with agent-shaped mechanics.
 
 See **[FINDINGS.md](FINDINGS.md)** for the recommendations to spec authors,
-**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the system design, and
-**[docs/PROTOCOL.md](docs/PROTOCOL.md)** for the wire contract.
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the system design,
+**[docs/PROTOCOL.md](docs/PROTOCOL.md)** for the wire contract, and
+**[docs/MCP-BINDING.md](docs/MCP-BINDING.md)** for how the grant rides MCP
+2026-07-28 (plus the extension it proposes,
+[ext-auth-third-party-authorization.md](docs/ext-auth-third-party-authorization.md)).
 
 ## The demo
 
@@ -141,6 +144,9 @@ agreed. Full detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `make smoke-test` | Verify every service end to end |
 | `make demo-tier1/2/3`, `make demo-all` | Walk the demo acts (add `SIM=1` to auto-approve) |
 | `make audit` | Print Alice's activity ledger |
+| `make shim-test` | Drive the shim under a scripted MCP client (both approval paths, and the pend) |
+| `make embedded-check` | Run the whole grant with the resource enforcing itself — no gateway in the path |
+| `make sig-test` | Unit-test the RFC 9421 profile |
 | `make reset` | Rewind demo state |
 | `make trust-ca` | Trust the local CA in your system store |
 

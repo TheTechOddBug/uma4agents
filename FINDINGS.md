@@ -58,6 +58,29 @@ with verifiable identity," "proof-of-possession on requests"), not a specific
 wire protocol, so no single vendor's roadmap can strand it. This is the UMA 2.0
 maneuver run again: recompose as a grant layer, not a rival stack.
 
+*Why not GNAP.* RFC 9635 has been a published standard since October 2024, it
+is literally the Grant **Negotiation** and Authorization Protocol, and its
+continuation handles look a great deal like tickets — so the question deserves
+an answer rather than a silence. GNAP negotiates between a client and *its
+own* resource owner: the party operating the client and the party who can
+authorize are assumed to be reachable through one interaction, and its
+interaction model is built around getting that person in front of the AS.
+What it has no notion of is a second principal who is not the requester, is
+not present, and whose policy must be satisfied while they are asleep — nor of
+an owner *proffering* terms the requesting side must sign. Those two are the
+whole of this work. GNAP is a better host for this grant than OAuth 2.0 would
+be, and a GNAP binding is a reasonable third document; it is not a substitute
+for the core, because the thing the core adds is exactly the thing GNAP
+assumes away.
+
+*A note on where enforcement lives.* This recommendation says "transport
+agnostic"; the build showed the same must be said of the enforcement point.
+The obligations FedAuthz places on a protected resource can be discharged by a
+gateway, by a framework, or by the resource itself, and this POC runs the
+first and the last against one authorization server
+(`ENFORCEMENT_MODE=gateway|embedded`). The one thing that does not survive
+relocation is the *challenge encoding* — see rec 7.
+
 **2. Make the owner's terms first-class — as MyTerms, extended.** The single
 most valuable transformation is claims-gathering becoming an *owner-proffered*
 terms artifact that the requesting side echoes and signs. This is the shape of
@@ -195,7 +218,66 @@ must tolerate a live back-call or verify against pre-cached keys.
 **6. Bindings as thin, separate documents.** Ship the core with a first
 binding to a concrete agent-identity/PoP layer (this POC binds to AAuth) and
 plan a second for the OAuth+DPoP installed base. One spec, multiple bindings,
-each recruiting a different implementer community.
+each recruiting a different implementer community. **MCP is now the third and
+most urgent**: it has a formal, composable authorization-extension track
+(`modelcontextprotocol/ext-auth`), and its 2026-07-28 revision independently
+grew most of the machinery this grant needs. Draft in
+[docs/MCP-BINDING.md](docs/MCP-BINDING.md).
+
+**7. Specify the challenge as parameters, not as `WWW-Authenticate`.** The
+obvious core text would require a `401` carrying `as_uri`, `ticket` and
+`resource_metadata` in a `WWW-Authenticate: UMA` header. That would have been
+a mistake, and building two enforcement hosts is what exposed it. A gateway
+has a status line to decorate; a resource enforcing in-process does not — an
+MCP `Extension.intercept_tool_call` returns a domain result, so beat 1 has to
+be a JSON-RPC error carrying the same three values. Mandating the header would
+have excluded every in-process deployment, which is to say the resource-side
+frameworks most likely to adopt this. **Require the parameters; let each
+binding say how they travel.** This POC runs both encodings against one
+authorization server, and one client understands both.
+
+**8. `input_required` needs a subject — and the authorization context MCP
+could not define is a proof-of-possession key plus a rotating ticket.** Two
+findings against MCP 2026-07-28, stated in its own vocabulary because that is
+what makes them actionable:
+
+- MRTR (SEP-2322) gives a server a way to say "I need input before I can
+  finish" and hand back a resumable `request_state`. But `input_requests` is a
+  *closed* union of `CreateMessageRequest | ListRootsRequest | ElicitRequest`
+  — sampling the client's model, reading the client's filesystem, asking the
+  client's human. There is no member, and no extension point on the members,
+  for *blocked on a different principal who is not on this connection*. MCP's
+  type system cannot express the case this entire experiment is about. The fix
+  is small: a `subject` block on an input request, whose load-bearing field is
+  `reachable_by_client: false`. Without it a conforming client will try to
+  satisfy the wait from its own user, who has no part in the decision.
+- The Tasks extension (SEP-2663) states plainly that it cannot scope
+  `tasks/list`, because "servers cannot reliably correlate two unrelated
+  handles to the same caller," and concedes task ids act as bearer tokens.
+  UMA has an answer it arrived at in 2018: **do not correlate handles, verify
+  proof.** Bind the task to the key that signed the intent contract and a
+  single-use rotating ticket, and the handle stops being a credential.
+
+*Convergent work worth citing rather than competing with.* AP2 (donated to the
+FIDO Alliance) has a Cart Mandate that is our single-use operation-bound grant
+in the payments vertical — with the instructive difference that AP2's mandates
+are signed by the *requesting* side while ours are owner-dictated.
+`draft-oauth-transaction-tokens-for-agents` is the same short-lived
+per-transaction idea one layer down. The proposed IETF BoF on AI-agent
+auditing is the natural home for the ledger's promised/touched/approved
+projection. And MCP's own deprecation of Dynamic Client Registration in favour
+of Client ID Metadata Documents is the exact precedent rec 5 argues from: a
+registration mechanism made method-agnostic, then replaced, without breaking
+the thing that depended on it.
+
+*Considered and not adopted: AuthZEN.* The Authorization API 1.0 became an
+OpenID final specification in 2026 and standardises precisely the PEP→PDP call
+this stack makes. It was not adopted because the decision here carries a `cnf`
+key, an operation-parameters hash, and single-use consumption semantics that
+its request/response model has no natural slot for, and because "any gateway
+can enforce this" is already served by ext_authz. Most of its practical value
+— a PEP that can tell *why* a token was refused — was obtained instead by
+adding reason codes to introspection.
 
 ---
 
