@@ -1,4 +1,4 @@
-<svg viewBox="0 0 1200 790" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
   <defs>
     <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8f6bff"/>
@@ -23,120 +23,154 @@
     </marker>
   </defs>
 
-  <!-- background -->
-  <rect width="1200" height="790" fill="#080a0f"/>
-  <rect width="1200" height="790" fill="url(#glow1)"/>
-  <rect width="1200" height="790" fill="url(#glow2)"/>
+  <rect width="1200" height="900" fill="#080a0f"/>
+  <rect width="1200" height="900" fill="url(#glow1)"/>
+  <rect width="1200" height="900" fill="url(#glow2)"/>
 
   <!-- header -->
   <rect x="40" y="26" width="34" height="34" rx="9" fill="url(#mark)"/>
   <text x="57" y="49" text-anchor="middle" fill="#ffffff" font-size="17" font-weight="800">M</text>
   <text x="88" y="42" fill="#eef1f7" font-size="17" font-weight="650">UMA for Agents</text>
-  <text x="88" y="60" fill="#9aa4ba" font-size="12">How a requesting agent earns access to Alice's accounts — at a glance</text>
-  <text x="1160" y="42" text-anchor="end" fill="#616c85" font-size="11" font-family="ui-monospace, 'SF Mono', Menlo, monospace">UMA 2.0 · AAuth PoP · MyTerms (IEEE 7012)</text>
+  <text x="88" y="60" fill="#9aa4ba" font-size="12">How another person's agent earns access to Alice's accounts — at a glance</text>
+  <text x="1160" y="42" text-anchor="end" fill="#616c85" font-size="11" font-family="ui-monospace, 'SF Mono', Menlo, monospace">UMA 2.0 · AAuth PoP · MyTerms (IEEE 7012) · MCP 2026-07-28</text>
 
   <!-- ======================= GRANT PLANE ======================= -->
-  <text x="40" y="104" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">GRANT PLANE — NEGOTIATION</text>
+  <text x="40" y="104" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">GRANT PLANE — NEGOTIATION (BINDING-INDEPENDENT)</text>
 
   <!-- Bob card -->
-  <rect x="40" y="118" width="310" height="172" rx="14" fill="#0f131c" stroke="#232c3d"/>
+  <rect x="40" y="118" width="320" height="182" rx="14" fill="#0f131c" stroke="#232c3d"/>
   <text x="58" y="140" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">BOB'S SIDE · REQUESTING PARTY</text>
   <text x="58" y="161" fill="#eef1f7" font-size="14" font-weight="650">Bob's Agent</text>
-  <text x="58" y="177" fill="#9aa4ba" font-size="11">Claude, Claude Code, any MCP client — unmodified</text>
-  <rect x="56" y="190" width="278" height="84" rx="9" fill="#151b26" stroke="#232c3d"/>
+  <text x="58" y="177" fill="#9aa4ba" font-size="11">Claude Code, or any MCP client — unmodified</text>
+  <rect x="56" y="190" width="288" height="96" rx="9" fill="#151b26" stroke="#232c3d"/>
   <text x="70" y="209" fill="#5b8cff" font-size="12" font-weight="620">agent-shim</text>
-  <text x="70" y="226" fill="#9aa4ba" font-size="10.5">Ed25519 key · signs requests (RFC 9421)</text>
+  <text x="70" y="226" fill="#9aa4ba" font-size="10.5">Ed25519 key · signs every call (RFC 9421)</text>
   <text x="70" y="241" fill="#9aa4ba" font-size="10.5">runs the grant dance · elicits terms to Bob</text>
-  <text x="70" y="256" fill="#9aa4ba" font-size="10.5">holds signed receipts</text>
-  <text x="70" y="269" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">~/.uma4agents/receipts/</text>
+  <text x="70" y="256" fill="#9aa4ba" font-size="10.5">hands the pend up instead of blocking</text>
+  <text x="70" y="271" fill="#9aa4ba" font-size="10.5">holds dual-signed receipts</text>
+  <text x="70" y="283" fill="#616c85" font-size="9" font-family="ui-monospace, Menlo, monospace">reads both challenge encodings</text>
 
   <!-- Alice AS card -->
-  <rect x="870" y="112" width="290" height="190" rx="14" fill="#0f131c" stroke="#232c3d"/>
-  <text x="886" y="133" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S SIDE · AUTHORIZATION SERVER</text>
-  <text x="886" y="154" fill="#eef1f7" font-size="14" font-weight="650">uma-as</text>
-  <text x="886" y="169" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">alice-as.uma.lab · Keycloak identity</text>
-  <rect x="886" y="178" width="258" height="34" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="898" y="192" fill="#eef1f7" font-size="10.5" font-weight="600">MyTerms roster — /terms</text>
-  <text x="898" y="205" fill="#9aa4ba" font-size="9.5">proffer · agree · identical dual receipts (IEEE 7012)</text>
-  <rect x="886" y="218" width="258" height="34" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="898" y="232" fill="#eef1f7" font-size="10.5" font-weight="600">tickets → agreements → PoP RPTs</text>
-  <text x="898" y="245" fill="#9aa4ba" font-size="9.5">request_submitted holds · introspect · consume</text>
-  <rect x="886" y="258" width="258" height="34" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="898" y="272" fill="#eef1f7" font-size="10.5" font-weight="600">connections (key thumbprint) · ledger</text>
-  <text x="898" y="285" fill="#9aa4ba" font-size="9.5">policy tiers · revocation kills live grants</text>
+  <rect x="860" y="112" width="300" height="196" rx="14" fill="#0f131c" stroke="#232c3d"/>
+  <text x="876" y="133" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S SIDE · AUTHORIZATION SERVER</text>
+  <text x="876" y="154" fill="#eef1f7" font-size="14" font-weight="650">uma-as</text>
+  <text x="876" y="169" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">alice-as.uma.lab · Keycloak identity</text>
+  <rect x="876" y="178" width="268" height="34" rx="8" fill="#151b26" stroke="#232c3d"/>
+  <text x="888" y="192" fill="#eef1f7" font-size="10.5" font-weight="600">MyTerms roster — /terms</text>
+  <text x="888" y="205" fill="#9aa4ba" font-size="9.5">proffer · agree · identical dual receipts (IEEE 7012)</text>
+  <rect x="876" y="218" width="268" height="34" rx="8" fill="#151b26" stroke="#232c3d"/>
+  <text x="888" y="232" fill="#eef1f7" font-size="10.5" font-weight="600">negotiations by family · rotating tickets</text>
+  <text x="888" y="245" fill="#9aa4ba" font-size="9.5">request_submitted holds · introspect · /consume</text>
+  <rect x="876" y="258" width="268" height="40" rx="8" fill="#151b26" stroke="#232c3d"/>
+  <text x="888" y="272" fill="#eef1f7" font-size="10.5" font-weight="600">connections · policy tiers · ledger</text>
+  <text x="888" y="285" fill="#9aa4ba" font-size="9.5">keyed by thumbprint / verified issuer subject</text>
+  <text x="888" y="295" fill="#616c85" font-size="9">revocation kills live grants — and is terminal</text>
 
-  <!-- grant beats: Bob <-> AS -->
-  <text x="360" y="158" fill="#5b8cff" font-size="11" font-weight="600">② present ticket at /token</text>
-  <line x1="355" y1="166" x2="862" y2="166" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
-  <text x="360" y="188" fill="#7f9bd8" font-size="10.5">terms proffered — MyTerms template (purpose · scope · expiry · prohibited)</text>
-  <line x1="862" y1="196" x2="358" y2="196" stroke="#5b8cff" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75" marker-end="url(#mAccent)"/>
-  <text x="360" y="216" fill="#5b8cff" font-size="11" font-weight="600">③ commit signed agreement — JWS naming its terms_uri</text>
-  <line x1="355" y1="224" x2="862" y2="224" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
-  <text x="360" y="245" fill="#2ed079" font-size="11" font-weight="600">④ grant — PoP RPT (operation-bound · single-use) + dual-signed receipt</text>
-  <line x1="862" y1="253" x2="358" y2="253" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
+  <!-- grant beats -->
+  <text x="370" y="152" fill="#5b8cff" font-size="11" font-weight="600">② present ticket at /token</text>
+  <line x1="366" y1="160" x2="852" y2="160" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
+  <text x="370" y="180" fill="#7f9bd8" font-size="10.5">terms proffered — MyTerms template (purpose · scope · expiry · prohibited)</text>
+  <line x1="852" y1="188" x2="368" y2="188" stroke="#5b8cff" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75" marker-end="url(#mAccent)"/>
+  <text x="370" y="208" fill="#5b8cff" font-size="11" font-weight="600">③ commit signed agreement — JWS naming its terms_uri</text>
+  <line x1="366" y1="216" x2="852" y2="216" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
+  <text x="370" y="238" fill="#f2b955" font-size="10.5" font-weight="600">pending → handed up to Bob as input_required (MRTR), not held open</text>
+  <line x1="852" y1="246" x2="368" y2="246" stroke="#f2b955" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#mWarn)"/>
+  <text x="370" y="268" fill="#2ed079" font-size="11" font-weight="600">④ grant — PoP RPT (operation-bound · single-use) + dual-signed receipt</text>
+  <line x1="852" y1="276" x2="368" y2="276" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
+
+  <!-- Operator card (Bob's side) -->
+  <rect x="40" y="316" width="320" height="126" rx="14" fill="#0f131c" stroke="#232c3d"/>
+  <text x="58" y="337" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">BOB'S FIRM · PUBLIC PRESENCE</text>
+  <text x="58" y="357" fill="#eef1f7" font-size="13.5" font-weight="650">agent-operator</text>
+  <text x="58" y="372" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">agent.uma.lab</text>
+  <rect x="56" y="381" width="288" height="48" rx="8" fill="#151b26" stroke="#232c3d"/>
+  <text x="70" y="397" fill="#9aa4ba" font-size="10">CIMD document → who operates this agent</text>
+  <text x="70" y="411" fill="#9aa4ba" font-size="10">Web Bot Auth key directory → where its keys live</text>
+  <text x="70" y="423" fill="#616c85" font-size="9">display + discovery only — never an authorization input</text>
+
+  <!-- operator -> AS -->
+  <line x1="366" y1="378" x2="470" y2="378" stroke="#616c85" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#mDim)"/>
+  <text x="480" y="368" fill="#9aa4ba" font-size="10">resolved by Alice's AS, so her dialog can</text>
+  <text x="480" y="382" fill="#9aa4ba" font-size="10">name the firm — not just a key thumbprint.</text>
+  <text x="480" y="396" fill="#616c85" font-size="9.5">This is the RqP ≠ RO cold start: no prior relationship to lean on.</text>
 
   <!-- Portal card -->
-  <rect x="870" y="352" width="290" height="142" rx="14" fill="#0f131c" stroke="#232c3d"/>
-  <text x="886" y="373" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S SURFACE</text>
-  <text x="886" y="394" fill="#eef1f7" font-size="14" font-weight="650">Meridian Portal</text>
-  <text x="886" y="409" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">portal.uma.lab</text>
-  <text x="886" y="428" fill="#9aa4ba" font-size="11">Dashboard · Holdings · Trade</text>
-  <rect x="886" y="438" width="258" height="40" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="898" y="454" fill="#eef1f7" font-size="10.5" font-weight="600">Settings ▸ Security ▸ Agent Authorization</text>
-  <text x="898" y="468" fill="#9aa4ba" font-size="9.5">Approvals · Connected agents · My Terms · Ledger</text>
+  <rect x="860" y="330" width="300" height="150" rx="14" fill="#0f131c" stroke="#232c3d"/>
+  <text x="876" y="351" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S SURFACE</text>
+  <text x="876" y="372" fill="#eef1f7" font-size="14" font-weight="650">Meridian Portal</text>
+  <text x="876" y="387" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">portal.uma.lab</text>
+  <text x="876" y="406" fill="#9aa4ba" font-size="11">Dashboard · Holdings · Trade</text>
+  <rect x="876" y="416" width="268" height="48" rx="8" fill="#151b26" stroke="#232c3d"/>
+  <text x="888" y="432" fill="#eef1f7" font-size="10.5" font-weight="600">Settings ▸ Security ▸ Agent Authorization</text>
+  <text x="888" y="446" fill="#9aa4ba" font-size="9.5">Approvals · Connected agents · My Terms · Ledger</text>
+  <text x="888" y="458" fill="#616c85" font-size="9">"Sterling &amp; Vance" — self-asserted, bound to jkt:…</text>
 
   <!-- AS <-> portal -->
-  <line x1="930" y1="302" x2="930" y2="348" stroke="#f2b955" stroke-width="1.6" marker-end="url(#mWarn)"/>
-  <text x="922" y="318" text-anchor="end" fill="#f2b955" font-size="10">new agent / ask-me pends</text>
-  <text x="922" y="331" text-anchor="end" fill="#f2b955" font-size="10" opacity="0.8">buzz → portal (SSE)</text>
-  <line x1="1100" y1="348" x2="1100" y2="306" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
-  <text x="1108" y="322" fill="#2ed079" font-size="10">approve / deny</text>
-  <text x="1108" y="335" fill="#2ed079" font-size="10" opacity="0.8">revoke</text>
+  <line x1="890" y1="310" x2="890" y2="326" stroke="#f2b955" stroke-width="1.6" marker-end="url(#mWarn)"/>
+  <text x="900" y="323" fill="#f2b955" font-size="9.5">pends buzz (SSE)</text>
+  <line x1="1140" y1="326" x2="1140" y2="310" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
+  <text x="1130" y="323" text-anchor="end" fill="#2ed079" font-size="9.5">approve · deny · revoke</text>
 
   <!-- ======================= divider ======================= -->
-  <line x1="40" y1="530" x2="1160" y2="530" stroke="#232c3d" stroke-dasharray="3 5"/>
-  <text x="40" y="552" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">DATA PLANE — EVERY CALL ENFORCED AT THE GATEWAY</text>
+  <line x1="40" y1="512" x2="1160" y2="512" stroke="#232c3d" stroke-dasharray="3 5"/>
+  <text x="40" y="534" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">DATA PLANE — THE ENFORCEMENT POINT IS A ROLE, NOT A PRODUCT</text>
+  <text x="1160" y="534" text-anchor="end" fill="#616c85" font-size="10">FedAuthz names the obligations, not their host. Both hosts below run the same core</text>
+  <text x="1160" y="547" text-anchor="end" fill="#616c85" font-size="10"><tspan font-family="ui-monospace, Menlo, monospace" fill="#7f9bd8">lib/uma4a_pep.py</tspan> against the same authorization server, and reach the same verdicts.</text>
 
-  <!-- Bob -> gateway verticals -->
-  <line x1="95" y1="290" x2="95" y2="562" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
-  <line x1="130" y1="290" x2="130" y2="562" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
-  <rect x="158" y="380" width="216" height="96" rx="9" fill="#0d1119" stroke="#232c3d"/>
-  <line x1="95" y1="399" x2="158" y2="399" stroke="#5b8cff" stroke-width="1" opacity="0.5"/>
-  <text x="170" y="403" fill="#5b8cff" font-size="11" font-weight="600">① tools/call — unauthorized</text>
-  <text x="170" y="418" fill="#7f9bd8" font-size="10">← 401 WWW-Authenticate: UMA</text>
-  <text x="170" y="431" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">ticket + as_uri</text>
-  <line x1="130" y1="450" x2="158" y2="450" stroke="#2ed079" stroke-width="1" opacity="0.5"/>
-  <text x="170" y="454" fill="#2ed079" font-size="11" font-weight="600">signed retry with the grant</text>
-  <text x="170" y="468" fill="#67c795" font-size="10">RFC 9421 signature + PoP RPT</text>
+  <!-- shared enforcement order strip -->
+  <rect x="40" y="560" width="1120" height="44" rx="9" fill="#0d1119" stroke="#232c3d"/>
+  <text x="58" y="578" fill="#9aa4ba" font-size="10.5">
+    <tspan fill="#eef1f7" font-weight="600">Enforcement order (normative):</tspan>
+    introspect (non-consuming) → permissions → proof-of-possession → operation binding →
+    <tspan fill="#2ed079" font-weight="600">/consume, atomic and last</tspan>
+  </text>
+  <text x="58" y="593" fill="#616c85" font-size="9.5">Consuming first is the intuitive order and it is a denial of service: an unsigned replay burns the grant, and the approval Alice just gave is gone.</text>
 
-  <!-- Gateway card -->
-  <rect x="40" y="566" width="340" height="168" rx="14" fill="#0f131c" stroke="#232c3d"/>
-  <text x="58" y="587" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">RESOURCE SIDE · PEP</text>
-  <text x="58" y="608" fill="#eef1f7" font-size="14" font-weight="650">agentgateway + uma-pep</text>
-  <text x="58" y="623" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">gateway.uma.lab/mcp · holds Alice's PAT</text>
-  <rect x="56" y="634" width="308" height="86" rx="9" fill="#151b26" stroke="#232c3d"/>
-  <text x="70" y="652" fill="#9aa4ba" font-size="10.5">challenge unauthorized calls · 401 + fresh ticket</text>
-  <text x="70" y="668" fill="#9aa4ba" font-size="10.5">introspect RPT · verify proof-of-possession</text>
-  <text x="70" y="684" fill="#9aa4ba" font-size="10.5">enforce single-use operation hash</text>
-  <text x="70" y="702" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">/.well-known/oauth-protected-resource (RFC 9728)</text>
+  <!-- Gateway mode -->
+  <rect x="40" y="616" width="548" height="238" rx="14" fill="#0f131c" stroke="#2c3a52"/>
+  <rect x="40" y="616" width="548" height="26" rx="14" fill="#141c2b"/>
+  <rect x="40" y="630" width="548" height="12" fill="#141c2b"/>
+  <text x="58" y="634" fill="#5b8cff" font-size="10.5" font-weight="700" letter-spacing="1">ENFORCEMENT_MODE=gateway  ·  default</text>
+  <text x="58" y="662" fill="#eef1f7" font-size="13.5" font-weight="650">agentgateway + uma-pep</text>
+  <text x="58" y="677" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">gateway.uma.lab/mcp · holds Alice's PAT</text>
+  <rect x="56" y="688" width="516" height="70" rx="9" fill="#151b26" stroke="#232c3d"/>
+  <text x="70" y="706" fill="#9aa4ba" font-size="10.5">ext_authz ahead of the resource · challenges with a real ticket</text>
+  <text x="70" y="722" fill="#9aa4ba" font-size="10.5">reconciles Mcp-Method / Mcp-Name against the body (SEP-2243)</text>
+  <text x="70" y="738" fill="#9aa4ba" font-size="10.5">deny-by-default on unknown methods · validates Origin</text>
+  <text x="70" y="751" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">publishes RFC 9728 · AAuth R3 · /owner-resources</text>
+  <text x="58" y="782" fill="#5b8cff" font-size="10.5" font-weight="600">beat ① — 401 + WWW-Authenticate: UMA</text>
+  <text x="58" y="796" fill="#616c85" font-size="9.5">a host with a status line can use the header</text>
+  <rect x="330" y="770" width="242" height="62" rx="9" fill="#0d1119" stroke="#232c3d"/>
+  <text x="344" y="789" fill="#eef1f7" font-size="11" font-weight="620">alice-vault-mcp</text>
+  <text x="344" y="804" fill="#9aa4ba" font-size="10">holds no auth code at all</text>
+  <text x="344" y="820" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">a stock MCP server</text>
+  <line x1="240" y1="812" x2="324" y2="812" stroke="#2ed079" stroke-width="1.5" marker-end="url(#mGreen)"/>
+  <text x="196" y="808" fill="#2ed079" font-size="9.5">allowed</text>
 
-  <!-- Vault card -->
-  <rect x="860" y="586" width="300" height="126" rx="14" fill="#0f131c" stroke="#232c3d"/>
-  <text x="876" y="607" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S DATA</text>
-  <text x="876" y="628" fill="#eef1f7" font-size="14" font-weight="650">alice-vault-mcp</text>
-  <text x="876" y="645" fill="#9aa4ba" font-size="11">unmodified MCP server — zero auth code</text>
-  <text x="876" y="668" fill="#616c85" font-size="10.5" font-family="ui-monospace, Menlo, monospace">get_positions · get_transactions</text>
-  <text x="876" y="683" fill="#616c85" font-size="10.5" font-family="ui-monospace, Menlo, monospace">execute_trade</text>
+  <!-- Embedded mode -->
+  <rect x="612" y="616" width="548" height="238" rx="14" fill="#0f131c" stroke="#2c3a52"/>
+  <rect x="612" y="616" width="548" height="26" rx="14" fill="#1b1729"/>
+  <rect x="612" y="630" width="548" height="12" fill="#1b1729"/>
+  <text x="630" y="634" fill="#a98bff" font-size="10.5" font-weight="700" letter-spacing="1">ENFORCEMENT_MODE=embedded  ·  no gateway in the path</text>
+  <text x="630" y="662" fill="#eef1f7" font-size="13.5" font-weight="650">alice-vault-mcp + uma_extension</text>
+  <text x="630" y="677" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">MCP SDK 2.x Extension · holds Alice's PAT itself</text>
+  <rect x="628" y="688" width="516" height="70" rx="9" fill="#151b26" stroke="#232c3d"/>
+  <text x="642" y="706" fill="#9aa4ba" font-size="10.5">intercept_tool_call short-circuits at the same boundary</text>
+  <text x="642" y="722" fill="#9aa4ba" font-size="10.5">identical verdicts — same core, same AS, same ticket</text>
+  <text x="642" y="738" fill="#9aa4ba" font-size="10.5">advertises the grant in capabilities.extensions</text>
+  <text x="642" y="751" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">dev.uma4agents/uma-enforcement · make embedded-check</text>
+  <text x="630" y="782" fill="#a98bff" font-size="10.5" font-weight="600">beat ① — JSON-RPC error −32001, same parameters</text>
+  <text x="630" y="796" fill="#616c85" font-size="9.5">no status line to decorate — so the core must specify</text>
+  <text x="630" y="809" fill="#616c85" font-size="9.5">the challenge as <tspan fill="#9aa4ba">parameters</tspan>, not as a header</text>
+  <rect x="944" y="770" width="200" height="62" rx="9" fill="#0d1119" stroke="#2c2440"/>
+  <text x="958" y="789" fill="#eef1f7" font-size="11" font-weight="620">the resource itself</text>
+  <text x="958" y="804" fill="#9aa4ba" font-size="10">is the enforcement point</text>
+  <text x="958" y="820" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">a framework could be too</text>
 
-  <!-- gateway -> vault -->
-  <text x="618" y="640" text-anchor="middle" fill="#2ed079" font-size="11" font-weight="600">allowed → data</text>
-  <line x1="386" y1="650" x2="854" y2="650" stroke="#2ed079" stroke-width="1.6" marker-end="url(#mGreen)"/>
-  <text x="618" y="668" text-anchor="middle" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">MCP streamable-http</text>
-
-  <!-- gateway -> AS (protection API) -->
-  <path d="M386,592 H772 V286 H866" fill="none" stroke="#616c85" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#mDim)"/>
-  <text x="762" y="580" text-anchor="end" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">PAT · /rreg · /perm · introspect</text>
+  <!-- each host talks to the same AS -->
+  <text x="58" y="836" fill="#616c85" font-size="9.5">↑ to Alice's AS: <tspan font-family="ui-monospace, Menlo, monospace">PAT · /perm · introspect · /consume</tspan></text>
+  <text x="630" y="836" fill="#616c85" font-size="9.5">↑ to Alice's AS: <tspan font-family="ui-monospace, Menlo, monospace">the very same calls</tspan></text>
 
   <!-- footer -->
-  <text x="600" y="768" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">UMA 2.0 — uma-ticket grant · request_submitted    |    AAuth — aa-auth+jwt · RFC 9421 proof-of-possession    |    MyTerms — IEEE Std 7012-2025 · proffered terms · dual receipts</text>
+  <text x="600" y="878" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">UMA 2.0 — uma-ticket grant · request_submitted    |    AAuth — aa-auth+jwt · RFC 9421 PoP    |    MyTerms — IEEE 7012-2025    |    MCP 2026-07-28 — server/discover · MRTR · CIMD</text>
 </svg>

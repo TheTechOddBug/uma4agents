@@ -1,0 +1,136 @@
+<svg viewBox="0 0 1200 880" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <linearGradient id="mark2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8f6bff"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.8" cy="0" r="0.8">
+      <stop offset="0" stop-color="#5b8cff" stop-opacity="0.09"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.05" cy="1" r="0.7">
+      <stop offset="0" stop-color="#8f6bff" stop-opacity="0.07"/><stop offset="1" stop-color="#8f6bff" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3d4759"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="880" fill="#080a0f"/>
+  <rect width="1200" height="880" fill="url(#g1)"/>
+  <rect width="1200" height="880" fill="url(#g2)"/>
+
+  <!-- header -->
+  <rect x="40" y="26" width="34" height="34" rx="9" fill="url(#mark2)"/>
+  <text x="57" y="49" text-anchor="middle" fill="#ffffff" font-size="17" font-weight="800">M</text>
+  <text x="88" y="42" fill="#eef1f7" font-size="17" font-weight="650">UMA for Agents — what changed</text>
+  <text x="88" y="60" fill="#9aa4ba" font-size="12">Aligning to MCP 2026-07-28, and what building a second enforcement host taught us</text>
+  <text x="1160" y="50" text-anchor="end" fill="#616c85" font-size="11" font-family="ui-monospace, 'SF Mono', Menlo, monospace">branch: mcp-alignment</text>
+
+  <!-- column headers -->
+  <text x="290" y="106" fill="#8a7f76" font-size="10.5" letter-spacing="2" font-weight="700">BEFORE</text>
+  <text x="725" y="106" fill="#2ed079" font-size="10.5" letter-spacing="2" font-weight="700">AFTER</text>
+  <line x1="40" y1="116" x2="1160" y2="116" stroke="#232c3d"/>
+
+  <!-- ROW 1 -->
+  <text x="58" y="152" fill="#eef1f7" font-size="11.5" font-weight="650">Where enforcement lives</text>
+  <text x="58" y="167" fill="#616c85" font-size="9.5">the headline change</text>
+  <rect x="290" y="128" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="150" fill="#c9b8a8" font-size="11">A gateway, always. The resource was "naive" —</text>
+  <text x="306" y="166" fill="#c9b8a8" font-size="11">and the docs quietly turned that deployment</text>
+  <text x="306" y="182" fill="#8a7f76" font-size="11">choice into a finding.</text>
+  <rect x="725" y="128" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="150" fill="#cfe6da" font-size="11">A <tspan fill="#2ed079" font-weight="650">role</tspan>, not a product. One core, two hosts:</text>
+  <text x="741" y="166" fill="#cfe6da" font-family="ui-monospace, Menlo, monospace" font-size="10.5">ENFORCEMENT_MODE=gateway | embedded</text>
+  <text x="741" y="183" fill="#8fae9e" font-size="10.5">The resource can enforce its owner's policy itself.</text>
+
+  <!-- ROW 2 -->
+  <text x="58" y="230" fill="#eef1f7" font-size="11.5" font-weight="650">Beat 1 — the challenge</text>
+  <text x="58" y="245" fill="#616c85" font-size="9.5">what a core spec should require</text>
+  <rect x="290" y="206" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="228" fill="#c9b8a8" font-size="11">401 + <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">WWW-Authenticate: UMA</tspan></text>
+  <text x="306" y="245" fill="#8a7f76" font-size="10.5">The obvious thing to write into the spec — and it</text>
+  <text x="306" y="260" fill="#8a7f76" font-size="10.5">would have excluded every in-process deployment.</text>
+  <rect x="725" y="206" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="228" fill="#cfe6da" font-size="11">Required <tspan fill="#2ed079" font-weight="650">parameters</tspan>; bindings carry them.</text>
+  <text x="741" y="245" fill="#8fae9e" font-size="10.5">Header where there's a status line, JSON-RPC −32001</text>
+  <text x="741" y="260" fill="#8fae9e" font-size="10.5">where there isn't. One client reads both.</text>
+
+  <!-- ROW 3 -->
+  <text x="58" y="308" fill="#eef1f7" font-size="11.5" font-weight="650">Spending a single-use grant</text>
+  <text x="58" y="323" fill="#e8836b" font-size="9.5" font-weight="600">security fix</text>
+  <rect x="290" y="284" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#3a2622"/>
+  <text x="306" y="306" fill="#e8836b" font-size="11" font-weight="600">Consumed before the signature was checked.</text>
+  <text x="306" y="323" fill="#c9b8a8" font-size="10.5">Anyone who saw the token could replay it unsigned</text>
+  <text x="306" y="338" fill="#c9b8a8" font-size="10.5">and destroy an approval Alice had just given.</text>
+  <rect x="725" y="284" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="306" fill="#cfe6da" font-size="11">introspect → permissions → PoP → operation binding</text>
+  <text x="741" y="323" fill="#cfe6da" font-size="11">→ <tspan fill="#2ed079" font-weight="650">consume, atomic and last.</tspan></text>
+  <text x="741" y="338" fill="#8fae9e" font-size="10.5">A forged replay is now a permanent act in the demo.</text>
+
+  <!-- ROW 4 -->
+  <text x="58" y="386" fill="#eef1f7" font-size="11.5" font-weight="650">The pend</text>
+  <text x="58" y="401" fill="#616c85" font-size="9.5">waiting on someone who isn't there</text>
+  <rect x="290" y="362" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="384" fill="#c9b8a8" font-size="11">The shim blocked, polling, for up to two minutes.</text>
+  <text x="306" y="401" fill="#8a7f76" font-size="10.5">Bob's agent looked hung while Alice decided.</text>
+  <rect x="725" y="362" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="384" fill="#cfe6da" font-size="11">Handed up as MCP <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">input_required</tspan> with a</text>
+  <text x="741" y="400" fill="#cfe6da" font-size="11">resumable <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">request_state</tspan>.</text>
+  <text x="741" y="416" fill="#8fae9e" font-size="10.5">A pend is a state to render, not a call to hold open.</text>
+
+  <!-- ROW 5 -->
+  <text x="58" y="464" fill="#eef1f7" font-size="11.5" font-weight="650">Naming the third party</text>
+  <text x="58" y="479" fill="#a98bff" font-size="9.5" font-weight="600">the finding we're taking to MCP</text>
+  <rect x="290" y="440" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="460" fill="#c9b8a8" font-size="11">The thesis was a claim about emphasis: agent</text>
+  <text x="306" y="476" fill="#c9b8a8" font-size="11">protocols answer "is this my agent doing my task",</text>
+  <text x="306" y="492" fill="#c9b8a8" font-size="11">none answer "may your agent touch my stuff".</text>
+  <rect x="725" y="440" width="435" height="66" rx="10" fill="#100e18" stroke="#312a4a"/>
+  <text x="741" y="461" fill="#d6cdf0" font-size="10.5"><tspan font-family="ui-monospace, Menlo, monospace" font-size="10">input_requests</tspan> is a <tspan fill="#a98bff" font-weight="650">closed union</tspan> of three requests</text>
+  <text x="741" y="476" fill="#d6cdf0" font-size="10.5">that all address the client's <tspan font-style="italic">own</tspan> user. The type system</text>
+  <text x="741" y="491" fill="#d6cdf0" font-size="10.5">cannot express "blocked on a different principal."</text>
+
+  <!-- ROW 6 -->
+  <text x="58" y="542" fill="#eef1f7" font-size="11.5" font-weight="650">Who is this agent?</text>
+  <text x="58" y="557" fill="#616c85" font-size="9.5">the RqP ≠ RO cold start</text>
+  <rect x="290" y="518" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="540" fill="#c9b8a8" font-size="11">A raw key thumbprint in Alice's approval dialog.</text>
+  <text x="306" y="557" fill="#8a7f76" font-size="10.5">Nothing a party who had never met this agent</text>
+  <text x="306" y="572" fill="#8a7f76" font-size="10.5">could resolve.</text>
+  <rect x="725" y="518" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="540" fill="#cfe6da" font-size="11">CIMD document + Web Bot Auth key directory.</text>
+  <text x="741" y="557" fill="#8fae9e" font-size="10.5">Alice sees the operating firm. Strictly display and</text>
+  <text x="741" y="572" fill="#8fae9e" font-size="10.5">discovery — the verifying key is still the RPT's cnf.</text>
+
+  <!-- ROW 7 -->
+  <text x="58" y="620" fill="#eef1f7" font-size="11.5" font-weight="650">The MCP wire</text>
+  <text x="58" y="635" fill="#616c85" font-size="9.5">2026-07-28</text>
+  <rect x="290" y="596" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="618" fill="#c9b8a8" font-size="11">Protocol 2025-03-26, sessions, <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">initialize</tspan>.</text>
+  <text x="306" y="635" fill="#8a7f76" font-size="10.5">SDK pins floated — the lab was one rebuild away</text>
+  <text x="306" y="650" fill="#8a7f76" font-size="10.5">from broken and nobody would have known why.</text>
+  <rect x="725" y="596" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="618" fill="#cfe6da" font-size="11">Stateless, <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">server/discover</tspan>, identity in <tspan font-family="ui-monospace, Menlo, monospace" font-size="10">_meta</tspan>.</text>
+  <text x="741" y="635" fill="#8fae9e" font-size="10.5">2026-07-28 is unreachable through <tspan font-family="ui-monospace, Menlo, monospace" font-size="9.5">initialize</tspan> by</text>
+  <text x="741" y="650" fill="#8fae9e" font-size="10.5">construction — ask for it there and you get 2025-11-25.</text>
+
+  <!-- ROW 8 -->
+  <text x="58" y="698" fill="#eef1f7" font-size="11.5" font-weight="650">Routing headers</text>
+  <text x="58" y="713" fill="#e8836b" font-size="9.5" font-weight="600">new attack class</text>
+  <rect x="290" y="674" width="415" height="66" rx="10" fill="#0f0e0d" stroke="#2e2721"/>
+  <text x="306" y="696" fill="#c9b8a8" font-size="11">Didn't exist. SEP-2243 mirrors the JSON-RPC</text>
+  <text x="306" y="713" fill="#c9b8a8" font-size="11">method into headers so a proxy can enforce</text>
+  <text x="306" y="728" fill="#8a7f76" font-size="10.5">without parsing a body.</text>
+  <rect x="725" y="674" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
+  <text x="741" y="696" fill="#cfe6da" font-size="11">Reconciled against the body, and <tspan fill="#2ed079" font-weight="650">required</tspan>.</text>
+  <text x="741" y="713" fill="#8fae9e" font-size="10.5">Two parsers over one message is the request-smuggling</text>
+  <text x="741" y="728" fill="#8fae9e" font-size="10.5">shape, arriving in a brand-new protocol.</text>
+
+  <!-- verification strip -->
+  <rect x="40" y="762" width="1120" height="46" rx="10" fill="#0d1119" stroke="#232c3d"/>
+  <text x="58" y="781" fill="#eef1f7" font-size="10.5" font-weight="600">Every row above is exercised by something that runs:</text>
+  <text x="58" y="798" fill="#9aa4ba" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">
+    make smoke-test <tspan fill="#2ed079">14/14</tspan>   ·   make demo-all <tspan fill="#2ed079">4/4</tspan>   ·   make shim-test <tspan fill="#2ed079">8/8</tspan>   ·   make sig-test <tspan fill="#2ed079">7/7</tspan>   ·   make embedded-check <tspan fill="#2ed079">passing</tspan>
+  </text>
+
+  <text x="600" y="850" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">UMA 2.0  ·  AAuth  ·  MyTerms (IEEE 7012)  ·  RFC 9728 PRM  ·  RFC 9421  ·  MCP 2026-07-28  ·  CIMD  ·  Web Bot Auth</text>
+</svg>
