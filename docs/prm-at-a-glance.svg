@@ -132,5 +132,5 @@
   <text x="58" y="682" fill="#eef1f7" font-size="11" font-weight="600">Metadata tells you the shape of the door. The ticket still tells you whose door, and the terms of entry.</text>
 
   <!-- footer -->
-  <text x="600" y="726" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">REGISTRATION_MODE=push | pull — both conformant, identical downstream    ·    the measured diff: git diff rreg-baseline..prm-discovery</text>
+  <text x="600" y="726" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">both methods built and measured; the declarative profile is what ships    ·    RReg preserved on branch legacy/rreg-baseline</text>
 </svg>

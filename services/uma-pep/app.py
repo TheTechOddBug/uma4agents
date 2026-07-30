@@ -42,12 +42,10 @@ AS_INTERNAL = os.environ.get("UMA_AS_INTERNAL", "http://uma-as:9000")
 RS_CLIENT_ID = os.environ.get("UMA_AS_RS_CLIENT_ID", "meridian-gateway")
 RS_CLIENT_SECRET = os.environ.get("UMA_AS_RS_CLIENT_SECRET", "gateway-dev-secret")
 REALM = os.environ.get("UMA_REALM", "alice-vault")
-# How the AS learns what this RS protects. "push": the classic FedAuthz
-# direction — this PEP registers each surface at /rreg on startup and
-# repairs on invalid_resource_id. "pull": the RS only *publishes* — public
-# structure in the RFC 9728 document, owner-bound instances behind the
-# protected owner-resources endpoint — and the AS comes and reads.
-REGISTRATION_MODE = os.environ.get("REGISTRATION_MODE", "push")
+# Registration is declarative: this RS only *publishes* — public structure in
+# the RFC 9728 document, owner-bound instances behind the protected
+# owner-resources endpoint — and the AS comes and reads. Classic FedAuthz
+# push registration is gone from this line; see `legacy/rreg-baseline`.
 # The owner whose instances this (single-owner) gateway fronts.
 OWNER = os.environ.get("UMA_OWNER", "alice")
 PEP_KEY_PATH = os.environ.get("UMA_PEP_SIGNING_KEY", "/keys/uma-pep-ed25519.pem")
@@ -133,9 +131,7 @@ def deny(status: int, body: dict, headers: dict | None = None) -> Response:
     )
 
 
-# The enforcement core, shared with the in-process extension. Constructed
-# after the module config above; `repair` injects this host's re-registration
-# obligation for push mode.
+# The enforcement core, shared with the in-process extension.
 ENFORCER = Enforcer(
     as_internal=AS_INTERNAL,
     as_public=AS_PUBLIC,
@@ -151,48 +147,13 @@ ENFORCER = Enforcer(
     resource_metadata_url=(
         f"https://{EXPECTED_AUTHORITY}/.well-known/oauth-protected-resource/mcp"),
     event=event,
-    # Only push mode has an RS-side re-registration duty; in pull mode the AS
-    # repairs itself by re-reading the published metadata.
-    repair=((lambda client: register_tool_surfaces(client))
-            if REGISTRATION_MODE == "push" else None),
 )
 
 
-async def get_pat(client: httpx.AsyncClient, force: bool = False) -> str:
-    return await ENFORCER.pat(client, force=force)
-
-
-async def pat_headers(client: httpx.AsyncClient) -> dict:
-    return await ENFORCER.pat_headers(client)
-
-
-async def register_tool_surfaces(client: httpx.AsyncClient) -> None:
-    headers = await pat_headers(client)
-    for tool, (rid, scopes) in TOOLS.items():
-        r = await client.post(
-            f"{AS_INTERNAL}/rreg",
-            json={"_id": rid, "name": f"Alice's vault: {tool}",
-                  "type": "mcp-tool", "resource_scopes": scopes},
-            headers=headers,
-            timeout=5.0,
-        )
-        r.raise_for_status()
-
-
 @app.on_event("startup")
-async def register_resources() -> None:
-    if REGISTRATION_MODE != "push":
-        event("registration.declarative", mode=REGISTRATION_MODE,
-              note="publishing only; the AS pulls what it needs")
-        return
-    async with httpx.AsyncClient() as client:
-        for attempt in range(30):
-            try:
-                await register_tool_surfaces(client)
-                break
-            except httpx.HTTPError:
-                time.sleep(1)
-    event("resources.registered_at_startup", tools=list(TOOLS))
+async def announce_registration() -> None:
+    event("registration.declarative",
+          note="publishing only; the AS pulls what it needs")
 
 
 @app.api_route("/check{rest:path}", methods=["GET", "POST", "HEAD", "DELETE"])
@@ -227,6 +188,7 @@ async def check(request: Request, rest: str = "") -> Response:
         header_mcp_name=h.get("mcp-name"),
         protocol_version=h.get("mcp-protocol-version"),
         signature_agent=h.get("signature-agent"),
+        traceparent=h.get("traceparent"),
     )
     d = await ENFORCER.authorize(facts)
 

@@ -73,13 +73,19 @@ be, and a GNAP binding is a reasonable third document; it is not a substitute
 for the core, because the thing the core adds is exactly the thing GNAP
 assumes away.
 
-*A note on where enforcement lives.* This recommendation says "transport
-agnostic"; the build showed the same must be said of the enforcement point.
-The obligations FedAuthz places on a protected resource can be discharged by a
-gateway, by a framework, or by the resource itself, and this POC runs the
-first and the last against one authorization server
-(`ENFORCEMENT_MODE=gateway|embedded`). The one thing that does not survive
-relocation is the *challenge encoding* — see rec 7.
+*A note on where enforcement runs.* This recommendation says "transport
+agnostic"; the build showed the same has to be said about **which software
+enforces**. FedAuthz gives the resource server a job list — hold a PAT (§1.5),
+keep the AS's view of its resources current (§3), ask for a permission ticket
+(§4), introspect before allowing a call (§5) — and never names the component
+that does the work. §1.4 divides responsibility between the *parties*, not
+between processes.
+
+So this POC runs two shapes against one authorization server
+(`ENFORCEMENT_MODE=gateway|embedded`): a gateway with plain MCP servers behind
+it that know nothing about UMA, and no gateway at all, with the MCP server
+handling the grant itself. Same ticket, same terms, same token. The one thing
+that does not survive the move is the *challenge encoding* — rec 7.
 
 **2. Make the owner's terms first-class — as MyTerms, extended.** The single
 most valuable transformation is claims-gathering becoming an *owner-proffered*
@@ -143,19 +149,25 @@ operation hash so a single-use approval authorizes exactly one call.
 declarative profile built on RFC 9728 — with the owner context split out
 behind a protected listing.** This is the same maneuver UMA already made on
 the client side (client registration is method-agnostic; DCR and now CIMD
-both fit). This POC runs both methods against an otherwise identical stack
-— `REGISTRATION_MODE=push|pull` — so the trade is measured, not argued.
-The relocation of the RS-side burden stands in either mode, and the
-sharper statement is that **the enforcement point is a role, not a
-product**: FedAuthz says what a protected resource owes the owner's AS and
-is silent on what discharges it. A gateway is one host — the one that lets
-a stock MCP server participate untouched — but an MCP framework, an
-in-process server extension (MCP SDK 2.x exposes
-`Extension.intercept_tool_call` for precisely this), or the resource itself
-can carry the same obligations against the same wire contract. What must
-not be read into this is a gateway requirement; the recommendation is that
-the spec name the obligations as a conformance profile any resource-side
-host may implement, rather than describing a deployment.
+both fit). Both methods were built and run against an otherwise identical stack, so
+the trade below is measured rather than argued. Only the declarative profile
+is carried forward on the main line; the RReg implementation is preserved
+and runnable on the `legacy/rreg-baseline` branch, which is what makes the
+comparison checkable rather than merely reported.
+
+Moving the RS-side burden works in either method, and the sharper statement
+is that **the spec should describe the job, not the box**. FedAuthz already
+does — it gives the resource server a job list and never names the software
+that performs it. A gateway is one way, and it is the one that lets a plain
+MCP server participate untouched; the MCP server doing the work itself is
+another, which is what a deployment with no gateway in the path looks like
+(MCP SDK 2.x exposes `Extension.intercept_tool_call` for exactly that).
+
+Our own earlier drafts got this wrong, reading as though the gateway were
+where the burden *belongs*. It is where we happened to put it. The
+recommendation is that the spec state the resource-server obligations as a
+conformance profile any resource-side implementation may satisfy, rather
+than in terms that imply a topology.
 
 *What the pull profile is.* The RS stops calling the AS and only publishes:
 a public RFC 9728 document carrying **structure** (tool surfaces + scopes,

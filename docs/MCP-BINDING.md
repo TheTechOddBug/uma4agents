@@ -4,8 +4,9 @@ How the UMA-for-agents grant rides Model Context Protocol 2026-07-28. A
 companion to [PROTOCOL.md](PROTOCOL.md), which is the binding-independent wire
 contract; everything here is about encoding, not semantics.
 
-Written against a running implementation: `make demo-all`, `make shim-test`
-and `make embedded-check` exercise every mechanism below.
+Written against a running implementation. Each mechanism below is marked
+implemented, proposed, or future in the summary at the end — the proposals are
+things MCP does not yet have, not things this repo is missing.
 
 ## Why MCP is the urgent binding
 
@@ -73,7 +74,9 @@ WWW-Authenticate: UMA realm="alice-vault", as_uri="https://alice-as.uma.lab",
   ticket="tkt_…", resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"
 ```
 
-**In-process host** (an MCP `Extension`), which has no status line to set:
+**In-process host** — an MCP `Extension`, i.e. the shape with no gateway in
+the path, where the MCP server handles the grant itself. It has no status line
+to put a header on:
 
 ```jsonc
 {"jsonrpc": "2.0", "id": 4, "error": {

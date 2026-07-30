@@ -1,13 +1,21 @@
 """The UMA enforcement core, with no transport of its own.
 
-UMA 2.0's Federated Authorization says what a protected resource owes its
-owner's authorization server — register the surface, hold a PAT, register
-attempted permissions, introspect before allowing — and says nothing about
-*what* discharges those obligations. That silence is deliberate and it is the
-point: the policy-enforcement point is a role, not a product.
+Two shapes, one implementation:
 
-So the decision logic lives here, in terms of request *facts* rather than any
-particular server's request object, and the hosts are thin adapters:
+  1. a gateway, with plain MCP servers behind it that know nothing about UMA;
+  2. no gateway at all, with the MCP server handling the grant itself.
+
+UMA 2.0's Federated Authorization gives the resource server a job list — hold
+a PAT (§1.5), keep the authorization server's view of its resources current
+(§3), ask for a permission ticket (§4), introspect a token before allowing a
+call (§5) — and never says which piece of software does that work. §1.4,
+"Separation of Responsibility and Authority", divides the work between the
+*parties*, not between processes. So a gateway in front of the resource and
+the resource itself are equally conformant; the job list is the same either
+way.
+
+That is why the decision logic lives here, written in terms of request *facts*
+rather than any particular server's request object, with thin adapters on top:
 
   - `services/uma-pep` runs it as an HTTP ext_authz service behind a gateway,
     which is what lets a stock MCP server participate untouched.
@@ -68,6 +76,10 @@ class AuthzFacts:
     # Web Bot Auth: where this agent publishes its keys. Covered by the
     # signature when present, so it cannot be swapped in transit.
     signature_agent: str | None = None
+    # W3C Trace Context. The negotiation family correlates everything *inside*
+    # this system; traceparent is what joins it to the caller's trace, which
+    # matters because a grant spans two organizations and an offline human.
+    traceparent: str | None = None
 
 
 @dataclass
@@ -87,6 +99,7 @@ class Decision:
     ticket: str | None = None
     as_uri: str | None = None
     resource_metadata: str | None = None
+    scopes: list[str] | None = None
     family: str | None = None
     contract: str | None = None
 
@@ -116,7 +129,6 @@ class Enforcer:
         allowed_origins: set[str],
         resource_metadata_url: str,
         event=None,
-        repair=None,
     ) -> None:
         self.as_internal = as_internal
         self.as_public = as_public
@@ -131,10 +143,6 @@ class Enforcer:
         self.allowed_origins = allowed_origins
         self.resource_metadata_url = resource_metadata_url
         self.event = event or (lambda *a, **k: None)
-        # Called when /perm reports an unknown resource id in push mode: the
-        # RS-side re-registration obligation, injected because only the host
-        # knows how its surfaces are declared.
-        self.repair = repair
         self._pat: dict[str, Any] = {"token": None, "expires": 0}
 
     # --- Protection API client ------------------------------------------
@@ -165,12 +173,11 @@ class Enforcer:
     async def mint_ticket(self, resource_id: str, scopes: list[str]) -> str | None:
         """Register the attempted permission and get a ticket (beat 1).
 
-        Two repair paths, both of them findings in their own right. A 401 means
-        the PAT expired mid-flight or the AS restarted with new keys. A 400
-        `invalid_resource_id` in push mode means the AS lost its registry and
-        FedAuthz makes *this* side responsible for noticing and re-pushing —
-        `repair` is that obligation. In pull mode the burden sits with the AS,
-        which re-reads the published metadata when it meets an unknown id.
+        A 401 means the PAT expired mid-flight, or the AS restarted with new
+        keys; retry once with a fresh one. An unknown resource id is *not*
+        this side's problem to repair under declarative registration — the AS
+        re-reads what we publish when it meets one, which is the whole point
+        of the trade.
         """
         body = {"resource_id": resource_id, "resource_scopes": scopes}
         try:
@@ -179,13 +186,6 @@ class Enforcer:
                                       headers=await self.pat_headers(client), timeout=5.0)
                 if r.status_code == 401:
                     await self.pat(client, force=True)
-                    r = await client.post(f"{self.as_internal}/perm", json=body,
-                                          headers=await self.pat_headers(client),
-                                          timeout=5.0)
-                if (self.repair is not None and r.status_code == 400
-                        and r.json().get("error") == "invalid_resource_id"):
-                    self.event("resources.reregistered", reason="as_lost_registry")
-                    await self.repair(client)
                     r = await client.post(f"{self.as_internal}/perm", json=body,
                                           headers=await self.pat_headers(client),
                                           timeout=5.0)
@@ -355,7 +355,8 @@ class Enforcer:
         family = info.get("family", "?")
         self.event("access.allowed", corr=family, tool=f.tool,
                    contract=info.get("contract"),
-                   single_use=info.get("single_use", False))
+                   single_use=info.get("single_use", False),
+                   traceparent=f.traceparent)
         await self.report_access(family, f.tool,
                                  summary=json.dumps(f.args or {}, sort_keys=True))
         return Decision(outcome="allow", family=family, contract=info.get("contract"))
@@ -365,7 +366,8 @@ class Enforcer:
         ticket = await self.mint_ticket(rid, scopes)
         if ticket is None:
             return Decision(outcome="deny", status=503, error="as_unreachable")
-        self.event("challenge.issued", corr=None, tool=tool, resource_id=rid)
+        self.event("challenge.issued", corr=None, tool=tool, resource_id=rid,
+                   scopes=scopes)
         return Decision(
             outcome="challenge",
             status=401,
@@ -373,12 +375,22 @@ class Enforcer:
             ticket=ticket,
             as_uri=self.as_public,
             resource_metadata=self.resource_metadata_url,
+            scopes=scopes,
         )
 
     def www_authenticate(self, d: Decision) -> str:
-        """The UMA challenge header, for hosts that have a status line."""
-        return (f'UMA realm="{self.realm}", as_uri="{d.as_uri}", '
-                f'ticket="{d.ticket}", resource_metadata="{d.resource_metadata}"')
+        """The UMA challenge header, for hosts that have a status line.
+
+        `scope` is the RFC 6750 §3 parameter, which MCP 2026-07-28 says a
+        resource SHOULD include: it tells a client what this call would have
+        needed without making it negotiate to find out.
+        """
+        parts = [f'realm="{self.realm}"', f'as_uri="{d.as_uri}"',
+                 f'ticket="{d.ticket}"',
+                 f'resource_metadata="{d.resource_metadata}"']
+        if d.scopes:
+            parts.append(f'scope="{" ".join(d.scopes)}"')
+        return "UMA " + ", ".join(parts)
 
 
 def parse_mcp(body: bytes) -> tuple[str | None, str | None, dict | None]:

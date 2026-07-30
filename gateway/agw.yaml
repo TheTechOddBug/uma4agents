@@ -81,6 +81,8 @@ binds:
                   # Web Bot Auth: covered by the request signature, so the
                   # PEP must see it to reconstruct the signature base.
                   - signature-agent
+                  # W3C Trace Context, so protocol events join the caller's trace.
+                  - traceparent
                 protocol:
                   http:
                     # CEL: forward the original path so the PEP can map

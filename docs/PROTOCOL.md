@@ -39,13 +39,9 @@ GET  /terms/{template_id}                    a proffered terms document; every v
 # Protection API (resource servers only, PAT-authorized — FedAuthz shape).
 # The PAT is an OAuth access token this AS issues (see /token below): signed,
 # expiring, scope uma_protection, carrying the owner (sub) and the RS (azp).
-# Full FedAuthz resource-registration CRUD; /perm rejects unregistered
+# Registration is declarative — there is no /rreg on this line; the AS reads
+# what the RS publishes (see Registration below). /perm rejects unregistered
 # resources (invalid_resource_id) and excess scopes (invalid_scope).
-POST   /rreg            register a tool surface as a resource
-GET    /rreg            list registered resource ids
-GET    /rreg/{_id}      read one resource description
-PUT    /rreg/{_id}      update a resource description
-DELETE /rreg/{_id}      deregister
 POST   /perm            register attempted permissions -> ticket
 POST   /introspect      RPT introspection (permissions array). Never consumes by
                         default; an inactive answer carries an `error` reason
@@ -143,21 +139,24 @@ The challenge remains authoritative for the ticket.
 
 ### Registration — how the AS learns what the RS protects
 
-Two conformant methods, selected by `REGISTRATION_MODE` (both fully
-implemented and verified; the AS's registry, `/perm` validation, tickets,
-and the owner's portal view are identical downstream of either):
+**Declarative, and the only method here.** The RS publishes; it never
+registers. The AS fetches the public RFC 9728 document, verifies
+`signed_metadata` against the resource's `jwks_uri`, then queries the
+advertised `owner_resources_endpoint` with an RFC 9421-signed request and
+materializes its registry from the response. One fetch replaces N
+registration calls, and there is one registry with one writer.
 
-- **push** — classic FedAuthz: the RS registers each surface at `POST /rreg`
-  (PAT-authorized, full CRUD) and is the party that must notice
-  `invalid_resource_id` after an AS restart and re-push.
-- **pull** (default) — declarative: the RS only publishes. The AS fetches
-  the public RFC 9728 document, verifies `signed_metadata` against the
-  resource's `jwks_uri`, then queries the advertised
-  `owner_resources_endpoint` with an RFC 9421-signed request and
-  materializes its registry from the response. Staleness repairs itself on
-  the AS side: an unknown `resource_id` at `/perm` triggers a re-pull. Push
-  endpoints answer `405 registration_is_declarative` — one registry, one
-  writer.
+Staleness is the price, and repairing it is the AS's job: an unknown
+`resource_id` at `/perm` triggers a re-pull. That is the exact mirror of what
+classic RReg demanded of the *RS* — noticing `invalid_resource_id` after an AS
+restart and re-pushing.
+
+*On the comparison.* Both methods were built and measured against an otherwise
+identical stack, which is what [FINDINGS](../FINDINGS.md) rec 5 rests on. Push
+registration is not carried forward here: the trade has been made, and keeping
+two writers alive to re-argue it is cost without evidence. The RReg
+implementation is preserved and runnable on the **`legacy/rreg-baseline`**
+branch.
 
 Deployment note (learned as a deadlock): in pull mode the pull and its
 verification form a call cycle — the AS queries the RS while the RS
@@ -483,9 +482,9 @@ The activity ledger is a projection: **promised** = `contract.committed`,
 | 4 | Owner push notification on `request_submitted`, in two kinds (connection / operation) | RO intervention out of scope | The agent-era consent surface; the day-1 handshake |
 | 5 | Standing connection keyed by an identity handle (JWK thumbprint when pseudonymous, verified issuer-qualified subject when identified); `contract` (s256) on the RPT | — | Owner-visible, revocable relationships; promise/action/consent in one ledger. Identified agents' session keys rotate, so the key cannot be the relationship key |
 | 6 | Public structural discovery in two binding encodings from one registry — RFC 9728 `tool_surfaces` (OAuth+DPoP) and AAuth `aauth-resource.json` `r3_vocabularies`, content-addressed (AAuth); `resource_metadata` on the UMA challenge; clients corroborate `as_uri` against published `authorization_servers` | PRM and AAuth resource metadata both predate this; UMA's challenge carries `as_uri` on faith | Declarative discovery of the AS and the surface, per binding; the challenge gains a TLS-anchored second witness. The encodings are stock (9728 §5.1, AAuth R3) — composing them with the UMA challenge, and sharing one protected instance layer beneath both, is the extension |
-| 7 | `owner_resources_endpoint` PRM member + the protected owner-resources listing (RFC 9421-signed query by the owner's AS) | FedAuthz: RS pushes owner-bound registrations under the PAT | The privacy split: public metadata stays structural; whose instances sit behind the resource is served only to the owner's AS — "protected webfinger." Enables `REGISTRATION_MODE=pull` (declarative registration), with push remaining conformant |
+| 7 | `owner_resources_endpoint` PRM member + the protected owner-resources listing (RFC 9421-signed query by the owner's AS) | FedAuthz: RS pushes owner-bound registrations under the PAT | The privacy split: public metadata stays structural; whose instances sit behind the resource is served only to the owner's AS — "protected webfinger." Enables declarative registration; classic push RReg remains conformant and is preserved on `legacy/rreg-baseline` |
 | 8 | Challenge specified as *parameters* (`as_uri`, `ticket`, `resource_metadata`, `realm`) with per-host encodings: `401 + WWW-Authenticate: UMA` where there is a status line, JSON-RPC `-32001` where there is not | UMA 2.0 mandates the `WWW-Authenticate` header | An enforcement point running in-process has no status line. Mandating the header excludes exactly the resource-side frameworks most likely to adopt this; both encodings run here against one AS, and one client reads both |
-| 9 | Enforcement obligations hosted by either a gateway or the resource itself (`ENFORCEMENT_MODE=gateway|embedded`), from one core | FedAuthz names the obligations, not their host | The PEP is a role, not a product. Same maneuver as `REGISTRATION_MODE`: two conformant hosts, one stack, so the claim is measured |
+| 9 | Enforcement obligations hosted by either a gateway or the resource itself (`ENFORCEMENT_MODE=gateway|embedded`), from one core | FedAuthz names the obligations, not their host | The PEP is a role, not a product. Same maneuver the registration work used: two conformant hosts, one stack, so the claim is measured rather than argued |
 | 10 | Consumption ordering made normative: introspect (non-consuming) → permissions → PoP → operation binding → `POST /consume`, atomic and last. Inactive introspection carries an `error` reason; `connection_revoked` is terminal | UMA 2.0 §3.3.1 does not say where in enforcement a single-use token is spent | The intuitive order — consume first — lets an unsigned replay destroy an approval the owner just gave. And a bare `{"active": false}` sends a revoked agent round a negotiation whose outcome is settled |
 | 11 | Requesting-agent identity metadata: an optional CIMD `client_id` in the contract header (resolved, self-reference enforced, **display only**) and a Web Bot Auth `Signature-Agent` covered by the request signature | The agent is its key, or its issuer's token | The RqP ≠ RO cold-start problem: a party that has never met this agent needs to be able to say something true about it. Neither ever becomes an authorization input — the verifying key is always the RPT's `cnf`, and the connection handle is unchanged |
 

@@ -59,11 +59,12 @@ RS_CLIENTS: dict[str, dict] = {
     }
 }
 PAT_TTL = 3600
-# push: the RS registers its resources here (classic FedAuthz /rreg).
-# pull: this AS *reads* the RS's published metadata — public structure from
-# the RFC 9728 document, owner-bound instances from the protected
-# owner-resources endpoint — and materializes its registry from it.
-REGISTRATION_MODE = os.environ.get("REGISTRATION_MODE", "push")
+# Registration is declarative: this AS *reads* the RS's published metadata —
+# public structure from the RFC 9728 document, owner-bound instances from the
+# protected owner-resources endpoint — and materializes its registry from it.
+# Classic FedAuthz push registration (/rreg) is gone from this line; the
+# measured comparison lives on the `legacy/rreg-baseline` branch, and rec 5 in
+# FINDINGS.md is what it produced. One registry, one writer.
 # The owner-proffered terms + signed agreement follow the MyTerms pattern
 # (IEEE 7012): the individual proffers machine-readable terms from her own
 # roster; the counterparty agrees; both sides keep a record. The URN is ours —
@@ -248,7 +249,6 @@ async def discovery() -> dict:
         "token_endpoint": f"{ISSUER}/token",
         "permission_endpoint": f"{ISSUER}/perm",
         "introspection_endpoint": f"{ISSUER}/introspect",
-        "resource_registration_endpoint": f"{ISSUER}/rreg",
         "jwks_uri": f"{ISSUER}/jwks",
         "terms_endpoint": f"{ISSUER}/terms",
         "grant_types_supported": ["urn:ietf:params:oauth:grant-type:uma-ticket"],
@@ -568,8 +568,6 @@ def pull_registrations(client_id: str) -> int:
 
 @app.on_event("startup")
 async def pull_at_startup() -> None:
-    if REGISTRATION_MODE != "pull":
-        return
     import asyncio
 
     async def attempt_loop():
@@ -596,93 +594,6 @@ async def pull_at_startup() -> None:
 # --- Protection API (gateway-side, FedAuthz shape) ---------------------------
 
 
-def resource_description(body: dict) -> dict:
-    """Validate and normalize a FedAuthz §3 resource description."""
-    scopes = body.get("resource_scopes")
-    if not isinstance(scopes, list) or not scopes or not all(
-        isinstance(s, str) and s for s in scopes
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "invalid_request",
-                    "error_description": "resource_scopes (non-empty list) is required"},
-        )
-    return {
-        "resource_scopes": scopes,
-        "name": body.get("name"),
-        "type": body.get("type"),
-        "icon_uri": body.get("icon_uri"),
-        "description": body.get("description"),
-    }
-
-
-def reject_push() -> None:
-    """In pull mode the registry is materialized from what the RS publishes;
-    accepting pushes too would leave two writers and no single truth."""
-    if REGISTRATION_MODE == "pull":
-        raise HTTPException(
-            status_code=405,
-            detail={"error": "registration_is_declarative",
-                    "error_description": "this AS pulls the RS's published "
-                    "metadata; update the published documents instead"})
-
-
-@app.post("/rreg")
-async def register_resource(request: Request) -> JSONResponse:
-    require_pat(request)
-    reject_push()
-    body = await request.json()
-    desc = resource_description(body)
-    rid = body.get("_id") or f"res_{uuid.uuid4().hex[:8]}"
-    created = rid not in RESOURCES
-    RESOURCES[rid] = desc
-    event("resource.registered", resource_id=rid, scopes=desc["resource_scopes"],
-          created=created)
-    return JSONResponse(
-        {"_id": rid, "user_access_policy_uri": f"{ISSUER}/owner/policies"},
-        status_code=201 if created else 200,
-        headers={"Location": f"{ISSUER}/rreg/{rid}"} if created else {},
-    )
-
-
-@app.get("/rreg")
-async def list_resources(request: Request) -> list:
-    """FedAuthz §3.4 List: bare ids, as the spec shapes it."""
-    require_pat(request)
-    return list(RESOURCES.keys())
-
-
-@app.get("/rreg/{rid:path}")
-async def read_resource(rid: str, request: Request) -> dict:
-    require_pat(request)
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    return {"_id": rid, **{k: v for k, v in RESOURCES[rid].items() if v is not None}}
-
-
-@app.put("/rreg/{rid:path}")
-async def update_resource(rid: str, request: Request) -> dict:
-    require_pat(request)
-    reject_push()
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    RESOURCES[rid] = resource_description(await request.json())
-    event("resource.updated", resource_id=rid,
-          scopes=RESOURCES[rid]["resource_scopes"])
-    return {"_id": rid}
-
-
-@app.delete("/rreg/{rid:path}")
-async def delete_resource(rid: str, request: Request) -> JSONResponse:
-    require_pat(request)
-    reject_push()
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    del RESOURCES[rid]
-    event("resource.deleted", resource_id=rid)
-    return JSONResponse(None, status_code=204)
-
-
 @app.post("/perm")
 async def register_permission(request: Request) -> JSONResponse:
     require_pat(request)
@@ -690,9 +601,11 @@ async def register_permission(request: Request) -> JSONResponse:
     rid = body.get("resource_id")
     # FedAuthz §4.1: the AS only issues tickets against its own registry.
     registered = RESOURCES.get(rid)
-    if registered is None and REGISTRATION_MODE == "pull":
-        # The mirror of push mode's RS-side repair: an unknown id means our
-        # pulled copy may be stale, so re-read what the RS publishes.
+    if registered is None:
+        # An unknown id means our pulled copy may be stale, so re-read what
+        # the RS publishes. Staleness is the price of declarative
+        # registration, and repairing it is this side's job — the mirror of
+        # the RS-side re-push that classic RReg required.
         # (to_thread: see pull_at_startup — the pull triggers a JWKS
         # back-call from the RS and must not block this event loop.)
         import asyncio

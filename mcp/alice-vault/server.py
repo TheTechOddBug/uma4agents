@@ -3,10 +3,10 @@
 Fixture data through a real protocol path: positions, transaction history,
 and a pretend trade-execution endpoint, served over MCP streamable-http.
 
-Where the protection obligations are *hosted* is a deployment choice, not a
-property of the resource. UMA's FedAuthz says what a protected resource owes
-its owner's authorization server and is silent on what discharges it, so this
-server runs either way, selected by ENFORCEMENT_MODE:
+Whether this server handles its own authorization, or something in front of it
+does, is a deployment choice. UMA's FedAuthz gives the resource server a job
+list and never says which piece of software has to do it, so this server runs
+both ways, selected by ENFORCEMENT_MODE:
 
   gateway  (default) — this process holds no auth code at all; an ext_authz
                        service ahead of it carries the obligations.

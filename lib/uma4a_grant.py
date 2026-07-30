@@ -276,6 +276,21 @@ def run_grant(
     raise GrantDenied(body.get("error_description") or body.get("error", "unknown"))
 
 
+def traceparent() -> str | None:
+    """A W3C Trace Context header for this call, if tracing is on.
+
+    Correlation inside this system is the negotiation family; traceparent is
+    what lets that join a trace spanning the requesting org, the resource, and
+    the owner's authorization server — three parties who share no other id.
+    """
+    import os
+    import secrets
+
+    if os.environ.get("UMA4A_TRACING", "1") in ("0", "false", "no"):
+        return None
+    return f"00-{secrets.token_hex(16)}-{secrets.token_hex(8)}-01"
+
+
 def signed_headers(method: str, authority: str, path: str, rpt: str,
                    keys: AgentKeys) -> dict[str, str]:
     """Authorization + RFC 9421 signature headers for a resource request.
@@ -289,7 +304,13 @@ def signed_headers(method: str, authority: str, path: str, rpt: str,
     authorization = f"PoP {rpt}"
     sig = sign(method, authority, path, authorization, keys.key, keys.keyid,
                signature_agent=keys.signature_agent, tag="web-bot-auth")
-    return {"Authorization": authorization, **sig}
+    headers = {"Authorization": authorization, **sig}
+    # W3C Trace Context: deliberately *not* covered by the signature. It is
+    # diagnostic metadata a proxy may legitimately rewrite, and binding it
+    # into the signature base would make ordinary tracing look like tampering.
+    if tp := traceparent():
+        headers["traceparent"] = tp
+    return headers
 
 
 async def run_grant_async(

@@ -99,6 +99,7 @@ class UmaEnforcement(Extension):
             header_mcp_name=headers.get("mcp-name"),
             protocol_version=headers.get("mcp-protocol-version"),
             signature_agent=headers.get("signature-agent"),
+            traceparent=headers.get("traceparent"),
         )
 
         d = await self.enforcer.authorize(facts)
@@ -118,6 +119,7 @@ class UmaEnforcement(Extension):
                     "ticket": d.ticket,
                     "resource_metadata": d.resource_metadata,
                     "realm": self.enforcer.realm,
+                    "scope": " ".join(d.scopes or []),
                 },
             )
 

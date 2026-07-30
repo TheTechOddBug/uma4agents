@@ -56,17 +56,26 @@ her portal (she owns it). **Other people's agents** reach the same vault only
 after negotiating a grant against her policy. That negotiation — not the
 gateway — is the subject of this lab.
 
-**The enforcement point is a role, not a product.** UMA 2.0's Federated
-Authorization defines what a protected resource owes its owner's authorization
-server (register the surface, hold a PAT, register attempted permissions,
-introspect) and is deliberately silent on what discharges those obligations.
-This deployment puts them in an ext_authz service behind a gateway, because
-that is the shape that lets a stock MCP server participate untouched. An MCP
-framework, an in-process server extension, or the resource itself could carry
-the same obligations against the same authorization server and the same wire
-contract — MCP SDK 2.x exposes `Extension.intercept_tool_call` for exactly
-that. Read the gateway here as one host for the role; the finding is that the
-role is relocatable.
+**Two shapes, one implementation.** The lab supports a *gateway* shape, with
+plain MCP servers behind it that know nothing about UMA, and an *embedded*
+shape with no gateway, where the MCP server handles the grant itself.
+
+That is allowed because of what FedAuthz does and does not say. It gives the
+resource server a job list — hold a PAT ([FedAuthz
+§1.5](https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-federated-authz-2.0.html)),
+keep the AS's view of its resources current (§3), ask for a permission ticket
+(§4), introspect before allowing a call (§5) — and never names the software
+that does the work. §1.4, *Separation of Responsibility and Authority*,
+divides responsibility between the resource owner, resource server, and
+authorization server: between **parties**, not processes. Nothing there
+requires the resource server to be one program.
+
+The word "gateway" was ours, not the spec's, and using it as though it were
+structural was our error: earlier drafts of this document and of FINDINGS
+described the gateway as *where the burden goes*, which quietly promoted one
+deployment into a finding. Both shapes run here against the same authorization
+server, the same ticket and the same terms — MCP SDK 2.x exposes
+`Extension.intercept_tool_call`, which is the hook the embedded shape uses.
 
 ## Services
 
@@ -120,8 +129,9 @@ Protected Resource Metadata (`/.well-known/oauth-protected-resource`) naming
 the owner's AS and the *structural* tool surfaces, and both clients
 corroborate each challenge against it. Which instances belong to whom is not
 public: the owner-bound listing (`/owner-resources`) is served only to
-Alice's AS, which pulls it to build its registry (`REGISTRATION_MODE=pull`,
-the default; classic push RReg remains conformant). See
+Alice's AS, which pulls it to build its registry. Registration here is
+declarative only — classic push RReg was built, measured, and is preserved on
+the `legacy/rreg-baseline` branch rather than carried forward. See
 [PROTOCOL.md](PROTOCOL.md) for the exact messages.
 
 ## The day-1 handshake (first contact)
