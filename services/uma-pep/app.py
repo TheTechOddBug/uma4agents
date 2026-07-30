@@ -218,7 +218,6 @@ async def check(request: Request, rest: str = "") -> Response:
         args=args,
         mcp_method=method,
         http_method=request.method,
-        authority=EXPECTED_AUTHORITY,
         path=original_path,
         authorization=h.get("authorization"),
         signature=h.get("signature", ""),

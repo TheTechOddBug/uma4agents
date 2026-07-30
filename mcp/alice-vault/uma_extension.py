@@ -86,11 +86,10 @@ class UmaEnforcement(Extension):
             tool=params.name,
             args=dict(params.arguments or {}),
             mcp_method="tools/call",
-            # The signature covers the request as the *client* addressed it, so
-            # the authority and path are the resource's public ones, not
-            # whatever this process happens to be bound to.
+            # The path is the resource's public one, not whatever this
+            # process happens to be bound to; the authority comes from the
+            # enforcer's configuration for the same reason.
             http_method=getattr(req, "method", "POST") if req else "POST",
-            authority=self.authority,
             path=self.path,
             authorization=headers.get("authorization"),
             signature=headers.get("signature", ""),

@@ -304,8 +304,11 @@ Bob's client just stops hanging on it.
 What cannot be said in that structure is *who* is being waited on. MRTR's
 `input_requests` is a closed union of `CreateMessageRequest |
 ListRootsRequest | ElicitRequest`, all three of which address the client's own
-user. A pend on a different principal has no typed slot, so the subject rides
-in prose today and is what the MCP binding proposes adding:
+user. A pend on a different principal has no typed slot.
+
+**So today the subject travels as prose in the elicitation message — the block
+below is a proposal, not something this implementation emits.** It is what
+[MCP-BINDING.md](MCP-BINDING.md) and the ext-auth draft ask MCP to add:
 
 ```jsonc
 "subject": {

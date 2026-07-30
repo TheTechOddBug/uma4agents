@@ -72,7 +72,11 @@ REGISTRATION_MODE = os.environ.get("REGISTRATION_MODE", "push")
 AGREEMENT_FORMAT = "urn:uma4agents:format:myterms-agreement-v1+jws"
 AGREEMENT_CLAIM = "urn:uma4agents:claim:myterms-agreement"
 TICKET_TTL = 300
-PENDING_TTL = 600
+# How long a held "ask-me" ticket stays valid. The demo's own premise is that
+# Alice may be asleep, so ten minutes was never right — and it is only safe to
+# lengthen because the requesting side no longer holds a call open across it
+# (the shim hands the wait up as an MCP input_required and resumes).
+PENDING_TTL = int(os.environ.get("UMA_AS_PENDING_TTL", 3600))
 POLL_INTERVAL = 3
 
 log = logging.getLogger("uma-as")
@@ -220,21 +224,6 @@ def reap_expired() -> None:
     stale = [f for f, r in NEGOTIATIONS.items() if r["expires"] < now()]
     for family in stale:
         close_negotiation(NEGOTIATIONS.get(family))
-
-
-def peek_ticket(ticket: str) -> dict | None:
-    """Resolve a ticket to its negotiation *without* consuming it.
-
-    Read-only observation advances no state, so the single-use rule — which
-    exists to stop a replayed ticket escalating into a grant — does not apply.
-    """
-    family = TICKETS.get(ticket or "")
-    if family is None:
-        return None
-    rec = NEGOTIATIONS.get(family)
-    if not rec or rec["expires"] < now():
-        return None
-    return rec
 
 
 # --- Basics -----------------------------------------------------------------

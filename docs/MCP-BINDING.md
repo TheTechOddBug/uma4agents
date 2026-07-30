@@ -122,8 +122,12 @@ describes the owner's role in prose. A conforming client reading only the
 typed structure sees an elicitation and will try to satisfy the wait from its
 own user, which is precisely wrong.
 
-The proposal, in [ext-auth-third-party-authorization.md](ext-auth-third-party-authorization.md),
-adds a `subject` block whose load-bearing field is `reachable_by_client`.
+To be unambiguous about what is built: **this implementation does not emit a
+`subject` block.** The elicitation message describes the owner's role in
+prose, and that is the honest ceiling of what the current type allows. The
+proposal in
+[ext-auth-third-party-authorization.md](ext-auth-third-party-authorization.md)
+adds a `subject` whose load-bearing field is `reachable_by_client`.
 
 ## SEP-2243 routing headers: a new confusion class
 

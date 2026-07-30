@@ -9,28 +9,43 @@ contract itself — every endpoint, claim, and error — is in
 ## The cast
 
 ```
-┌────────────────────┐         ┌──────────────────────────────────────────┐
-│  Bob's agent       │         │  Alice's authorization server (her side)  │
-│  (Claude, or any   │         │                                            │
-│   MCP client)      │         │   keycloak      identity, OIDC login       │
-│        │           │         │   uma-as        grant loop, policy,        │
-│   agent-shim  ─────┼─signed──┼─▶               tickets, RPTs, ledger,     │
-│   (keys, RFC 9421, │  MCP    │                 connections                │
-│    grant dance)    │         │   alice-portal  Alice's brokerage UI +     │
-└────────────────────┘         │                 agent-authorization panel  │
-         │                     └──────────────────────────────────────────┘
-         ▼                                    ▲
-┌────────────────────┐   ext_authz (HTTP)     │ owner API / introspection
-│  agentgateway      │─────────▶ uma-pep ─────┘
-│  (the PEP/gateway) │           (enforcement: challenge, introspect,
-│        │           │            proof-of-possession, tool scoping)
-│        ▼           │
-│  alice-vault-mcp   │  Alice's brokerage data (positions, transactions,
-│  (a stock MCP      │  execute) — holds no auth code *in this deployment*
-│   server)          │
-└────────────────────┘
+┌─────────────────────────┐        ┌──────────────────────────────────────────┐
+│  Bob's agent            │        │  Alice's side                            │
+│  (Claude Code, or any   │        │                                          │
+│   MCP client)           │        │   keycloak      identity, OIDC login     │
+│        │                │ signed │   uma-as        grant loop, policy,      │
+│   agent-shim  ──────────┼─ MCP ─▶│                 tickets, RPTs, ledger,   │
+│   (keys, RFC 9421,      │        │                 connections              │
+│    grant dance)         │        │   alice-portal  brokerage UI + the       │
+└───────────┬─────────────┘        │                 agent-authorization panel│
+            │                      └──────────────────────────────────────────┘
+┌───────────┴─────────────┐                          ▲
+│  agent-operator         │   resolved for display   │
+│  Bob's firm's public    ├──────────────────────────┘
+│  presence: CIMD doc +   │
+│  Web Bot Auth directory │
+└─────────────────────────┘
 
-Supporting: person-server (the AAuth agent-identity component, present for the
+                    the resource side — one core, two hosts
+                          (lib/uma4a_pep.py)                    ▲
+                                                                │ PAT, /perm,
+  ENFORCEMENT_MODE=gateway  (default)                           │ introspect,
+  ┌────────────────────┐   ext_authz (HTTP)                     │ /consume
+  │  agentgateway      │──────────▶ uma-pep ───────────────────▶│
+  │  (hosts the PEP)   │            challenge · introspect ·    │
+  │         │          │            PoP · scoping · consume     │
+  │         ▼          │                                        │
+  │  alice-vault-mcp   │  a stock MCP server; no auth code      │
+  └────────────────────┘                                        │
+                                                                │
+  ENFORCEMENT_MODE=embedded  (no gateway in the authz path)      │
+  ┌──────────────────────────────────┐                          │
+  │  alice-vault-mcp + uma_extension │─────────────────────────▶│
+  │  the same core, in-process       │
+  │  (Extension.intercept_tool_call) │  same AS, same ticket, same
+  └──────────────────────────────────┘  terms; only beat 1 differs
+
+Supporting: person-server (the AAuth agent-identity component, for the
 identified-level path; the demo default is pseudonymous keys), Grafana + Loki
 + Promtail (protocol-event observability), Envoy edge (TLS for *.uma.lab),
 hickory-dns.
@@ -58,9 +73,10 @@ role is relocatable.
 | Service | Role | Language / base |
 |---|---|---|
 | `uma-as` | Alice's authorization server: the four-beat grant loop, tiered policy, ticket lifecycle, RPT issuance, connections, ledger, owner API, SSE | Python / FastAPI |
-| `uma-pep` | Policy-enforcement point behind the gateway: challenges, RPT introspection, proof-of-possession verification, tool→resource scoping, single-use operation binding | Python / FastAPI |
+| `agent-operator` | Bob's firm's public presence: its CIMD document (who operates the agent) and Web Bot Auth key directory (where its keys are published). Display and discovery only — never an authorization input | Python / FastAPI |
+| `uma-pep` | The enforcement core hosted as an ext_authz service (`ENFORCEMENT_MODE=gateway`): challenges, RPT introspection, proof-of-possession verification, tool→resource scoping, single-use operation binding | Python / FastAPI |
 | `agentgateway` | The MCP gateway/PEP host; delegates authz to `uma-pep` via HTTP ext_authz | Solo.io agentgateway |
-| `alice-vault-mcp` | Alice's brokerage vault as an MCP server (fixture data); in this deployment the protection obligations sit outside it | Python / MCP SDK 2.x |
+| `alice-vault-mcp` | Alice's brokerage vault as an MCP server (fixture data). Under `ENFORCEMENT_MODE=gateway` the protection obligations sit outside it; under `embedded` it runs the same core in-process via `uma_extension.py` | Python / MCP SDK 2.x |
 | `alice-portal` | Meridian Wealth: dashboard, holdings, trade, and Settings → Security → Agent Authorization | Python / FastAPI + vanilla SPA |
 | `keycloak` | Alice's identity provider and OIDC login for the portal | Keycloak |
 | `person-server` | AAuth Person/Agent server — the agent-identity component for the identified-level path (the demo default signs pseudonymously) | upstream (pinned) |
@@ -68,19 +84,33 @@ role is relocatable.
 | observability | Grafana + Loki + Promtail; one structured event per protocol step, ticket = correlation id | Grafana stack |
 
 Shared code in `lib/`: `uma4a_http_sig.py` (RFC 9421 signing/verification, used
-by both shim and PEP so signer and verifier can't drift) and `uma4a_grant.py`
+by both shim and PEP so signer and verifier can't drift), `uma4a_grant.py`
 (the requesting-agent side of the grant loop, used by both the shim and the
-headless demo driver).
+headless demo driver), and `uma4a_pep.py` — the enforcement core, expressed in
+request *facts* rather than any server's request object, so the ext_authz
+service and the in-process extension reach identical verdicts from one
+implementation. `make embedded-check` proves that by running the whole grant
+with no gateway in the path.
+
+**MCP protocol note.** The lab speaks MCP 2026-07-28. The handshake is
+`server/discover`, not `initialize` — the latter cannot negotiate past
+2025-11-25 by construction — there are no sessions, and client identity rides
+`params._meta` on every request.
 
 ## The four-beat grant (agent's view)
 
-1. **Challenge** — agent calls a tool through the gateway; gets `401` +
-   `WWW-Authenticate: UMA` carrying the AS location and a permission ticket.
+1. **Challenge** — agent calls a tool and is refused with the AS location and
+   a permission ticket. A host with a status line sends `401` +
+   `WWW-Authenticate: UMA`; an in-process one sends a JSON-RPC `-32001`
+   carrying the same parameters. The client accepts either.
 2. **Attempt** — agent presents the ticket at Alice's AS token endpoint; the
    AS answers `need_info` with the terms template it dictates for that tier.
 3. **Commit** — agent signs the intent contract (echoing the dictated terms)
    and re-presents it. For a new agent, or an ask-me tier, the AS returns
    `request_submitted` and holds the ticket until Alice decides in her portal.
+   The requesting side does not block through that: after a short window the
+   shim hands the wait up to Bob's client as an MCP `input_required` with a
+   resumable `request_state`, so the call suspends rather than hanging.
 4. **Grant** — the AS issues a proof-of-possession RPT; the agent retries the
    signed call and the gateway lets it through after introspection.
 
@@ -140,6 +170,7 @@ explicitly so they work without host configuration.
 | `keycloak.uma.lab` | Keycloak |
 | `grafana.uma.lab` | Grafana |
 | `ps.uma.lab` | person-server |
+| `agent.uma.lab` | agent-operator (Bob's firm's CIMD + key directory) |
 
 ## Reimplementing this
 

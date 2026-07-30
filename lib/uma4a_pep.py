@@ -25,7 +25,7 @@ import base64
 import hashlib
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import httpx
@@ -46,16 +46,17 @@ class AuthzFacts:
     """One inbound tool call, reduced to what a verdict depends on.
 
     Deliberately not an HTTP request or an MCP context: an adapter fills this
-    in from whatever it has. `http_method`, `authority` and `path` are the
-    RFC 9421 covered components, and they are reconstructed from configuration
-    rather than read from forwarded headers — an ext_authz hop rewrites Host.
+    in from whatever it has.
     """
 
     tool: str | None
     args: dict | None
     mcp_method: str | None
     http_method: str = "POST"
-    authority: str = ""
+    # No `authority` here on purpose: the RFC 9421 base is reconstructed from
+    # the enforcer's *configured* expected_authority, never from the request,
+    # because an ext_authz hop rewrites Host and a forwarded value would let a
+    # caller choose what it signed over.
     path: str = "/mcp"
     authorization: str | None = None
     signature: str = ""
@@ -88,7 +89,6 @@ class Decision:
     resource_metadata: str | None = None
     family: str | None = None
     contract: str | None = None
-    details: dict = field(default_factory=dict)
 
 
 ALLOW = Decision(outcome="allow")
