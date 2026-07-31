@@ -63,15 +63,18 @@ negotiated version rather than assume it.
 
 ## Beat 1: the challenge has two encodings
 
-The parameters are fixed — `as_uri`, `ticket`, `resource_metadata`, `realm`.
-How they travel depends on whether the enforcement point has a status line.
+The parameters are fixed — `realm`, `error`, `as_uri`, `ticket`,
+`resource_metadata`, `scope`, `authorization_remediation`. How they travel
+depends on whether the enforcement point has a status line.
 
 **Gateway host** (an ext_authz service ahead of the resource):
 
 ```http
 HTTP/1.1 401 Unauthorized
-WWW-Authenticate: UMA realm="alice-vault", as_uri="https://alice-as.uma.lab",
-  ticket="tkt_…", resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"
+WWW-Authenticate: UMA realm="alice-vault", error="insufficient_authorization",
+  as_uri="https://alice-as.uma.lab", ticket="tkt_…",
+  resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp",
+  scope="trades:execute", authorization_remediation="<base64url JSON>"
 ```
 
 **In-process host** — an MCP `Extension`, i.e. the shape with no gateway in
@@ -88,6 +91,12 @@ to put a header on:
 
 A client should accept both; the shim in this repo does, and negotiates
 identically after either.
+
+**The `authorization_remediation` object is byte-for-byte the same in both.**
+That is the point of carrying it: `draft-zehavi-oauth-rar-metadata` defines
+the payload against `WWW-Authenticate`, and this shows the payload survives a
+transport that has no status line. The envelope is binding-specific; the
+remediation is not.
 
 > **An ext_authz service can never answer beat 1 with a JSON-RPC *result*.**
 > In agentgateway a 2xx from the auth service means *allow* and the body is
@@ -147,6 +156,33 @@ checking them when present — an absent header is as steerable as a lying one.
 The reference SDK rejects both cases for `mcp-name`, which is corroboration
 that this is real. The spec does not currently say so.
 
+## Step-up remediation (SEP-2643 / draft-zehavi-oauth-rar-metadata)
+
+SEP-2643 applies the RAR-metadata pattern to MCP: when a call fails for want
+of authority, the server returns machine-readable guidance instead of leaving
+the client to construct a step-up request from out-of-band documentation. U4A
+does not compete with it. The challenge above **is** that guidance, plus two
+parameters.
+
+| | RAR-metadata / SEP-2643 | U4A |
+|---|---|---|
+| payload | `authorization_details` array | the same array, plus `authorization_server` and `ticket` |
+| nature | a template the client fills in and submits | a handle to a negotiation already open |
+| who authors the request | the client | nobody — the resource registered it, the owner's AS decides |
+| whose authorization server | the client's own | the resource owner's |
+| server-side state | none by design | a negotiation, which is what makes a pend possible |
+
+The step that does not survive the move to RqP ≠ RO is *"client takes the
+template to its authorization server."* Bob's AS cannot grant access to
+Alice's vault. Naming `authorization_server` in the remediation object, and
+returning a ticket rather than a template, is what makes the same failure
+decidable by a party who is not the caller — and it is a small enough
+addition that it belongs in that draft rather than in a rival one. See
+[ext-auth-third-party-authorization.md](ext-auth-third-party-authorization.md).
+
+The other thing statelessness costs is the pend. A template has nowhere to
+hold "the owner has been asked and has not answered yet."
+
 ## Tasks (SEP-2663): not implemented, and why
 
 MRTR already carries the pend, so Tasks would add durable server-side handles
@@ -186,5 +222,7 @@ state, and a consuming poll makes a lost response brick the negotiation.
 | MRTR pend hand-back with `request_state` | implemented |
 | `Mcp-Method`/`Mcp-Name` reconciliation, required on protected methods | implemented |
 | Origin validation | implemented |
+| RAR-metadata remediation in the challenge (both encodings) | implemented |
+| `authorization_server` + `ticket` inside the remediation object | **proposed** for the RAR-metadata draft |
 | `subject` on an input request | **proposed** |
 | Tasks (`tasks/get|update|cancel`), `taskKind`, `proofOfPossession` | **future** |

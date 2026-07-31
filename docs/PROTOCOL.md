@@ -175,10 +175,48 @@ answers:
 ```
 HTTP/1.1 401 Unauthorized
 WWW-Authenticate: UMA realm="alice-vault",
+  error="insufficient_authorization",
   as_uri="https://alice-as.uma.lab",
   ticket="<ticket>",
-  resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"
+  resource_metadata="https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp",
+  scope="trades:execute",
+  authorization_remediation="<base64url JSON>"
 ```
+
+**The challenge is a superset of the RAR-metadata step-up challenge, not a
+rival to it.** `error` and `authorization_remediation` are
+`draft-zehavi-oauth-rar-metadata`'s parameters, carrying the same base64url
+JSON it defines; `scope` is RFC 6750 §3. Decoded:
+
+```json
+{
+  "authorization_details": [{
+    "type": "urn:uma4agents:authorization-details:tool-call",
+    "locations": ["https://gateway.uma.lab"],
+    "identifier": "alice-vault/execute_trade",
+    "actions": ["execute_trade"],
+    "datatypes": ["trades:execute"]
+  }],
+  "authorization_reference": "s256:6cR6qTmCj6s0S95MxCfdfwfXJ8myLtBg-PiL8v93H0g",
+  "authorization_server": "https://alice-as.uma.lab",
+  "ticket": "<ticket>"
+}
+```
+
+`authorization_details` and `authorization_reference` are that draft
+unchanged. `authorization_server` and `ticket` are the two additions, and
+they are what make a third-party decision possible: the RAR-metadata flow
+hands the client a template to submit to **its own** authorization server,
+which cannot work when the resource belongs to someone else. Naming the
+owner's AS, and handing back a ticket rather than a template, is the whole
+difference — the client authors nothing and cannot widen what it was given.
+
+Emitting the RAR vocabulary costs nothing (the resource id and scopes are
+already known) and buys three things: a client that implements the
+RAR-metadata draft can read most of this challenge without knowing UMA; a
+downstream policy engine gets typed fields rather than only a digest; and the
+`authorization_reference` lets a client holding many grants check whether it
+already has a token for this shape without parsing it.
 
 `resource_metadata` is RFC 9728 §5.1: the challenge names the document that
 lets the client corroborate `as_uri` instead of taking an unauthenticated
@@ -487,5 +525,7 @@ The activity ledger is a projection: **promised** = `contract.committed`,
 | 9 | Enforcement obligations hosted by either a gateway or the resource itself (`ENFORCEMENT_MODE=gateway|embedded`), from one core | FedAuthz names the obligations, not their host | The PEP is a role, not a product. Same maneuver the registration work used: two conformant hosts, one stack, so the claim is measured rather than argued |
 | 10 | Consumption ordering made normative: introspect (non-consuming) → permissions → PoP → operation binding → `POST /consume`, atomic and last. Inactive introspection carries an `error` reason; `connection_revoked` is terminal | UMA 2.0 §3.3.1 does not say where in enforcement a single-use token is spent | The intuitive order — consume first — lets an unsigned replay destroy an approval the owner just gave. And a bare `{"active": false}` sends a revoked agent round a negotiation whose outcome is settled |
 | 11 | Requesting-agent identity metadata: an optional CIMD `client_id` in the contract header (resolved, self-reference enforced, **display only**) and a Web Bot Auth `Signature-Agent` covered by the request signature | The agent is its key, or its issuer's token | The RqP ≠ RO cold-start problem: a party that has never met this agent needs to be able to say something true about it. Neither ever becomes an authorization input — the verifying key is always the RPT's `cnf`, and the connection handle is unchanged |
+
+| 12 | Challenge carries `error="insufficient_authorization"` + `authorization_remediation` (RFC 9396 `authorization_details` + `authorization_reference`), plus `authorization_server` and `ticket` inside it | UMA's challenge carries `as_uri` + `ticket` only | Superset of `draft-zehavi-oauth-rar-metadata` rather than a rival: the same remediation payload, plus the two parameters that let a party who is not the caller decide. The same JSON rides the JSON-RPC encoding byte for byte, which shows the payload is portable and only the envelope is binding-specific |
 
 Everything not listed here is intended to be stock UMA 2.0 / stock AAuth.

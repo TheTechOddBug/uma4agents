@@ -108,18 +108,21 @@ class UmaEnforcement(Extension):
             return await call_next(ctx)
 
         if d.outcome == "challenge":
-            # Beat 1 without a status line. Same ticket, same AS, same
-            # metadata pointer the 401 would have named — different envelope.
+            # Beat 1 without a status line. Same parameters the 401 would
+            # carry, including the RAR-metadata remediation object byte for
+            # byte — which is the point: that payload is portable, and only
+            # the envelope is binding-specific.
             raise MCPError(
                 UMA_CHALLENGE,
                 "authorization required: present this ticket to the resource owner's AS",
                 {
-                    "error": "uma_challenge",
+                    "error": "insufficient_authorization",
                     "as_uri": d.as_uri,
                     "ticket": d.ticket,
                     "resource_metadata": d.resource_metadata,
                     "realm": self.enforcer.realm,
                     "scope": " ".join(d.scopes or []),
+                    "authorization_remediation": self.enforcer.remediation(d),
                 },
             )
 

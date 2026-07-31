@@ -120,6 +120,40 @@ protocol treats handles as single-use. Single-use exists to stop a replayed
 handle escalating into a grant; observing state advances nothing, and a
 consuming poll means one lost response bricks the negotiation.
 
+## Relationship to RAR metadata / SEP-2643
+
+`draft-zehavi-oauth-rar-metadata` and SEP-2643 solve the neighbouring problem:
+when a call fails for want of authority, the resource returns machine-readable
+guidance rather than leaving the client to build a step-up request from
+documentation. The two efforts compose, and the addition needed is small.
+
+That draft's `authorization_remediation` object carries `authorization_details`
+(RFC 9396) and an optional `authorization_reference`. Its flow assumes the
+client then submits those details to **its own** authorization server. That
+assumption holds whenever the person who can authorize is the client's user.
+It fails whenever the resource belongs to someone else: the requesting party's
+authorization server has no standing to grant, and a template has nowhere to
+hold "the owner has been asked and has not answered."
+
+Two optional members close it:
+
+```jsonc
+{
+  "authorization_details": [ /* unchanged */ ],
+  "authorization_reference": "…",
+  "authorization_server": "https://alice-as.example",   // whose policy decides
+  "ticket": "…"                                          // handle to the negotiation
+}
+```
+
+A client that does not understand them behaves exactly as it does today. A
+client that does knows not to take the details to its own AS, and knows where
+to take the ticket instead.
+
+The reference implementation emits this object over both a
+`WWW-Authenticate` header and a JSON-RPC error, unchanged, which also
+demonstrates that the payload is transport-portable.
+
 ## Prior art
 
 This is not a new idea, only a new home for it. User-Managed Access 2.0

@@ -100,6 +100,10 @@ class Decision:
     as_uri: str | None = None
     resource_metadata: str | None = None
     scopes: list[str] | None = None
+    # draft-zehavi-oauth-rar-metadata: what authority was missing, in RAR
+    # terms, plus its content-addressed id.
+    authorization_details: list[dict] | None = None
+    authorization_reference: str | None = None
     family: str | None = None
     contract: str | None = None
 
@@ -361,11 +365,31 @@ class Enforcer:
                                  summary=json.dumps(f.args or {}, sort_keys=True))
         return Decision(outcome="allow", family=family, contract=info.get("contract"))
 
+    def authorization_details(self, rid: str, tool: str,
+                              scopes: list[str]) -> list[dict]:
+        """What authority was missing, as an RFC 9396 authorization_details
+        array, built from the failed request.
+
+        Same vocabulary draft-zehavi-oauth-rar-metadata uses for step-up
+        remediation. Emitting it costs nothing — the resource id and scopes
+        are already known — and it means a client that implements that draft
+        can read most of a UMA challenge without knowing UMA. It also gives a
+        downstream policy engine typed fields instead of only a digest.
+        """
+        return [{
+            "type": "urn:uma4agents:authorization-details:tool-call",
+            "locations": [self.resource_metadata_url.rsplit("/.well-known/", 1)[0]],
+            "identifier": rid,
+            "actions": [tool],
+            "datatypes": scopes,
+        }]
+
     async def challenge(self, tool: str, rid: str, scopes: list[str]) -> Decision:
         """Beat 1: a real ticket from the AS, and where to take it."""
         ticket = await self.mint_ticket(rid, scopes)
         if ticket is None:
             return Decision(outcome="deny", status=503, error="as_unreachable")
+        details = self.authorization_details(rid, tool, scopes)
         self.event("challenge.issued", corr=None, tool=tool, resource_id=rid,
                    scopes=scopes)
         return Decision(
@@ -376,20 +400,49 @@ class Enforcer:
             as_uri=self.as_public,
             resource_metadata=self.resource_metadata_url,
             scopes=scopes,
+            authorization_details=details,
+            authorization_reference=s256(
+                json.dumps(details, sort_keys=True, separators=(",", ":")).encode()),
         )
+
+    @staticmethod
+    def remediation(d: Decision) -> dict:
+        """The `authorization_remediation` object, shared by both encodings.
+
+        Deliberately the same JSON whether it rides a WWW-Authenticate header
+        or a JSON-RPC error: the payload is portable, only the envelope is
+        binding-specific. `as_uri` is the U4A addition — it names *whose*
+        authorization server decides, which is what the RAR-metadata flow has
+        no slot for, because it assumes the client's own AS can grant.
+        """
+        return {
+            "authorization_details": d.authorization_details or [],
+            "authorization_reference": d.authorization_reference,
+            "authorization_server": d.as_uri,
+            "ticket": d.ticket,
+        }
 
     def www_authenticate(self, d: Decision) -> str:
         """The UMA challenge header, for hosts that have a status line.
 
-        `scope` is the RFC 6750 §3 parameter, which MCP 2026-07-28 says a
-        resource SHOULD include: it tells a client what this call would have
-        needed without making it negotiate to find out.
+        A superset of the RAR-metadata step-up challenge rather than a rival
+        to it: `error` and `authorization_remediation` are that draft's
+        parameters, carrying the same base64url JSON; `as_uri` and `ticket`
+        are the two additions that let a party who is not the caller decide.
+        `scope` is RFC 6750 §3, which MCP 2026-07-28 says a resource SHOULD
+        include.
         """
-        parts = [f'realm="{self.realm}"', f'as_uri="{d.as_uri}"',
+        blob = base64.urlsafe_b64encode(
+            json.dumps(self.remediation(d), separators=(",", ":")).encode()
+        ).rstrip(b"=").decode()
+        parts = [f'realm="{self.realm}"',
+                 'error="insufficient_authorization"',
+                 f'as_uri="{d.as_uri}"',
                  f'ticket="{d.ticket}"',
                  f'resource_metadata="{d.resource_metadata}"']
         if d.scopes:
             parts.append(f'scope="{" ".join(d.scopes)}"')
+        parts.append(f'authorization_remediation="{blob}"')
         return "UMA " + ", ".join(parts)
 
 

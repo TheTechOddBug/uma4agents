@@ -51,9 +51,10 @@
   <text x="306" y="245" fill="#8a7f76" font-size="10.5">The obvious thing to write into a spec. But a server</text>
   <text x="306" y="260" fill="#8a7f76" font-size="10.5">with no gateway has no status line to put it on.</text>
   <rect x="725" y="206" width="435" height="66" rx="10" fill="#0c1210" stroke="#1e3a2e"/>
-  <text x="741" y="228" fill="#cfe6da" font-size="11">Required <tspan fill="#2ed079" font-weight="650">parameters</tspan>; bindings carry them.</text>
-  <text x="741" y="245" fill="#8fae9e" font-size="10.5">Header where there's a status line, JSON-RPC −32001</text>
-  <text x="741" y="260" fill="#8fae9e" font-size="10.5">where there isn't. One client reads both.</text>
+  <text x="741" y="224" fill="#cfe6da" font-size="11">Required <tspan fill="#2ed079" font-weight="650">parameters</tspan>; bindings carry them. Header</text>
+  <text x="741" y="239" fill="#cfe6da" font-size="11">where there's a status line, −32001 where there isn't.</text>
+  <text x="741" y="254" fill="#8fae9e" font-size="10.5">Now a <tspan fill="#2ed079">superset</tspan> of the RAR-metadata step-up</text>
+  <text x="741" y="268" fill="#8fae9e" font-size="10.5">challenge, plus who decides and a ticket.</text>
 
   <!-- ROW 3 -->
   <text x="58" y="308" fill="#eef1f7" font-size="11.5" font-weight="650">Spending a single-use grant</text>

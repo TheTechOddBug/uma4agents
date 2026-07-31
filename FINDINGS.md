@@ -270,7 +270,18 @@ what makes them actionable:
   proof.** Bind the task to the key that signed the intent contract and a
   single-use rotating ticket, and the handle stops being a credential.
 
-*Convergent work worth citing rather than competing with.* AP2 (donated to the
+*Convergent work worth citing rather than competing with.* RFC 9396 Rich
+Authorization Requests is the closest neighbour and was missing from earlier
+drafts of this document: UMA's introspection `permissions` array is the same
+idea — an array of typed objects describing fine-grained authority — arrived
+at five years earlier. Expressing it *as* RAR is what the OAuth+DPoP binding
+should do, and it has a second benefit worth naming, since policy engines are
+increasingly asked to map token claims directly (Cedar and Cedarling being the
+current example): RAR entries carry typed fields, where a content-addressed
+digest carries none. This POC's operation binding is a hash by design, which
+is right for integrity and leaves a downstream policy engine able to do
+equality and nothing else. Carrying both — the digest for binding, typed
+details for legibility — is the resolution. AP2 (donated to the
 FIDO Alliance) has a Cart Mandate that is our single-use operation-bound grant
 in the payments vertical — with the instructive difference that AP2's mandates
 are signed by the *requesting* side while ours are owner-dictated.
