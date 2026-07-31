@@ -158,6 +158,8 @@ that this is real. The spec does not currently say so.
 
 ## Step-up remediation (SEP-2643 / draft-zehavi-oauth-rar-metadata)
 
+![RAR metadata alone, and U4A](rar-at-a-glance.svg)
+
 SEP-2643 applies the RAR-metadata pattern to MCP: when a call fails for want
 of authority, the server returns machine-readable guidance instead of leaving
 the client to construct a step-up request from out-of-band documentation. U4A

@@ -127,6 +127,8 @@ when a call fails for want of authority, the resource returns machine-readable
 guidance rather than leaving the client to build a step-up request from
 documentation. The two efforts compose, and the addition needed is small.
 
+![RAR metadata alone, and U4A](rar-at-a-glance.svg)
+
 That draft's `authorization_remediation` object carries `authorization_details`
 (RFC 9396) and an optional `authorization_reference`. Its flow assumes the
 client then submits those details to **its own** authorization server. That
