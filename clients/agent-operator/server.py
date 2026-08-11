@@ -18,9 +18,19 @@ somewhere on the web that speaks for it, and neither works without one:
       published operator — which is the RqP != RO cold-start problem, since by
       definition there is no prior relationship to lean on.
 
-The keys served here are registered at runtime by the agents themselves
-(POST /register), because in this lab they are generated per-run. A real
-operator would publish keys it already holds.
+A real operator publishes keys it already holds, and that is the shape here:
+AGENT_OPERATOR_KEYS_FILE names a JWKS this process reads at startup and only
+serves. POST /register remains as an additive lab path, because the lab's
+agent keys are generated per run and something has to publish them.
+
+The distinction matters more than it looks. A directory held only in memory
+and filled in by whoever happened to call is a directory that empties on
+restart and disagrees with itself the moment there are two of these
+processes — an agent registers with one, a resource asks the other, and the
+key it needs is missing. Seeding from a file makes this service hold no
+authoritative state at all, which is what makes running several of them
+correct. The way to make a service horizontally scalable is usually to stop
+it holding state, not to replicate the state.
 """
 
 import json
@@ -31,11 +41,43 @@ from fastapi.responses import JSONResponse
 
 ORIGIN = os.environ.get("AGENT_OPERATOR_ORIGIN", "https://agent.uma.lab")
 NAME = os.environ.get("AGENT_OPERATOR_NAME", "Sterling & Vance — Advisory Agent")
+KEYS_FILE = os.environ.get("AGENT_OPERATOR_KEYS_FILE")
 
 app = FastAPI(title="agent-operator")
 
-# keyid -> JWK, registered by the operator's own agents at startup.
+# keyid -> JWK. Seeded from the published file; added to by /register.
 KEYS: dict[str, dict] = {}
+
+
+def load_published_keys() -> int:
+    """Read the operator's published JWKS, if it has one.
+
+    A missing or malformed file is not fatal: the directory is a discovery
+    aid, never an authorization input, so serving an empty one is a
+    degradation rather than a failure. Saying so out loud is the point —
+    a service that refused to start over this would be treating discovery as
+    though it were trust.
+    """
+    if not KEYS_FILE:
+        return 0
+    try:
+        with open(KEYS_FILE) as f:
+            published = json.load(f)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"event": "agent_keys.unreadable", "path": KEYS_FILE,
+                          "error": str(exc)[:120]}), flush=True)
+        return 0
+    for jwk in published.get("keys", []):
+        if kid := jwk.get("kid"):
+            KEYS[kid] = jwk
+    print(json.dumps({"event": "agent_keys.published_loaded",
+                      "path": KEYS_FILE, "keys": len(KEYS)}), flush=True)
+    return len(KEYS)
+
+
+@app.on_event("startup")
+async def seed_directory() -> None:
+    load_published_keys()
 
 
 @app.get("/health")
@@ -72,10 +114,14 @@ async def signatures_directory() -> JSONResponse:
 async def register(request: Request) -> dict:
     """Lab-only: an agent publishes the key it is about to sign with.
 
-    Real operators publish keys they already hold; this exists because the
-    lab's agent keys are generated per run. It is deliberately unauthenticated
-    and local-only — nothing downstream trusts this directory for
-    authorization, only for discovery.
+    Real operators publish keys they already hold (AGENT_OPERATOR_KEYS_FILE);
+    this exists because the lab's agent keys are generated per run. It is
+    deliberately unauthenticated and local-only — nothing downstream trusts
+    this directory for authorization, only for discovery.
+
+    Additive to the published set, and the only state this process holds that
+    its file does not. Running more than one replica means a runtime
+    registration lands on one of them; the published keys are on all of them.
     """
     body = await request.json()
     jwk = body.get("jwk") or {}
