@@ -233,6 +233,35 @@ store-test:
 	docker network rm u4a-storetest >/dev/null 2>&1 || true; \
 	exit $$status
 
+## k8s-verify-extauth: prove the ext_authz contract survives config file -> CRDs
+# The enforcement core decides from request facts. Under the file-driven
+# gateway those facts arrive because of three settings in gateway/agw.yaml;
+# on Kubernetes the same three exist under different names on a different
+# resource. This asserts, against a live cluster, that what reaches the
+# authorization service is unchanged — including the one header that does not
+# survive, so a future release cannot change it silently.
+# Needs a cluster: `make kind-cluster` (or an existing kube context).
+.PHONY: k8s-verify-extauth
+k8s-verify-extauth:
+	@./k8s/verify/extauth/run.sh
+
+## kind-cluster: create the local Kubernetes cluster (three nodes)
+# Binds host :443 and :53, the same ports the compose stack wants, so the two
+# shapes cannot run at once.
+.PHONY: kind-cluster
+kind-cluster:
+	@if [ -n "$$(docker compose ps -q 2>/dev/null)" ]; then \
+		echo "The compose stack is running and holds :443 and :53."; \
+		echo "Run 'make down' (or 'docker compose stop') first."; exit 1; \
+	fi
+	@kind get clusters 2>/dev/null | grep -qx uma4agents \
+		|| kind create cluster --config k8s/kind/cluster.yaml
+
+## kind-down: delete the local Kubernetes cluster
+.PHONY: kind-down
+kind-down:
+	@kind delete cluster --name uma4agents
+
 ## embedded-check: prove the grant works with the resource enforcing itself
 # Flips alice-vault to ENFORCEMENT_MODE=embedded, runs the four beats straight
 # at the resource (no gateway, no ext_authz), then restores gateway mode.

@@ -167,13 +167,34 @@ async def check(request: Request, rest: str = "") -> Response:
     """
     original_path = rest or "/"
     body = await request.body()
+    h = request.headers
+
+    # The gateway buffers the body up to a configured ceiling and, past it,
+    # forwards a prefix with this header set rather than refusing the call.
+    # A cut-off JSON-RPC body does not parse, so the tool name disappears —
+    # which is a bypass shape: pad a call past the ceiling and the
+    # enforcement point can no longer see what is being invoked.
+    #
+    # Deny-by-default already catches it (an unparseable body yields no
+    # method, and no method is not a protected method), but it reports
+    # "unknown_method" and says nothing about a body cut in half. Fail closed
+    # on purpose, and name the reason: the signal is right here in the
+    # request.
+    if h.get("x-envoy-auth-partial-body") == "true":
+        event("access.denied", reason="truncated-body", path=original_path)
+        return deny(413, {
+            "error": "request_body_too_large",
+            "error_description": "the call exceeded the gateway's authorization "
+                                 "body limit, so the tool being invoked could "
+                                 "not be determined",
+        })
+
     method, tool, args = parse_mcp(body) if body else (None, None, None)
 
     # Nothing to authorize: no body, or a method that carries no invocation.
     if request.method != "POST" or (method is None and tool is None and not body):
         return Response(status_code=200)
 
-    h = request.headers
     facts = AuthzFacts(
         tool=tool,
         args=args,

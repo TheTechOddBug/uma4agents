@@ -65,6 +65,11 @@ binds:
                 includeRequestBody:
                   maxRequestBytes: 16384
                 includeRequestHeaders:
+                  # Past maxRequestBytes the body is truncated and forwarded,
+                  # not refused — so the tool name can vanish from a call that
+                  # was merely padded. The PEP denies when this is set rather
+                  # than inferring it from a body that will not parse.
+                  - x-envoy-auth-partial-body
                   - authorization
                   - signature
                   - signature-input
