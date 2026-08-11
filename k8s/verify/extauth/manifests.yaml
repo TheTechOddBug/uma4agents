@@ -1,0 +1,214 @@
+# The ext_authz contract, expressed as Kubernetes resources.
+#
+# This is the Kubernetes translation of gateway/agw.yaml's `alice-vault-mcp`
+# route, reduced to the parts the enforcement core depends on. The mapping is
+# the point:
+#
+#   gateway/agw.yaml (file)                  AgentgatewayPolicy (this file)
+#   ------------------------------------     ---------------------------------
+#   extAuthz.host: uma-pep:9002              extAuth.backendRef {name, port}
+#   includeRequestBody.maxRequestBytes       extAuth.forwardBody.maxSize
+#   includeRequestHeaders: [...]             extAuth.http.allowedRequestHeaders
+#   protocol.http.path: '"/check" + ...'     extAuth.http.path   (same CEL)
+#   (implicitly fail-closed)                 extAuth.failureMode: FailClosed
+#
+# The CEL expression carries across unchanged. Only the field names move, and
+# `forwardBody` sits beside `http` rather than inside it — because the body is
+# buffered whichever protocol the authorization server speaks.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: u4a-verify
+---
+# The measuring instrument. Mounted from a ConfigMap rather than an image so
+# that what it records and what a reader reads are the same file.
+apiVersion: v1
+kind: Service
+metadata:
+  name: extauth-recorder
+  namespace: u4a-verify
+spec:
+  selector:
+    app: extauth-recorder
+  ports:
+    - name: http
+      port: 9002
+      targetPort: 9002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extauth-recorder
+  namespace: u4a-verify
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: two recorders would mean the request under
+  # test is observed by one of them and the assertions read the other. This
+  # is a measuring instrument, so there must be exactly one of it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: extauth-recorder
+  template:
+    metadata:
+      labels:
+        app: extauth-recorder
+    spec:
+      containers:
+        - name: recorder
+          image: python:3.12-slim
+          command: ["python", "/verify/recorder.py"]
+          ports:
+            - containerPort: 9002
+          volumeMounts:
+            - name: recorder
+              mountPath: /verify
+          readinessProbe:
+            httpGet: { path: /health, port: 9002 }
+            periodSeconds: 2
+      volumes:
+        - name: recorder
+          configMap:
+            name: extauth-recorder
+---
+# Alice's vault, unmodified: a stock MCP server that knows nothing about UMA.
+# It is here so the route has a real MCP backend behind it — the question is
+# what reaches the authorization service on the way, not what the vault says.
+apiVersion: v1
+kind: Service
+metadata:
+  name: alice-vault-mcp
+  namespace: u4a-verify
+spec:
+  selector:
+    app: alice-vault-mcp
+  ports:
+    - name: http
+      port: 9020
+      targetPort: 9020
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alice-vault-mcp
+  namespace: u4a-verify
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alice-vault-mcp
+  template:
+    metadata:
+      labels:
+        app: alice-vault-mcp
+    spec:
+      containers:
+        - name: vault
+          image: u4a/alice-vault-mcp:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENFORCEMENT_MODE
+              value: gateway
+          ports:
+            - containerPort: 9020
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: meridian
+  namespace: u4a-verify
+spec:
+  gatewayClassName: agentgateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8080
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# The MCP backend. `sessionRouting: Stateful` because the vault speaks
+# streamable-http with sessions and uses Mcp-Session-Id; stateless routing
+# would break affinity to the vault process holding the session.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: alice-vault
+  namespace: u4a-verify
+spec:
+  mcp:
+    sessionRouting: Stateful
+    targets:
+      - name: alice-vault
+        static:
+          host: alice-vault-mcp.u4a-verify.svc.cluster.local
+          port: 9020
+          protocol: StreamableHTTP
+          path: /mcp
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: alice-vault-mcp
+  namespace: u4a-verify
+spec:
+  parentRefs:
+    - name: meridian
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: alice-vault
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: uma-enforcement
+  namespace: u4a-verify
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: alice-vault-mcp
+  traffic:
+    extAuth:
+      backendRef:
+        name: extauth-recorder
+        port: 9002
+      # Fail closed, said out loud. The default is already FailClosed, but a
+      # policy enforcement point that fails open under load is not an
+      # enforcement point, and that is worth reading rather than inferring.
+      failureMode: FailClosed
+      # The enforcement core reads the JSON-RPC body to learn which tool is
+      # being called; without it every MCP request looks alike and tier
+      # policy cannot be applied. 16KiB matches the file-config stack.
+      forwardBody:
+        maxSize: 16384
+      http:
+        # Byte-identical to the CEL in gateway/agw.yaml. The PEP serves
+        # /check{rest:path} so it can see the path the client actually asked
+        # for, not the callback path.
+        path: '"/check" + request.path'
+        allowedRequestHeaders:
+          # Past forwardBody.maxSize the body is truncated and forwarded, not
+          # refused — the CRD's own description says otherwise, and it is
+          # wrong (spike E). The PEP denies on this header rather than
+          # inferring truncation from a body that will not parse.
+          - x-envoy-auth-partial-body
+          - authorization
+          - signature
+          - signature-input
+          - host
+          - content-type
+          - mcp-method
+          - mcp-name
+          - mcp-protocol-version
+          - origin
+          - signature-agent
+          - traceparent

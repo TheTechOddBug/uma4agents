@@ -1,0 +1,57 @@
+# The lab cluster.
+#
+# Three nodes, not one. Multiple nodes are what make topologySpreadConstraints
+# and PodDisruptionBudgets mean something rather than being decoration — the
+# point of this deployment is to show the grant surviving a node going away,
+# and you cannot show that on a single-node cluster.
+#
+# The host port mappings reproduce what the compose stack already binds, so
+# the two shapes are interchangeable from the developer's side and
+# /etc/resolver/uma.lab (written by `make dns-setup`) keeps working unchanged.
+# They are also why the two stacks cannot run at once: both want :443 and :53.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: uma4agents
+
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      # Let the edge gateway schedule here too; on a laptop, holding a whole
+      # node back for the control plane is a node we do not have to spare.
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          taints: []
+    extraPortMappings:
+      # listenAddress is pinned to loopback deliberately: this lab ships
+      # fixed development credentials, and binding it to every interface
+      # would put them on the local network.
+      - containerPort: 30443
+        hostPort: 443
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30080
+        hostPort: 80
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      # *.uma.lab resolution for the browser, served by the same hickory-dns
+      # zone the compose stack uses.
+      - containerPort: 30053
+        hostPort: 53
+        listenAddress: "127.0.0.1"
+        protocol: UDP
+      - containerPort: 30053
+        hostPort: 53
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+  - role: worker
+  - role: worker
+
+# Images are built locally and pushed to a registry container on the host
+# network. `kind load` would also work, but it re-imports the whole image to
+# every node on every change; a push moves only the changed layers, and the
+# inner loop here is "edit app.py, see it run".
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
