@@ -23,7 +23,7 @@ available on request.
 | `request_submitted` pending state | **Keep** | Already specifies "ask me"; the agent era only adds *where* the owner is asked |
 | Claims-gathering (`need_info` demand loop) | **Keep, transform** | Becomes the owner *proffering* a terms template (MyTerms / IEEE 7012-shaped), not just naming claim formats |
 | RPT (requesting party token) | **Keep semantics, replace token** | Keep the per-permission introspection array; drop the bearer token for a PoP token |
-| RS-side registration + PAT (FedAuthz) | **Keep direction, relocate work** | The owner-authoritative direction is right; the RS burden belongs in a gateway |
+| RS-side registration + PAT (FedAuthz) | **Keep direction, relocate work** | The owner-authoritative direction is right; the RS burden is *relocatable* — a gateway, a framework, or the resource itself (rec 7). Both hosts run here against one AS |
 | Resource registration model | **Transform** | Durable resources → *tool/capability surfaces*; and registration itself becomes method-agnostic — classic push RReg, or declarative pull from RFC 9728 metadata plus a protected owner-resources listing (rec 5; both run in this POC) |
 | Interactive claims gathering (browser redirect) | **Transform** | Same slot, new interlocutors: agent-side elicitation, owner-side push |
 | Trust-elevation levels, multi-AS, legal framework | **Parking lot** | Real and implicated, out of scope for a first POC; revival conditions noted |
@@ -57,6 +57,35 @@ and owner-dictated claims. Write it against *properties* ("a requesting agent
 with verifiable identity," "proof-of-possession on requests"), not a specific
 wire protocol, so no single vendor's roadmap can strand it. This is the UMA 2.0
 maneuver run again: recompose as a grant layer, not a rival stack.
+
+*Why not GNAP.* RFC 9635 has been a published standard since October 2024, it
+is literally the Grant **Negotiation** and Authorization Protocol, and its
+continuation handles look a great deal like tickets — so the question deserves
+an answer rather than a silence. GNAP negotiates between a client and *its
+own* resource owner: the party operating the client and the party who can
+authorize are assumed to be reachable through one interaction, and its
+interaction model is built around getting that person in front of the AS.
+What it has no notion of is a second principal who is not the requester, is
+not present, and whose policy must be satisfied while they are asleep — nor of
+an owner *proffering* terms the requesting side must sign. Those two are the
+whole of this work. GNAP is a better host for this grant than OAuth 2.0 would
+be, and a GNAP binding is a reasonable third document; it is not a substitute
+for the core, because the thing the core adds is exactly the thing GNAP
+assumes away.
+
+*A note on where enforcement runs.* This recommendation says "transport
+agnostic"; the build showed the same has to be said about **which software
+enforces**. FedAuthz gives the resource server a job list — hold a PAT (§1.5),
+keep the AS's view of its resources current (§3), ask for a permission ticket
+(§4), introspect before allowing a call (§5) — and never names the component
+that does the work. §1.4 divides responsibility between the *parties*, not
+between processes.
+
+So this POC runs two shapes against one authorization server
+(`ENFORCEMENT_MODE=gateway|embedded`): a gateway with plain MCP servers behind
+it that know nothing about UMA, and no gateway at all, with the MCP server
+handling the grant itself. Same ticket, same terms, same token. The one thing
+that does not survive the move is the *challenge encoding* — rec 7.
 
 **2. Make the owner's terms first-class — as MyTerms, extended.** The single
 most valuable transformation is claims-gathering becoming an *owner-proffered*
@@ -120,11 +149,25 @@ operation hash so a single-use approval authorizes exactly one call.
 declarative profile built on RFC 9728 — with the owner context split out
 behind a protected listing.** This is the same maneuver UMA already made on
 the client side (client registration is method-agnostic; DCR and now CIMD
-both fit). This POC runs both methods against an otherwise identical stack
-— `REGISTRATION_MODE=push|pull` — so the trade is measured, not argued.
-The gateway relocation stands in either mode: naive resources sit behind an
-MCP gateway that carries the FedAuthz obligations; the MCP server cannot
-tell it's protected.
+both fit). Both methods were built and run against an otherwise identical stack, so
+the trade below is measured rather than argued. Only the declarative profile
+is carried forward on the main line; the RReg implementation is preserved
+and runnable on the `legacy/rreg-baseline` branch, which is what makes the
+comparison checkable rather than merely reported.
+
+Moving the RS-side burden works in either method, and the sharper statement
+is that **the spec should describe the job, not the box**. FedAuthz already
+does — it gives the resource server a job list and never names the software
+that performs it. A gateway is one way, and it is the one that lets a plain
+MCP server participate untouched; the MCP server doing the work itself is
+another, which is what a deployment with no gateway in the path looks like
+(MCP SDK 2.x exposes `Extension.intercept_tool_call` for exactly that).
+
+Our own earlier drafts got this wrong, reading as though the gateway were
+where the burden *belongs*. It is where we happened to put it. The
+recommendation is that the spec state the resource-server obligations as a
+conformance profile any resource-side implementation may satisfy, rather
+than in terms that imply a topology.
 
 *What the pull profile is.* The RS stops calling the AS and only publishes:
 a public RFC 9728 document carrying **structure** (tool surfaces + scopes,
@@ -187,7 +230,77 @@ must tolerate a live back-call or verify against pre-cached keys.
 **6. Bindings as thin, separate documents.** Ship the core with a first
 binding to a concrete agent-identity/PoP layer (this POC binds to AAuth) and
 plan a second for the OAuth+DPoP installed base. One spec, multiple bindings,
-each recruiting a different implementer community.
+each recruiting a different implementer community. **MCP is now the third and
+most urgent**: it has a formal, composable authorization-extension track
+(`modelcontextprotocol/ext-auth`), and its 2026-07-28 revision independently
+grew most of the machinery this grant needs. Draft in
+[docs/MCP-BINDING.md](docs/MCP-BINDING.md).
+
+**7. Specify the challenge as parameters, not as `WWW-Authenticate`.** The
+obvious core text would require a `401` carrying `as_uri`, `ticket` and
+`resource_metadata` in a `WWW-Authenticate: UMA` header. That would have been
+a mistake, and building two enforcement hosts is what exposed it. A gateway
+has a status line to decorate; a resource enforcing in-process does not — an
+MCP `Extension.intercept_tool_call` returns a domain result, so beat 1 has to
+be a JSON-RPC error carrying the same three values. Mandating the header would
+have excluded every in-process deployment, which is to say the resource-side
+frameworks most likely to adopt this. **Require the parameters; let each
+binding say how they travel.** This POC runs both encodings against one
+authorization server, and one client understands both.
+
+**8. `input_required` needs a subject — and the authorization context MCP
+could not define is a proof-of-possession key plus a rotating ticket.** Two
+findings against MCP 2026-07-28, stated in its own vocabulary because that is
+what makes them actionable:
+
+- MRTR (SEP-2322) gives a server a way to say "I need input before I can
+  finish" and hand back a resumable `request_state`. But `input_requests` is a
+  *closed* union of `CreateMessageRequest | ListRootsRequest | ElicitRequest`
+  — sampling the client's model, reading the client's filesystem, asking the
+  client's human. There is no member, and no extension point on the members,
+  for *blocked on a different principal who is not on this connection*. MCP's
+  type system cannot express the case this entire experiment is about. The fix
+  is small: a `subject` block on an input request, whose load-bearing field is
+  `reachable_by_client: false`. Without it a conforming client will try to
+  satisfy the wait from its own user, who has no part in the decision.
+- The Tasks extension (SEP-2663) states plainly that it cannot scope
+  `tasks/list`, because "servers cannot reliably correlate two unrelated
+  handles to the same caller," and concedes task ids act as bearer tokens.
+  UMA has an answer it arrived at in 2018: **do not correlate handles, verify
+  proof.** Bind the task to the key that signed the intent contract and a
+  single-use rotating ticket, and the handle stops being a credential.
+
+*Convergent work worth citing rather than competing with.* RFC 9396 Rich
+Authorization Requests is the closest neighbour and was missing from earlier
+drafts of this document: UMA's introspection `permissions` array is the same
+idea — an array of typed objects describing fine-grained authority — arrived
+at five years earlier. Expressing it *as* RAR is what the OAuth+DPoP binding
+should do, and it has a second benefit worth naming, since policy engines are
+increasingly asked to map token claims directly (Cedar and Cedarling being the
+current example): RAR entries carry typed fields, where a content-addressed
+digest carries none. This POC's operation binding is a hash by design, which
+is right for integrity and leaves a downstream policy engine able to do
+equality and nothing else. Carrying both — the digest for binding, typed
+details for legibility — is the resolution. AP2 (donated to the
+FIDO Alliance) has a Cart Mandate that is our single-use operation-bound grant
+in the payments vertical — with the instructive difference that AP2's mandates
+are signed by the *requesting* side while ours are owner-dictated.
+`draft-oauth-transaction-tokens-for-agents` is the same short-lived
+per-transaction idea one layer down. The proposed IETF BoF on AI-agent
+auditing is the natural home for the ledger's promised/touched/approved
+projection. And MCP's own deprecation of Dynamic Client Registration in favour
+of Client ID Metadata Documents is the exact precedent rec 5 argues from: a
+registration mechanism made method-agnostic, then replaced, without breaking
+the thing that depended on it.
+
+*Considered and not adopted: AuthZEN.* The Authorization API 1.0 became an
+OpenID final specification in 2026 and standardises precisely the PEP→PDP call
+this stack makes. It was not adopted because the decision here carries a `cnf`
+key, an operation-parameters hash, and single-use consumption semantics that
+its request/response model has no natural slot for, and because "any gateway
+can enforce this" is already served by ext_authz. Most of its practical value
+— a PEP that can tell *why* a token was refused — was obtained instead by
+adding reason codes to introspection.
 
 ---
 

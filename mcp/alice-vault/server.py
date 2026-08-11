@@ -2,18 +2,49 @@
 
 Fixture data through a real protocol path: positions, transaction history,
 and a pretend trade-execution endpoint, served over MCP streamable-http.
-This server never speaks UMA or AAuth — protection is conferred by the
-gateway in front of it (the whole point of primitive 5's transformation).
+
+Whether this server handles its own authorization, or something in front of it
+does, is a deployment choice. UMA's FedAuthz gives the resource server a job
+list and never says which piece of software has to do it, so this server runs
+both ways, selected by ENFORCEMENT_MODE:
+
+  gateway  (default) — this process holds no auth code at all; an ext_authz
+                       service ahead of it carries the obligations.
+  embedded           — the same enforcement core runs in-process as an MCP
+                       SDK 2.x Extension (see uma_extension.py), and there
+                       need be no gateway in the path.
+
+Same authorization server, same ticket, same terms, same token in both. The
+one visible difference is beat 1's envelope: a gateway can answer 401 +
+WWW-Authenticate, an in-process interceptor has to raise a JSON-RPC error
+carrying the same ticket. That asymmetry is the finding, not a compromise.
 """
 
 import json
+import os
 import pathlib
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 FIXTURES = json.loads((pathlib.Path(__file__).parent / "fixtures.json").read_text())
 
-mcp = FastMCP("alice-vault", host="0.0.0.0", port=9020)
+# The tool surface, and which calls are single-use. In gateway mode the PEP
+# holds the same table; in embedded mode this is the one copy.
+TOOLS = {
+    "get_positions": ("alice-vault/get_positions", ["positions:read"]),
+    "get_transactions": ("alice-vault/get_transactions", ["transactions:read"]),
+    "execute_trade": ("alice-vault/execute_trade", ["trades:execute"]),
+}
+SINGLE_USE_TOOLS = {"execute_trade"}
+
+ENFORCEMENT_MODE = os.environ.get("ENFORCEMENT_MODE", "gateway")
+
+extensions = []
+if ENFORCEMENT_MODE == "embedded":
+    import uma_extension
+    extensions.append(uma_extension.build(TOOLS, SINGLE_USE_TOOLS))
+
+mcp = MCPServer("alice-vault", extensions=extensions)
 
 
 @mcp.tool()
@@ -42,4 +73,6 @@ def execute_trade(symbol: str, side: str, quantity: int) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    # SDK 2.0 moved host/port from the constructor to run(), and defaults host
+    # to 127.0.0.1 — which binds to nothing reachable from inside a container.
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=9020)

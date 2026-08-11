@@ -133,7 +133,8 @@ CURL = curl -sk --cacert ./certs/rootCA.pem \
 	--resolve gateway.uma.lab:443:127.0.0.1 \
 	--resolve portal.uma.lab:443:127.0.0.1 \
 	--resolve grafana.uma.lab:443:127.0.0.1 \
-	--resolve ps.uma.lab:443:127.0.0.1
+	--resolve ps.uma.lab:443:127.0.0.1 \
+	--resolve agent.uma.lab:443:127.0.0.1
 
 smoke-test:
 	@echo "==> DNS resolution (host resolver; optional until make dns-setup)..."
@@ -158,9 +159,19 @@ smoke-test:
 		-H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
 		-d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"get_positions","arguments":{}}}'); \
 		echo "$$RESP" | grep -qi 'www-authenticate: UMA' && echo "$$RESP" | grep -q 'ticket=' \
-		&& echo "  gateway challenge: OK" || { echo "  gateway challenge: FAIL"; }
+		&& echo "  gateway challenge: OK" || { echo "  gateway challenge: FAIL"; }; \
+		echo "==> ext_authz denial body reaches the client verbatim..."; \
+		echo "$$RESP" | grep -q 'uma_challenge' \
+		&& echo "  ext_authz body passthrough: OK" || echo "  ext_authz body passthrough: FAIL"
 	@echo "==> Alice's portal..."
 	@$(CURL) https://portal.uma.lab/health | grep -q ok && echo "  portal: OK" || echo "  portal: FAIL"
+	@echo "==> Agent operator: CIMD document (self-referential client_id)..."
+	@$(CURL) https://agent.uma.lab/agent.json | grep -q '"client_id": *"https://agent.uma.lab/agent.json"' \
+		&& echo "  agent CIMD: OK" || echo "  agent CIMD: FAIL"
+	@echo "==> Agent operator: Web Bot Auth key directory..."
+	@$(CURL) -i https://agent.uma.lab/.well-known/http-message-signatures-directory \
+		| grep -qi 'application/http-message-signatures-directory+json' \
+		&& echo "  signatures directory: OK" || echo "  signatures directory: FAIL"
 	@echo "==> Person server discovery..."
 	@$(CURL) https://ps.uma.lab/.well-known/aauth-person.json | grep -q token_endpoint \
 		&& echo "  person-server: OK" || echo "  person-server: FAIL"
@@ -186,3 +197,27 @@ reset:
 .PHONY: shim-test
 shim-test:
 	docker compose --profile test run --rm shim-test
+
+## sig-test: unit-test the RFC 9421 profile (required vs tolerated components)
+.PHONY: sig-test
+sig-test:
+	@docker run --rm -v "$(PWD)/lib:/u4a/lib:ro" python:3.12-slim \
+		sh -c "pip install -q cryptography && python /u4a/lib/test_http_sig.py"
+
+## embedded-check: prove the grant works with the resource enforcing itself
+# Flips alice-vault to ENFORCEMENT_MODE=embedded, runs the four beats straight
+# at the resource (no gateway, no ext_authz), then restores gateway mode.
+.PHONY: embedded-check
+embedded-check:
+	ENFORCEMENT_MODE=embedded docker compose up -d --force-recreate alice-vault-mcp
+	@printf "Waiting for the vault"; \
+	for i in $$(seq 1 30); do \
+		docker compose exec -T alice-vault-mcp python3 -c \
+			"import socket;socket.create_connection(('localhost',9020),2)" >/dev/null 2>&1 && break; \
+		printf "."; sleep 1; \
+	done; echo
+	@docker compose --profile test run --rm embedded-check; status=$$?; \
+	echo "Restoring ENFORCEMENT_MODE=gateway"; \
+	docker compose up -d --force-recreate alice-vault-mcp >/dev/null 2>&1; \
+	docker compose restart agentgateway >/dev/null 2>&1; \
+	exit $$status

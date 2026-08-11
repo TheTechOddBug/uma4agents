@@ -59,11 +59,12 @@ RS_CLIENTS: dict[str, dict] = {
     }
 }
 PAT_TTL = 3600
-# push: the RS registers its resources here (classic FedAuthz /rreg).
-# pull: this AS *reads* the RS's published metadata — public structure from
-# the RFC 9728 document, owner-bound instances from the protected
-# owner-resources endpoint — and materializes its registry from it.
-REGISTRATION_MODE = os.environ.get("REGISTRATION_MODE", "push")
+# Registration is declarative: this AS *reads* the RS's published metadata —
+# public structure from the RFC 9728 document, owner-bound instances from the
+# protected owner-resources endpoint — and materializes its registry from it.
+# Classic FedAuthz push registration (/rreg) is gone from this line; the
+# measured comparison lives on the `legacy/rreg-baseline` branch, and rec 5 in
+# FINDINGS.md is what it produced. One registry, one writer.
 # The owner-proffered terms + signed agreement follow the MyTerms pattern
 # (IEEE 7012): the individual proffers machine-readable terms from her own
 # roster; the counterparty agrees; both sides keep a record. The URN is ours —
@@ -72,7 +73,11 @@ REGISTRATION_MODE = os.environ.get("REGISTRATION_MODE", "push")
 AGREEMENT_FORMAT = "urn:uma4agents:format:myterms-agreement-v1+jws"
 AGREEMENT_CLAIM = "urn:uma4agents:claim:myterms-agreement"
 TICKET_TTL = 300
-PENDING_TTL = 600
+# How long a held "ask-me" ticket stays valid. The demo's own premise is that
+# Alice may be asleep, so ten minutes was never right — and it is only safe to
+# lengthen because the requesting side no longer holds a call open across it
+# (the shim hands the wait up as an MCP input_required and resumes).
+PENDING_TTL = int(os.environ.get("UMA_AS_PENDING_TTL", 3600))
 POLL_INTERVAL = 3
 
 log = logging.getLogger("uma-as")
@@ -124,12 +129,22 @@ KID = "uma-as-1"
 app = FastAPI(title="uma-as")
 
 # ---------------------------------------------------------------------------
-# In-memory state. TICKETS is keyed by the *current* ticket string; each
-# presentation consumes it (UMA 2.0 single-use rule) and, if the negotiation
-# continues, a rotated ticket inherits the same negotiation record.
+# In-memory state.
+#
+# The negotiation record is keyed by its *family* and lives for the whole
+# negotiation; TICKETS is only a rotating index into it. Each presentation
+# consumes the current ticket (UMA 2.0 single-use rule) and, if the
+# negotiation continues, a fresh ticket is indexed to the same family.
+#
+# Keying the record by the ticket instead — the obvious first design — makes
+# the record invisible between the pop and the re-insert, so a concurrent
+# /owner/pending misses it and /owner/pending/{family}/decision 404s on a
+# negotiation that plainly exists. The family is the stable identity here;
+# the ticket is a credential for it.
 # ---------------------------------------------------------------------------
 RESOURCES: dict[str, dict] = {}
-TICKETS: dict[str, dict] = {}
+NEGOTIATIONS: dict[str, dict] = {}  # family -> negotiation record
+TICKETS: dict[str, str] = {}        # rotating ticket -> family
 RPTS: dict[str, dict] = {}          # jti -> {consumed, operation, family, handle}
 LEDGER: list[dict] = []             # promised / touched / approved entries
 OWNER_QUEUE: list[asyncio.Queue] = []  # SSE subscribers (portal)
@@ -164,17 +179,52 @@ async def owner_notify(payload: dict) -> None:
 
 
 def new_ticket(record: dict) -> str:
+    """Mint a ticket and index it to the record's family. The record itself
+    stays in NEGOTIATIONS throughout."""
     ticket = f"tkt_{secrets.token_urlsafe(24)}"
     record["expires"] = now() + (PENDING_TTL if record.get("state") == "awaiting-owner" else TICKET_TTL)
-    TICKETS[ticket] = record
+    NEGOTIATIONS[record["family"]] = record
+    TICKETS[ticket] = record["family"]
     return ticket
 
 
 def consume_ticket(ticket: str) -> dict | None:
-    rec = TICKETS.pop(ticket or "", None)
+    """Burn the presented ticket and return its negotiation.
+
+    Only the index entry is removed — the negotiation remains addressable by
+    family, so the owner's portal can see and decide a pending request even in
+    the window between one ticket being consumed and its rotation being
+    issued.
+    """
+    family = TICKETS.pop(ticket or "", None)
+    if family is None:
+        return None
+    rec = NEGOTIATIONS.get(family)
     if not rec or rec["expires"] < now():
         return None
     return rec
+
+
+def close_negotiation(rec: dict | None) -> None:
+    """Drop a finished negotiation and any ticket still indexed to it.
+
+    Every path out of the grant loop is terminal except need_info and
+    awaiting-owner, so without this the record set grows for the life of the
+    process. The ledger, not this dict, is the audit trail.
+    """
+    if not rec:
+        return
+    family = rec.get("family")
+    NEGOTIATIONS.pop(family, None)
+    for t in [t for t, f in TICKETS.items() if f == family]:
+        TICKETS.pop(t, None)
+
+
+def reap_expired() -> None:
+    """Sweep negotiations whose ticket window has closed with nobody returning."""
+    stale = [f for f, r in NEGOTIATIONS.items() if r["expires"] < now()]
+    for family in stale:
+        close_negotiation(NEGOTIATIONS.get(family))
 
 
 # --- Basics -----------------------------------------------------------------
@@ -199,7 +249,6 @@ async def discovery() -> dict:
         "token_endpoint": f"{ISSUER}/token",
         "permission_endpoint": f"{ISSUER}/perm",
         "introspection_endpoint": f"{ISSUER}/introspect",
-        "resource_registration_endpoint": f"{ISSUER}/rreg",
         "jwks_uri": f"{ISSUER}/jwks",
         "terms_endpoint": f"{ISSUER}/terms",
         "grant_types_supported": ["urn:ietf:params:oauth:grant-type:uma-ticket"],
@@ -519,8 +568,6 @@ def pull_registrations(client_id: str) -> int:
 
 @app.on_event("startup")
 async def pull_at_startup() -> None:
-    if REGISTRATION_MODE != "pull":
-        return
     import asyncio
 
     async def attempt_loop():
@@ -547,93 +594,6 @@ async def pull_at_startup() -> None:
 # --- Protection API (gateway-side, FedAuthz shape) ---------------------------
 
 
-def resource_description(body: dict) -> dict:
-    """Validate and normalize a FedAuthz §3 resource description."""
-    scopes = body.get("resource_scopes")
-    if not isinstance(scopes, list) or not scopes or not all(
-        isinstance(s, str) and s for s in scopes
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "invalid_request",
-                    "error_description": "resource_scopes (non-empty list) is required"},
-        )
-    return {
-        "resource_scopes": scopes,
-        "name": body.get("name"),
-        "type": body.get("type"),
-        "icon_uri": body.get("icon_uri"),
-        "description": body.get("description"),
-    }
-
-
-def reject_push() -> None:
-    """In pull mode the registry is materialized from what the RS publishes;
-    accepting pushes too would leave two writers and no single truth."""
-    if REGISTRATION_MODE == "pull":
-        raise HTTPException(
-            status_code=405,
-            detail={"error": "registration_is_declarative",
-                    "error_description": "this AS pulls the RS's published "
-                    "metadata; update the published documents instead"})
-
-
-@app.post("/rreg")
-async def register_resource(request: Request) -> JSONResponse:
-    require_pat(request)
-    reject_push()
-    body = await request.json()
-    desc = resource_description(body)
-    rid = body.get("_id") or f"res_{uuid.uuid4().hex[:8]}"
-    created = rid not in RESOURCES
-    RESOURCES[rid] = desc
-    event("resource.registered", resource_id=rid, scopes=desc["resource_scopes"],
-          created=created)
-    return JSONResponse(
-        {"_id": rid, "user_access_policy_uri": f"{ISSUER}/owner/policies"},
-        status_code=201 if created else 200,
-        headers={"Location": f"{ISSUER}/rreg/{rid}"} if created else {},
-    )
-
-
-@app.get("/rreg")
-async def list_resources(request: Request) -> list:
-    """FedAuthz §3.4 List: bare ids, as the spec shapes it."""
-    require_pat(request)
-    return list(RESOURCES.keys())
-
-
-@app.get("/rreg/{rid:path}")
-async def read_resource(rid: str, request: Request) -> dict:
-    require_pat(request)
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    return {"_id": rid, **{k: v for k, v in RESOURCES[rid].items() if v is not None}}
-
-
-@app.put("/rreg/{rid:path}")
-async def update_resource(rid: str, request: Request) -> dict:
-    require_pat(request)
-    reject_push()
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    RESOURCES[rid] = resource_description(await request.json())
-    event("resource.updated", resource_id=rid,
-          scopes=RESOURCES[rid]["resource_scopes"])
-    return {"_id": rid}
-
-
-@app.delete("/rreg/{rid:path}")
-async def delete_resource(rid: str, request: Request) -> JSONResponse:
-    require_pat(request)
-    reject_push()
-    if rid not in RESOURCES:
-        raise HTTPException(status_code=404, detail={"error": "not_found"})
-    del RESOURCES[rid]
-    event("resource.deleted", resource_id=rid)
-    return JSONResponse(None, status_code=204)
-
-
 @app.post("/perm")
 async def register_permission(request: Request) -> JSONResponse:
     require_pat(request)
@@ -641,9 +601,11 @@ async def register_permission(request: Request) -> JSONResponse:
     rid = body.get("resource_id")
     # FedAuthz §4.1: the AS only issues tickets against its own registry.
     registered = RESOURCES.get(rid)
-    if registered is None and REGISTRATION_MODE == "pull":
-        # The mirror of push mode's RS-side repair: an unknown id means our
-        # pulled copy may be stale, so re-read what the RS publishes.
+    if registered is None:
+        # An unknown id means our pulled copy may be stale, so re-read what
+        # the RS publishes. Staleness is the price of declarative
+        # registration, and repairing it is this side's job — the mirror of
+        # the RS-side re-push that classic RReg required.
         # (to_thread: see pull_at_startup — the pull triggers a JWKS
         # back-call from the RS and must not block this event loop.)
         import asyncio
@@ -684,9 +646,8 @@ async def register_permission(request: Request) -> JSONResponse:
     return JSONResponse({"ticket": ticket}, status_code=201)
 
 
-@app.post("/introspect")
-async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
-    require_pat(request)
+def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
+    """Decode and look up an RPT. Returns (claims, record, error_code)."""
     try:
         claims = jwt.decode(
             token,
@@ -695,27 +656,42 @@ async def introspect(request: Request, token: str = Form(...), consume: str = Fo
             issuer=ISSUER,
             options={"verify_aud": False},
         )
-    except jwt.InvalidTokenError as exc:
-        event("rpt.introspected", details_result=f"invalid: {exc}")
-        return {"active": False}
-
-    jti = claims.get("jti", "")
-    rec = RPTS.get(jti)
+    except jwt.ExpiredSignatureError:
+        return None, None, "expired"
+    except jwt.InvalidTokenError:
+        return None, None, "invalid_signature"
+    rec = RPTS.get(claims.get("jti", ""))
     if rec is None:
-        return {"active": False}
-    conn = CONNECTIONS.get(rec.get("handle", ""))
-    if conn is not None and conn["status"] != "active":
-        event("rpt.introspected", corr=rec["family"], result="connection-revoked")
-        return {"active": False}
-    if conn is not None:
+        return claims, None, "unknown_token"
+    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
+        if conn["status"] != "active":
+            return claims, rec, "connection_revoked"
+    if claims.get("single_use") and rec["consumed"]:
+        return claims, rec, "already_consumed"
+    return claims, rec, ""
+
+
+@app.post("/introspect")
+async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
+    require_pat(request)
+    claims, rec, err = _decode_rpt(token)
+    if err:
+        # RFC 7662 permits additional members. Without a reason the PEP cannot
+        # tell "come back after re-negotiating" from "the owner revoked you and
+        # re-negotiating is pointless" — and sends revoked agents round a loop.
+        event("rpt.introspected", corr=(rec or {}).get("family"), result=err)
+        return {"active": False, "error": err}
+
+    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
         conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    if claims.get("single_use"):
-        if rec["consumed"]:
-            event("rpt.introspected", corr=rec["family"], result="already-consumed")
-            return {"active": False}
-        if consume == "true":
-            rec["consumed"] = True
-            event("rpt.consumed", corr=rec["family"], jti=jti)
+    # Consumption is no longer done here by default: the PEP has not yet
+    # verified proof-of-possession at this point, so burning the token now
+    # lets an unsigned replay destroy a grant the owner just approved. The
+    # PEP calls /consume once every check has passed. The parameter is kept
+    # for the single-shot case where a caller has already verified.
+    if claims.get("single_use") and consume == "true":
+        rec["consumed"] = True
+        event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
 
     event("rpt.introspected", corr=rec["family"], result="active")
     return {
@@ -730,6 +706,26 @@ async def introspect(request: Request, token: str = Form(...), consume: str = Fo
         "single_use": claims.get("single_use", False),
         "operation": claims.get("operation"),
     }
+
+
+@app.post("/consume")
+async def consume_rpt(request: Request, token: str = Form(...)) -> dict:
+    """Burn a single-use RPT — the last step of enforcement, not the first.
+
+    Split out of introspection so the PEP can verify proof-of-possession and
+    the operation binding *before* anything is spent. Check-then-act, so the
+    burn itself has to be the atomic step: a caller that loses the race is
+    told so and must deny.
+    """
+    require_pat(request)
+    claims, rec, err = _decode_rpt(token)
+    if err:
+        return {"consumed": False, "error": err}
+    if not claims.get("single_use"):
+        return {"consumed": False, "error": "not_single_use"}
+    rec["consumed"] = True
+    event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
+    return {"consumed": True, "family": rec["family"]}
 
 
 @app.post("/audit/access")
@@ -864,6 +860,54 @@ def connection_handle(identity: dict, signer_jwk: dict) -> str:
     return jwk_thumbprint(signer_jwk)
 
 
+_CIMD_CACHE: dict[str, dict] = {}
+
+
+def resolve_client_id(client_id: str) -> dict:
+    """Fetch and validate a Client ID Metadata Document.
+
+    Per draft-ietf-oauth-client-id-metadata-document the client_id is an https
+    URL and the document it resolves to MUST claim that same URL as its own
+    `client_id` — otherwise any site could publish metadata about someone
+    else's agent. Everything here is display-only, so a failure downgrades to
+    "unresolved" rather than rejecting the contract; what it must never do is
+    silently present unverified claims as though they were checked.
+    """
+    import httpx
+
+    if client_id in _CIMD_CACHE:
+        return _CIMD_CACHE[client_id]
+    out: dict = {"client_id": client_id, "verified": False}
+    try:
+        if not client_id.startswith("https://"):
+            raise ValueError("client_id must be an https URL")
+        r = httpx.get(client_id, timeout=5.0, follow_redirects=False,
+                      verify=AGENT_ISSUER_CA or True)
+        r.raise_for_status()
+        doc = r.json()
+        if doc.get("client_id") != client_id:
+            raise ValueError("document does not claim the URL it was fetched from")
+        out = {
+            "client_id": client_id,
+            "verified": True,
+            "client_name": doc.get("client_name"),
+            "client_uri": doc.get("client_uri"),
+            "logo_uri": doc.get("logo_uri"),
+            "policy_uri": doc.get("policy_uri"),
+            "tos_uri": doc.get("tos_uri"),
+            "contacts": doc.get("contacts"),
+        }
+        event("client_metadata.resolved", client_id=client_id,
+              client_name=out.get("client_name"))
+        # Only successes are cached: caching a transient failure would keep an
+        # agent nameless in Alice's dialog long after its operator recovered.
+        _CIMD_CACHE[client_id] = out
+    except Exception as exc:
+        out["error"] = str(exc)[:120]
+        event("client_metadata.unresolved", client_id=client_id, reason=str(exc)[:120])
+    return out
+
+
 def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
     """Verify the intent contract JWS and its echo of the dictated template.
 
@@ -886,6 +930,13 @@ def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
                     "sub": agent_claims.get("sub")}
     else:
         raise ValueError("contract JWS must carry jwk or agent_token in its header")
+
+    # A CIMD URL, if offered, tells Alice *who operates* this agent. It is
+    # resolved and shown, never trusted: the connection handle below is still
+    # the key or the verified issuer subject, so a self-asserted name can
+    # never widen access. A resolution failure is not a contract failure.
+    if client_id := header.get("client_id"):
+        identity["client_metadata"] = resolve_client_id(client_id)
 
     key = OKPAlgorithm.from_jwk(json.dumps(signer_jwk))
     contract = jwt.decode(token, key, algorithms=["EdDSA"], audience=ISSUER)
@@ -1003,6 +1054,7 @@ async def token(
     if grant_type != "urn:ietf:params:oauth:grant-type:uma-ticket":
         return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
 
+    reap_expired()
     rec = consume_ticket(ticket)
     if rec is None:
         event("ticket.presented", corr=None, result="invalid_grant")
@@ -1020,6 +1072,7 @@ async def token(
             "tier": rec.get("tier"),
             "terms_uri": rec.get("template", {}).get("terms_uri"),
         })
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Pending ask-me ticket being re-presented (beat 3, taking longer).
@@ -1029,6 +1082,7 @@ async def token(
     tier_id, tier = policy.tier_for_resource(rec["resource_id"])
     if tier_id is None:
         event("policy.evaluated", corr=family, result="no-tier")
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Beat 2: no contract yet -> dictate Alice's terms.
@@ -1044,6 +1098,7 @@ async def token(
         contract, signer_jwk = verify_contract(claim_token, rec)
     except Exception as exc:
         event("contract.rejected", corr=family, reason=str(exc))
+        close_negotiation(rec)
         return JSONResponse(
             {"error": "request_denied", "error_description": str(exc)}, status_code=403
         )
@@ -1108,7 +1163,9 @@ async def token(
     conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     event("policy.evaluated", corr=family, result="auto-grant", tier=rec["tier"],
           connection=handle)
-    return JSONResponse(issue_rpt(rec, contract_hash, signer_jwk, None))
+    granted = issue_rpt(rec, contract_hash, signer_jwk, None)
+    close_negotiation(rec)
+    return JSONResponse(granted)
 
 
 async def pending_poll(rec: dict) -> JSONResponse:
@@ -1133,12 +1190,13 @@ async def pending_poll(rec: dict) -> JSONResponse:
         # Tier policy still applies after connection: an ask-me tier needs its
         # per-operation approval, which Alice's single tap covered only if this
         # negotiation carried the operation (it did — the contract binds it).
-        return JSONResponse(
-            issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
-                      rec["contract"].get("operation"))
-        )
+        granted = issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
+                            rec["contract"].get("operation"))
+        close_negotiation(rec)
+        return JSONResponse(granted)
     if rec.get("decision") == "denied":
         event("policy.evaluated", corr=family, result="owner-denied", tier=rec["tier"])
+        close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
     rotated = new_ticket(rec)  # still pending: rotate and keep waiting
     return JSONResponse(
@@ -1154,7 +1212,7 @@ async def pending_poll(rec: dict) -> JSONResponse:
 async def owner_pending(request: Request) -> list:
     require_owner(request)
     out = []
-    for rec in {id(r): r for r in TICKETS.values()}.values():
+    for rec in NEGOTIATIONS.values():
         if rec["state"] == "awaiting-owner" and rec.get("decision") is None:
             out.append(
                 {
@@ -1178,13 +1236,10 @@ async def owner_decision(family: str, request: Request) -> dict:
     decision = body.get("decision")
     if decision not in ("approved", "denied"):
         raise HTTPException(status_code=400, detail="decision must be approved|denied")
-    found = False
-    for rec in TICKETS.values():
-        if rec["family"] == family and rec["state"] == "awaiting-owner":
-            rec["decision"] = decision
-            found = True
-    if not found:
+    rec = NEGOTIATIONS.get(family)
+    if rec is None or rec["state"] != "awaiting-owner":
         raise HTTPException(status_code=404, detail="no pending negotiation for that family")
+    rec["decision"] = decision
     event("owner.decision", corr=family, decision=decision)
     # Record both outcomes: "what did I decide" is an audit question, and a
     # denial is as much a decision as an approval.

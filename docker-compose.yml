@@ -36,6 +36,7 @@ services:
           - portal.uma.lab
           - grafana.uma.lab
           - ps.uma.lab
+          - agent.uma.lab
 
   keycloak:
     init: true
@@ -63,11 +64,6 @@ services:
       context: .
       dockerfile: services/uma-as/Dockerfile
     environment:
-      # pull: registration is declarative — the AS reads the RS's published
-      # metadata (public structure + protected owner instances) instead of
-      # receiving pushes. push: classic FedAuthz /rreg. Keep in step with
-      # uma-pep's REGISTRATION_MODE.
-      REGISTRATION_MODE: ${REGISTRATION_MODE:-pull}
       UMA_AS_RS_RESOURCE_URI: https://gateway.uma.lab/mcp
       UMA_AS_ISSUER: https://alice-as.uma.lab
       # The resource-server client the AS issues PATs to (client_credentials,
@@ -100,7 +96,6 @@ services:
       UMA_AS_RS_CLIENT_ID: meridian-gateway
       UMA_AS_RS_CLIENT_SECRET: ${UMA_AS_RS_CLIENT_SECRET:-gateway-dev-secret}
       UMA_REALM: alice-vault
-      REGISTRATION_MODE: ${REGISTRATION_MODE:-pull}
     volumes:
       - uma-pep-keys:/keys
     depends_on:
@@ -113,7 +108,7 @@ services:
       retries: 10
 
   agentgateway:
-    image: ghcr.io/agentgateway/agentgateway:v1.3.1
+    image: ghcr.io/agentgateway/agentgateway:v1.4.0
     command: ["-f", "/etc/agentgateway/config.yaml"]
     volumes:
       - ./gateway/agw.yaml:/etc/agentgateway/config.yaml:ro
@@ -123,9 +118,37 @@ services:
 
   alice-vault-mcp:
     init: true
-    build: ./mcp/alice-vault
+    build:
+      context: .
+      dockerfile: mcp/alice-vault/Dockerfile
+    environment:
+      # gateway (default): an ext_authz service ahead of this server carries
+      # the FedAuthz obligations and this process holds no auth code.
+      # embedded: the same enforcement core runs here as an MCP Extension, and
+      # the gateway is not in the authorization path at all.
+      ENFORCEMENT_MODE: ${ENFORCEMENT_MODE:-gateway}
+      UMA_AS_PUBLIC: https://alice-as.uma.lab
+      UMA_AS_INTERNAL: http://uma-as:9000
+      UMA_AS_RS_CLIENT_ID: meridian-gateway
+      UMA_AS_RS_CLIENT_SECRET: ${UMA_AS_RS_CLIENT_SECRET:-gateway-dev-secret}
+      UMA_REALM: alice-vault
+      UMA_EXPECTED_AUTHORITY: gateway.uma.lab
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import socket;socket.create_connection(('localhost',9020),2)\""]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  # Bob's agent operator's public web presence: the CIMD document Alice's AS
+  # resolves for her approval dialog, and the Web Bot Auth key directory a
+  # resource can consult before any relationship exists.
+  agent-operator:
+    init: true
+    build: ./clients/agent-operator
+    environment:
+      AGENT_OPERATOR_ORIGIN: https://agent.uma.lab
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:9030/health')\""]
       interval: 3s
       timeout: 5s
       retries: 10
@@ -228,13 +251,32 @@ services:
     working_dir: /driver
     profiles: ["demo"]
 
+  # Verifies the four-beat grant against a resource that protects itself:
+  # ENFORCEMENT_MODE=embedded, no gateway and no ext_authz in the path.
+  embedded-check:
+    image: python:3.12-slim
+    entrypoint:
+      - /bin/bash
+      - -c
+      - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/embedded_check.py
+    environment:
+      PYTHONPATH: /driver/lib
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./clients/demo-driver/embedded_check.py:/driver/embedded_check.py:ro
+      - ./lib:/driver/lib:ro
+      - ./certs/rootCA.pem:/driver/rootCA.pem:ro
+      - driver-keys:/driver/keys
+    working_dir: /driver
+    profiles: ["test"]
+
   # Headless verification of the agent-shim under a scripted MCP client.
   shim-test:
     image: python:3.12-slim
     entrypoint:
       - /bin/bash
       - -c
-      - pip install -q 'mcp>=1.13' httpx 'pyjwt[crypto]' && exec python /repo/clients/agent-shim/test_shim.py
+      - pip install -q 'mcp>=2,<3' httpx 'pyjwt[crypto]' && exec python /repo/clients/agent-shim/test_shim.py
     environment:
       PYTHONUNBUFFERED: "1"
     volumes:

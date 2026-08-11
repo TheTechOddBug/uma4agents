@@ -58,6 +58,29 @@ class AgentKeys:
     keyid: str = "agent-req-1"
     agent_token: str | None = None  # aa-agent+jwt when enrolled
     stable: Ed25519PrivateKey | None = None  # long-term key (identified mode)
+    # Optional CIMD URL describing who operates this agent. Display metadata
+    # for the owner's approval dialog, never an authorization input.
+    client_id: str | None = None
+    # Optional Web Bot Auth directory URL, covered by the request signature.
+    signature_agent: str | None = None
+
+    def publish(self, client, operator_origin: str) -> str | None:
+        """Publish the signing key to the operator's Web Bot Auth directory.
+
+        Returns the `Signature-Agent` value to send, or None if the directory
+        is unreachable — discovery is additive, so a resource that cannot
+        resolve it still verifies against the key in the RPT's `cnf`. The
+        directory never becomes the authority; it only lets a stranger's
+        authorization server attribute a key it has never seen before.
+        """
+        try:
+            r = client.post(f"{operator_origin}/register",
+                            json={"keyid": self.keyid, "jwk": self.public_jwk()},
+                            timeout=5.0)
+            r.raise_for_status()
+            return f"{operator_origin}/.well-known/http-message-signatures-directory"
+        except Exception:
+            return None
 
     @staticmethod
     def _load_or_create_key(path: str) -> Ed25519PrivateKey:
@@ -178,6 +201,14 @@ def sign_contract(template: dict, keys: AgentKeys, as_uri: str,
         headers["agent_token"] = keys.agent_token
     else:
         headers["jwk"] = keys.public_jwk()
+    # Client ID Metadata Document (draft-ietf-oauth-client-id-metadata-document),
+    # the mechanism MCP now prefers over Dynamic Client Registration. Here it
+    # is applied to the requesting *agent*: a URL the owner's AS can resolve to
+    # a human-readable operator, name and policy. Purely descriptive — the
+    # connection is still keyed by the agent's key or its verified issuer, so
+    # this never becomes an authorization input.
+    if keys.client_id:
+        headers["client_id"] = keys.client_id
     jws = jwt.encode(contract, keys.key, algorithm="EdDSA", headers=headers)
     return base64.urlsafe_b64encode(jws.encode()).rstrip(b"=").decode()
 
@@ -245,12 +276,41 @@ def run_grant(
     raise GrantDenied(body.get("error_description") or body.get("error", "unknown"))
 
 
+def traceparent() -> str | None:
+    """A W3C Trace Context header for this call, if tracing is on.
+
+    Correlation inside this system is the negotiation family; traceparent is
+    what lets that join a trace spanning the requesting org, the resource, and
+    the owner's authorization server — three parties who share no other id.
+    """
+    import os
+    import secrets
+
+    if os.environ.get("UMA4A_TRACING", "1") in ("0", "false", "no"):
+        return None
+    return f"00-{secrets.token_hex(16)}-{secrets.token_hex(8)}-01"
+
+
 def signed_headers(method: str, authority: str, path: str, rpt: str,
                    keys: AgentKeys) -> dict[str, str]:
-    """Authorization + RFC 9421 signature headers for a resource request."""
+    """Authorization + RFC 9421 signature headers for a resource request.
+
+    When the agent has published its key, the signature also covers a Web Bot
+    Auth `Signature-Agent` header naming the directory. That composes with
+    proof-of-possession rather than competing with it: the key that *verifies*
+    is still the one bound into the RPT's `cnf`, and the directory only says
+    where that key was published.
+    """
     authorization = f"PoP {rpt}"
-    sig = sign(method, authority, path, authorization, keys.key, keys.keyid)
-    return {"Authorization": authorization, **sig}
+    sig = sign(method, authority, path, authorization, keys.key, keys.keyid,
+               signature_agent=keys.signature_agent, tag="web-bot-auth")
+    headers = {"Authorization": authorization, **sig}
+    # W3C Trace Context: deliberately *not* covered by the signature. It is
+    # diagnostic metadata a proxy may legitimately rewrite, and binding it
+    # into the signature base would make ordinary tracing look like tampering.
+    if tp := traceparent():
+        headers["traceparent"] = tp
+    return headers
 
 
 async def run_grant_async(
@@ -263,8 +323,18 @@ async def run_grant_async(
     on_status: Callable[[str], None] = lambda s: None,
     on_receipt: Callable[[str], None] = lambda r: None,
     max_wait_s: int = 120,
+    on_pending=None,   # async Callable[[dict], bool] | None
 ) -> str:
-    """Async twin of run_grant — the shim awaits elicitation mid-dance."""
+    """Async twin of run_grant — the shim awaits elicitation mid-dance.
+
+    `on_pending` is called each time the owner's decision is still outstanding,
+    with the pend's details, and returns whether to keep waiting. It exists so
+    the requesting side does not have to *block* through someone else's
+    decision: a caller that can express waiting to its own user (MCP's
+    input_required) hands the question up instead of holding the call open.
+    Omit it and the loop polls to `max_wait_s`, which is what a headless
+    driver wants.
+    """
     import asyncio
 
     token_url = f"{as_uri}/token"
@@ -298,7 +368,18 @@ async def run_grant_async(
     while body.get("error") == "request_submitted":
         on_status("Alice has been asked — holding the ticket")
         if time.time() > deadline:
-            raise GrantDenied("timed out waiting for the owner")
+            if on_pending is None:
+                raise GrantDenied("timed out waiting for the owner")
+            # Hand the wait up rather than deciding to abandon it here: only
+            # the requesting human knows whether this is still worth waiting
+            # for. Answering resets the window.
+            if not await on_pending({
+                "as_uri": as_uri,
+                "interval": body.get("interval", 3),
+                "waited_s": max_wait_s,
+            }):
+                raise GrantDenied("the requesting side stopped waiting for the owner")
+            deadline = time.time() + max_wait_s
         await asyncio.sleep(body.get("interval", 3))
         r = await client.post(
             token_url, data={"grant_type": GRANT_TYPE, "ticket": body["ticket"]}

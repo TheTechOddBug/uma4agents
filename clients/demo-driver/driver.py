@@ -51,18 +51,37 @@ def approve_terms(template: dict) -> bool:
     return ok
 
 
+# 2026-07-28 is only reachable through server/discover: the SDK caps the
+# `initialize` handshake at 2025-11-25 by construction.
+PROTOCOL_VERSION = "2026-07-28"
+# Client identity rides params._meta on every request instead of being
+# exchanged once — what makes the transport stateless (SEP-2567/2575).
+CLIENT_META = {
+    "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
+    "io.modelcontextprotocol/clientCapabilities": {},
+    "io.modelcontextprotocol/clientInfo": {
+        "name": "uma4agents-demo-driver", "version": "0.2",
+    },
+}
+
+
 class McpSession:
     def __init__(self, client: httpx.Client, url: str):
         self.client = client
         self.url = url
-        self.session_id: str | None = None
         self._id = 0
 
     def _post(self, msg: dict, headers: dict | None = None) -> httpx.Response:
+        # No session id: sessions are gone in 2026-07-28.
         h = {"accept": "application/json, text/event-stream",
-             "content-type": "application/json"}
-        if self.session_id:
-            h["mcp-session-id"] = self.session_id
+             "content-type": "application/json",
+             "MCP-Protocol-Version": PROTOCOL_VERSION}
+        # SEP-2243 routing headers. The receiver reconciles them against the
+        # body rather than trusting either alone.
+        if method := msg.get("method"):
+            h["Mcp-Method"] = method
+        if name := (msg.get("params") or {}).get("name"):
+            h["Mcp-Name"] = name
         if headers:
             h.update(headers)
         return self.client.post(self.url, json=msg, headers=h)
@@ -87,29 +106,24 @@ class McpSession:
 
     def request(self, method: str, params: dict | None = None,
                 headers: dict | None = None, notification: bool = False):
-        msg: dict = {"jsonrpc": "2.0", "method": method}
-        if params is not None:
-            msg["params"] = params
+        p = dict(params or {})
+        p["_meta"] = {**CLIENT_META, **(p.get("_meta") or {})}
+        msg: dict = {"jsonrpc": "2.0", "method": method, "params": p}
         if not notification:
             self._id += 1
             msg["id"] = self._id
         r = self._post(msg, headers)
-        if sid := r.headers.get("mcp-session-id"):
-            self.session_id = sid
         return r, self._payload(r)
 
     def initialize(self) -> None:
-        r, payload = self.request(
-            "initialize",
-            {
-                "protocolVersion": "2025-03-26",
-                "capabilities": {},
-                "clientInfo": {"name": "uma4agents-demo-driver", "version": "0.2"},
-            },
-        )
+        """The 2026-07-28 handshake, which is server/discover, not initialize."""
+        r, payload = self.request("server/discover", {})
         if r.status_code != 200:
-            raise RuntimeError(f"initialize failed: {r.status_code} {r.text[:200]}")
-        self.request("notifications/initialized", {}, notification=True)
+            raise RuntimeError(f"server/discover failed: {r.status_code} {r.text[:200]}")
+        versions = ((payload or {}).get("result") or {}).get("supportedVersions", [])
+        if PROTOCOL_VERSION not in versions:
+            raise RuntimeError(
+                f"resource does not speak {PROTOCOL_VERSION} (offers {versions})")
 
 
 def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,
@@ -117,8 +131,13 @@ def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,
               simulate_alice: bool = False, owner_token=None,
               as_internal: str | None = None,
               resource_metadata: dict | None = None,
-              resource_url: str | None = None) -> dict:
-    """tools/call with the full grant dance on 401."""
+              resource_url: str | None = None,
+              on_grant=None) -> dict:
+    """tools/call with the full grant dance on 401.
+
+    on_grant, if given, runs after the RPT is issued but before the authorized
+    call — the window where a replay attack would land.
+    """
     params = {"name": tool, "arguments": args}
     r, payload = session.request("tools/call", params)
     if r.status_code == 200:
@@ -176,6 +195,9 @@ def call_tool(session: McpSession, keys: AgentKeys, tool: str, args: dict,
     rpt = run_grant(client, as_uri, ticket, keys, approve_terms,
                     operation=operation, on_status=say, on_receipt=hold_receipt)
 
+    if on_grant is not None:
+        on_grant(rpt)
+
     headers = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, rpt, keys)
     r, payload = session.request("tools/call", params, headers=headers)
     if r.status_code != 200:
@@ -194,7 +216,8 @@ def show_result(payload: dict) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--act", default="all", choices=["tier1", "tier2", "tier3", "all"])
+    ap.add_argument("--act", default="all",
+                    choices=["tier1", "tier2", "tier3", "revocation", "all"])
     ap.add_argument("--gateway", default="https://gateway.uma.lab/mcp")
     ap.add_argument("--as-internal", default="https://alice-as.uma.lab")
     ap.add_argument("--cacert", default="certs/rootCA.pem")
@@ -209,6 +232,11 @@ def main() -> int:
                     help="Bob's agent server; pass --pseudonymous to skip enrollment")
     ap.add_argument("--pseudonymous", action="store_true",
                     help="run with a bare key instead of an enrolled agent token")
+    ap.add_argument("--agent-operator",
+                    default=os.environ.get("UMA4A_AGENT_OPERATOR",
+                                           "https://agent.uma.lab"),
+                    help="the operator's public presence: CIMD document and "
+                         "Web Bot Auth key directory (empty to run without)")
     ap.add_argument("--person-token",
                     default=os.environ.get("PS_ADMIN_TOKEN", "uma4agents-ps-admin"),
                     help="person API bearer standing in for Bob's approval tap")
@@ -235,7 +263,19 @@ def main() -> int:
         except EnrollmentDenied as exc:
             print(f"enrollment failed: {exc}")
             return 1
-    acts = ["tier1", "tier2", "tier3"] if args.act == "all" else [args.act]
+    # Who operates this agent, and where its keys are published. Both are
+    # additive: the connection is still keyed by the agent's key (or its
+    # verified issuer subject), and the RPT's cnf key is still what verifies
+    # a request. These only let a party that has never met this agent say
+    # something true about it — the RqP != RO cold-start problem.
+    if args.agent_operator:
+        keys.client_id = f"{args.agent_operator}/agent.json"
+        keys.signature_agent = keys.publish(client, args.agent_operator)
+        say(f"operator metadata: {keys.client_id}")
+        say(f"key published for discovery: {keys.signature_agent or 'unavailable'}")
+
+    acts = (["tier1", "tier2", "tier3", "revocation"]
+            if args.act == "all" else [args.act])
 
     # The simulated Alice authenticates like the real one: a direct-access
     # grant at her IdP yields the OIDC token her AS's owner API requires.
@@ -298,10 +338,36 @@ def main() -> int:
             print("\n== Act 3 (afternoon): the market moves — Bob's agent proposes a trade ==")
             order = {"symbol": "VTI", "side": "sell", "quantity": 40}
             operation = {"tool": "execute_trade", "params": order}
+
+            # Between the grant and its one legitimate use, someone who has
+            # seen the token replays it without the agent's key. A single-use
+            # grant must survive that: if the resource spends the token before
+            # checking the signature, anyone who can observe it can destroy
+            # the approval Alice just gave.
+            replay_ok = {"held": False}
+
+            def replay_with_a_stolen_token(rpt: str) -> None:
+                print("\n== Act 3 interlude: someone replays the grant unsigned ==")
+                stolen = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, rpt, keys)
+                # Must match sign()'s exact key casing — a lowercase "signature"
+                # is a second header, not an override, and the forgery silently
+                # never happens.
+                stolen["Signature"] = "sig1=:" + "A" * 86 + ":"
+                r, _ = session.request(
+                    "tools/call", {"name": "execute_trade", "arguments": order},
+                    headers=stolen)
+                say(f"{r.status_code}: replay rejected — proof-of-possession failed")
+                replay_ok["held"] = r.status_code == 401
+
             out = call_tool(session, keys, "execute_trade", order, client,
                             operation=operation, simulate_alice=args.simulate_alice,
                             owner_token=owner_token, as_internal=args.as_internal,
-                            resource_metadata=prm, resource_url=args.gateway)
+                            resource_metadata=prm, resource_url=args.gateway,
+                            on_grant=replay_with_a_stolen_token)
+            if not replay_ok["held"]:
+                print("FAIL: a forged signature was not rejected with 401")
+                return 1
+            say("Alice's approval survived the replay — the honest call went through")
             show_result(out["payload"])
 
             print("\n== Act 3 epilogue: the same RPT, tried again ==")
@@ -314,6 +380,40 @@ def main() -> int:
             if r.status_code == 200:
                 print("FAIL: single-use RPT was accepted twice")
                 return 1
+
+        if "revocation" in acts:
+            print("\n== Act 4 (evening): Alice revokes the agent ==")
+            out = call_tool(session, keys, "get_positions", {}, client,
+                            simulate_alice=args.simulate_alice,
+                            owner_token=owner_token, as_internal=args.as_internal,
+                            resource_metadata=prm, resource_url=args.gateway)
+            say("agent holds a live grant for the holdings summary")
+
+            headers = {"Authorization": f"Bearer {owner_token()}"}
+            conns = client.get(f"{args.as_internal}/owner/connections",
+                               headers=headers).json()
+            handle = next((c["handle"] for c in conns if c["status"] == "active"), None)
+            if handle is None:
+                print("FAIL: no active connection to revoke")
+                return 1
+            revoked = client.post(
+                f"{args.as_internal}/owner/connections/{handle}/revoke",
+                headers=headers).json()
+            say(f"[alice] revoked {handle[:24]}… — "
+                f"{revoked['rpts_deactivated']} live grant(s) deactivated")
+
+            # A revoked relationship is a decision the owner already made.
+            # Answering 401 would invite the agent to negotiate again for an
+            # outcome that is settled, so enforcement has to say so terminally.
+            sig = signed_headers("POST", GATEWAY_AUTHORITY, MCP_PATH, out["rpt"], keys)
+            r, _ = session.request("tools/call",
+                                   {"name": "get_positions", "arguments": {}},
+                                   headers=sig)
+            say(f"{r.status_code}: {r.text[:80]}")
+            if r.status_code != 403:
+                print(f"FAIL: revoked agent got {r.status_code}, expected a terminal 403")
+                return 1
+            say("revocation is terminal — not an invitation to re-negotiate")
     except GrantDenied as exc:
         print(f"grant denied: {exc}")
         return 1

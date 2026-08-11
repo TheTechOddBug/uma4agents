@@ -21,7 +21,7 @@ import time
 import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from mcp.shared.context import RequestContext
+from mcp.client.session import ClientRequestContext
 from mcp.types import ElicitRequestParams, ElicitResult
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -54,7 +54,7 @@ def check(name: str, ok: bool) -> None:
     PASS, FAIL = PASS + (1 if ok else 0), FAIL + (0 if ok else 1)
 
 
-def shim_params(keystore: str) -> StdioServerParameters:
+def shim_params(keystore: str, extra: dict | None = None) -> StdioServerParameters:
     return StdioServerParameters(
         command=sys.executable,
         args=[os.path.join(REPO, "clients/agent-shim/shim.py")],
@@ -63,15 +63,36 @@ def shim_params(keystore: str) -> StdioServerParameters:
             "PYTHONPATH": os.path.join(REPO, "lib"),
             "UMA4A_CACERT": CACERT,
             "UMA4A_KEYSTORE": keystore,
+            **(extra or {}),
         },
     )
 
 
+PENDS: list[str] = []
+
+
+def _schema_fields(params: ElicitRequestParams) -> set[str]:
+    # SDK 2.0 renamed this to snake_case, and ElicitRequestParams is now a
+    # union of form and URL modes — only the form mode carries a schema.
+    schema = getattr(params, "requested_schema", None) or {}
+    return set((schema.get("properties") or {}).keys())
+
+
 async def approve_elicitation(
-    context: RequestContext, params: ElicitRequestParams
+    context: ClientRequestContext, params: ElicitRequestParams
 ) -> ElicitResult:
-    ELICITATIONS.append(params.message)
+    """Bob, inside his agent. Two distinct questions arrive here.
+
+    Alice's terms are his to accept. Whether to keep waiting on *Alice's*
+    decision is also his — but the decision itself is not, and that asymmetry
+    is the thing MCP's input_required has no way to express.
+    """
+    fields = _schema_fields(params)
     print(f"   [bob-sees-in-his-agent]\n{params.message}\n", flush=True)
+    if "keep_waiting" in fields:
+        PENDS.append(params.message)
+        return ElicitResult(action="accept", content={"keep_waiting": True})
+    ELICITATIONS.append(params.message)
     return ElicitResult(action="accept", content={"approve": True})
 
 
@@ -124,6 +145,27 @@ async def elicitation_session() -> None:
             check("tier 3 pends, Alice approves, trade executes", "executed" in text)
 
 
+async def pend_handback_session() -> None:
+    """The pend must reach Bob as a rendered wait, not a held-open call."""
+    async with stdio_client(shim_params("/tmp/shim-key-pend.pem",
+                                        extra={"UMA4A_PEND_HANDBACK": "2"})) as (read, write):
+        async with ClientSession(
+            read, write, elicitation_callback=approve_elicitation
+        ) as session:
+            await session.initialize()
+            # Approve late, so the shim is forced to hand the wait back at
+            # least once before Alice decides.
+            threading.Thread(
+                target=lambda: (time.sleep(8), simulate_alice_approval()),
+                daemon=True).start()
+            r = await session.call_tool("get_positions", {})
+            text = r.content[0].text if r.content else ""
+            check("call completes after the owner decides", "VTI" in text)
+            check("the wait was handed back to Bob, not held open", len(PENDS) >= 1)
+            check("the pend names a principal Bob is not and cannot reach",
+                  bool(PENDS) and "not reachable from this connection" in PENDS[0])
+
+
 async def fallback_session() -> None:
     async with stdio_client(shim_params("/tmp/shim-key-fallback.pem")) as (read, write):
         async with ClientSession(read, write) as session:  # no elicitation support
@@ -140,6 +182,8 @@ async def main() -> int:
     await elicitation_session()
     print("== client without elicitation (the Claude Desktop case today) ==", flush=True)
     await fallback_session()
+    print("== the pend as a rendered wait, not a held-open call ==", flush=True)
+    await pend_handback_session()
     print(f"\nshim-test: {PASS} passed, {FAIL} failed", flush=True)
     return 0 if FAIL == 0 else 1
 
