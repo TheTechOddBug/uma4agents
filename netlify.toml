@@ -1,0 +1,10 @@
+# u4a.ai — the site is a directory of static files, so there is nothing to
+# build. No bundler, no framework, no install step: what is committed under
+# site/ is exactly what is served, which is also what lets site/_headers set a
+# content security policy with no exceptions in it.
+
+[build]
+  publish = "site"
+
+# No `command`. If one ever appears here, something has started generating
+# what used to be readable source.

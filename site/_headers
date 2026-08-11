@@ -1,0 +1,12 @@
+/*
+  # Everything this page needs is same-origin: the animation library is
+  # vendored, the QR code is a committed file, there are no fonts to fetch and
+  # nothing to phone home to. So the policy can be the strict one, and any
+  # future dependency that would weaken it has to be argued for here first.
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Cross-Origin-Opener-Policy: same-origin
+
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable

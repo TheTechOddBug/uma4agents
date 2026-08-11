@@ -1,0 +1,325 @@
+/* u4a.ai — the same visual language as the diagrams in docs/: dark ground,
+   one blue-to-violet accent, green for granted, amber for waiting. */
+
+:root {
+  --bg: #080a0f;
+  --card: #0f131c;
+  --card-2: #151b26;
+  --edge: #232c3d;
+  --ink: #eef1f7;
+  --ink-2: #9aa4ba;
+  --ink-3: #616c85;
+  --accent: #5b8cff;
+  --violet: #8f6bff;
+  --green: #2ed079;
+  --amber: #f2b955;
+  --ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  /* The page never scrolls sideways, at any width. */
+  overflow-x: hidden;
+}
+
+main {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.5rem, 1.6vh, 1.2rem);
+  padding: clamp(0.75rem, 2vh, 1.5rem);
+}
+
+/* The animation is the page: it takes the space, and everything else is a
+   footnote under it. */
+#stage-wrap {
+  width: 100%;
+  max-width: 1200px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+}
+
+#stage {
+  width: 100%;
+  height: auto;
+  max-height: 54svh;
+  display: block;
+}
+
+/* ---- the cast ---------------------------------------------------------- */
+
+.fig, .hair {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+circle.head { fill: var(--card); }
+
+/* Anything the timeline rotates or scales needs to say where its pivot is.
+   `fill-box` makes the origin relative to the element's own geometry, which
+   is the only frame that stays correct while its parent is being moved. */
+#vault-spokes, #vault-no, #vault-yes, #laptop-lid {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+/* An arm pivots at the shoulder, which is the end of the stroke nearest the
+   spine — the left edge of the right arm, and vice versa. */
+#alice-arm-r { transform-box: fill-box; transform-origin: left center; }
+#alice-arm-l { transform-box: fill-box; transform-origin: right center; }
+/* The lid hinges along its bottom edge, where it meets the keyboard. */
+#laptop-lid { transform-origin: 0 100%; }
+.tie { fill: var(--accent); stroke: none; }
+
+.bot-head, .bot-body { fill: var(--card-2); stroke: var(--violet); stroke-width: 2.6; }
+.bot-dot { fill: var(--violet); }
+.eye { fill: var(--accent); }
+
+.panel   { fill: var(--card);   stroke: var(--edge); stroke-width: 2; }
+.panel-2 { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
+.desk    { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
+.roof    { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; stroke-linejoin: round; }
+.screen  { fill: #0d1119; stroke: var(--accent); stroke-width: 2.4; }
+
+.shield { fill: #0d1119; stroke: var(--accent); stroke-width: 2.6; stroke-linejoin: round; }
+.tick   { fill: none; stroke: var(--accent); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+
+.vault-dial   { fill: var(--card-2); stroke: var(--ink-3); stroke-width: 2.4; }
+.vault-spokes { stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; }
+.vault-hub    { fill: var(--ink-3); }
+
+/* Other owners' resources: present, and deliberately not the subject. They
+   are drawn at all because the point is that the resource server holds many
+   people's things and can therefore not be the authority over any of them. */
+.tenant-row rect { fill: var(--card-2); stroke: var(--edge); stroke-width: 1.6; opacity: 0.55; }
+.tenant-dot  { fill: var(--ink-3); opacity: 0.55; }
+.tenant-line { stroke: var(--ink-3); stroke-width: 2.6; stroke-linecap: round; opacity: 0.4; }
+
+/* Alice's row. */
+.own-row   { fill: #0d1119; stroke: var(--accent); stroke-width: 2; }
+.own-dot   { fill: var(--accent); }
+.own-line  { stroke: var(--ink-2); stroke-width: 2.6; stroke-linecap: round; }
+.own-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.4px;
+  fill: var(--accent);
+}
+
+.ring-no  { fill: none; stroke: var(--amber); stroke-width: 4; }
+.cross-no { stroke: var(--amber); stroke-width: 4.4; stroke-linecap: round; }
+.ring-yes { fill: none; stroke: var(--green); stroke-width: 4; }
+.check-yes{ fill: none; stroke: var(--green); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+
+.phone-body   { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
+.phone-screen { fill: #0d1119; }
+.buzz-line    { fill: none; stroke: var(--amber); stroke-width: 3; stroke-linecap: round; }
+
+.paper      { fill: #f4f1e8; }
+.paper-line { stroke: #8a8477; stroke-width: 3; stroke-linecap: round; }
+.sign-line  { fill: none; stroke: var(--violet); stroke-width: 3.4; stroke-linecap: round; }
+
+.ticket      { fill: var(--amber); }
+.ticket-line { stroke: #6b5320; stroke-width: 2.6; stroke-linecap: round; }
+
+.key-ring  { fill: none; stroke: var(--amber); stroke-width: 6; }
+.key-blade { fill: none; stroke: var(--amber); stroke-width: 6; stroke-linecap: round; }
+
+.ground { stroke: var(--edge); stroke-width: 2; }
+
+.q-ring { fill: #0d1119; stroke: var(--amber); stroke-width: 3; }
+.q-mark {
+  font-size: 38px; font-weight: 700; fill: var(--amber); text-anchor: middle;
+  font-family: var(--ui);
+}
+#question { transform-box: fill-box; transform-origin: 50% 50%; }
+
+.place-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  fill: var(--ink-3);
+  text-anchor: middle;
+}
+.place-sublabel {
+  font-size: 11.5px;
+  fill: #4b5468;
+  text-anchor: middle;
+  font-style: italic;
+}
+
+.ledger-head {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px; fill: var(--ink-3);
+}
+.ledger-row text { font-size: 19px; fill: var(--ink-2); }
+.ledger-row .ledger-v { fill: var(--ink); font-family: var(--mono); font-size: 16px; }
+
+.curtain { fill: var(--bg); }
+.mark-glyph { font-size: 26px; font-weight: 800; fill: #fff; text-anchor: middle; }
+.title    { font-size: 54px; font-weight: 650; fill: var(--ink);  text-anchor: middle; }
+.subtitle { font-size: 23px; fill: var(--ink-2); text-anchor: middle; }
+
+/* ---- caption ------------------------------------------------------------ */
+
+#caption {
+  margin: 0;
+  min-height: 2.9em;
+  max-width: 46ch;
+  text-align: center;
+  font-size: clamp(1.05rem, 2.4vw, 1.5rem);
+  line-height: 1.45;
+  color: var(--ink);
+  transition: opacity 0.28s ease;
+}
+#caption .beat {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.62em;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35em;
+}
+
+/* ---- controls ----------------------------------------------------------- */
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(560px, 92vw);
+}
+#controls button {
+  flex: 0 0 auto;
+  background: var(--card);
+  color: var(--ink-2);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#controls button:hover { color: var(--ink); border-color: var(--accent); }
+#controls button:focus-visible,
+#scrub:focus-visible,
+footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+#scrub {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ---- the story as text -------------------------------------------------- */
+
+/* Hidden while the animation is doing its job, but present for screen
+   readers, and shown outright when motion is unwelcome or JS never ran. */
+#storyboard {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- footer ------------------------------------------------------------- */
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 4vw, 2.5rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+footer a:hover { color: var(--ink); }
+.gh { width: 20px; height: 20px; flex: 0 0 auto; }
+.li { width: 17px; height: 17px; flex: 0 0 auto; }
+.people { display: inline-flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.people a { font-size: 0.8rem; }
+/* The code carries its own quiet zone and its own contrast, because an SVG
+   referenced through <img> is a separate document: `currentColor` there
+   resolves against that document rather than this page, so a theme-aware
+   code renders black-on-black and will not scan. */
+#qr img {
+  display: block;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+}
+#qr:hover img { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- reduced motion ----------------------------------------------------- */
+
+/* Nothing moves, and the story is told in words instead — the same story,
+   not a lesser one. */
+@media (prefers-reduced-motion: reduce) {
+  #controls { display: none; }
+  #caption { display: none; }
+  #stage { max-height: 46svh; }
+  #storyboard {
+    position: static;
+    width: auto; height: auto;
+    margin: 0; padding: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    max-width: 62ch;
+    display: grid;
+    gap: 0.55rem;
+    color: var(--ink-2);
+    font-size: 0.98rem;
+    line-height: 1.5;
+  }
+  #storyboard li::marker { color: var(--accent); font-family: var(--mono); }
+  #storyboard b { color: var(--ink); font-weight: 600; }
+}
+
+/* Same treatment when the script never ran: the page still explains itself. */
+html.no-js #controls,
+html.no-js #caption { display: none; }
+html.no-js #storyboard {
+  position: static; width: auto; height: auto; margin: 0;
+  overflow: visible; clip-path: none; white-space: normal;
+  max-width: 62ch; display: grid; gap: 0.55rem;
+  color: var(--ink-2); line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  #stage { max-height: 52svh; }
+  footer { gap: 1.2rem; }
+}
+
+/* On a short viewport the stage yields first. Everything below it — the
+   caption, the controls, the link and the code — is what someone came away
+   with, so none of it goes below the fold. */
+@media (max-height: 700px) {
+  #stage { max-height: 42svh; }
+  #caption { font-size: clamp(0.95rem, 2vw, 1.15rem); min-height: 2.6em; }
+  #qr img { width: 84px; height: 84px; }
+}
+@media (max-height: 560px) {
+  #stage { max-height: 36svh; }
+  #qr img { width: 68px; height: 68px; }
+}
