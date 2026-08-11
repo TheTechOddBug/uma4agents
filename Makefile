@@ -204,6 +204,35 @@ sig-test:
 	@docker run --rm -v "$(PWD)/lib:/u4a/lib:ro" python:3.12-slim \
 		sh -c "pip install -q cryptography && python /u4a/lib/test_http_sig.py"
 
+## store-test: prove single-use really is single-use, on both storage backends
+# The authorization server's state has two implementations — in-process for
+# this stack, Postgres for the replicated one — and they must be the same
+# service. This races 32 callers at each single-use thing (a ticket, a
+# per-operation grant, the owner's tap) and asserts exactly one wins.
+# Postgres is included automatically; it is the run that makes the claim
+# mean anything, since the in-process store is atomic only by virtue of
+# there being one event loop.
+.PHONY: store-test
+store-test:
+	@docker network create u4a-storetest >/dev/null 2>&1 || true
+	@docker rm -f u4a-pgtest >/dev/null 2>&1 || true
+	@docker run -d --name u4a-pgtest --network u4a-storetest \
+		-e POSTGRES_PASSWORD=u4a -e POSTGRES_USER=u4a -e POSTGRES_DB=u4a \
+		postgres:17-alpine >/dev/null
+	@printf "Waiting for postgres"; \
+	for i in $$(seq 1 30); do \
+		docker exec u4a-pgtest pg_isready -U u4a -q >/dev/null 2>&1 && break; \
+		printf "."; sleep 1; \
+	done; echo
+	@docker run --rm --network u4a-storetest -v "$(PWD):/u4a:ro" -w /u4a \
+		-e UMA_AS_TEST_DSN='postgres://u4a:u4a@u4a-pgtest:5432/u4a' \
+		python:3.12-slim \
+		sh -c "pip install -q asyncpg && python /u4a/lib/test_store.py"; \
+	status=$$?; \
+	docker rm -f u4a-pgtest >/dev/null 2>&1 || true; \
+	docker network rm u4a-storetest >/dev/null 2>&1 || true; \
+	exit $$status
+
 ## embedded-check: prove the grant works with the resource enforcing itself
 # Flips alice-vault to ENFORCEMENT_MODE=embedded, runs the four beats straight
 # at the resource (no gateway, no ext_authz), then restores gateway mode.

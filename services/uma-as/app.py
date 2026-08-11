@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse
 from jwt.algorithms import OKPAlgorithm
 
 import policy
+import store
 
 ISSUER = os.environ.get("UMA_AS_ISSUER", "https://alice-as.uma.lab")
 KEY_PATH = os.environ.get("UMA_AS_SIGNING_KEY", "/keys/uma-as-ed25519.pem")
@@ -41,23 +42,6 @@ OWNER_ISSUER = os.environ.get(
 OWNER_USERNAME = os.environ.get("UMA_AS_OWNER", "alice")
 OWNER_AUDIENCES = set(
     os.environ.get("UMA_AS_OWNER_CLIENTS", "alice-portal").split(","))
-# Resource servers Alice has authorized to use her Protection API. The PAT
-# is an OAuth token this AS issues to these clients (client_credentials,
-# scope uma_protection); the day-0 consent for her brokerage's gateway is
-# seeded — the RS-side onboarding handshake is a finding, not a feature here.
-RS_CLIENTS: dict[str, dict] = {
-    os.environ.get("UMA_AS_RS_CLIENT_ID", "meridian-gateway"): {
-        "secret": os.environ.get("UMA_AS_RS_CLIENT_SECRET", "gateway-dev-secret"),
-        "name": "Meridian Wealth API gateway",
-        "status": "active",
-        "consented": "seeded at provisioning (Alice linked her brokerage)",
-        "last_pat_issued": None,
-        # Where the RS publishes itself — the root of declarative
-        # registration (RFC 9728 metadata is derived from this identifier).
-        "resource_uri": os.environ.get(
-            "UMA_AS_RS_RESOURCE_URI", "https://gateway.uma.lab/mcp"),
-    }
-}
 PAT_TTL = 3600
 # Registration is declarative: this AS *reads* the RS's published metadata —
 # public structure from the RFC 9728 document, owner-bound instances from the
@@ -129,33 +113,36 @@ KID = "uma-as-1"
 app = FastAPI(title="uma-as")
 
 # ---------------------------------------------------------------------------
-# In-memory state.
+# State.
+#
+# Everything the grant loop remembers lives behind STORE (see store.py):
+# negotiations and the tickets that index them, issued RPTs, standing
+# connections, the ledger, Alice's tiers, the resource servers she has
+# authorized. Two backends — in-process for the compose stack, Postgres when
+# this service runs replicated — because at more than one replica a
+# module-level dict is not merely slower, it is wrong: a ticket minted here
+# is unknown there, and a single-use burn stops being single-use.
 #
 # The negotiation record is keyed by its *family* and lives for the whole
-# negotiation; TICKETS is only a rotating index into it. Each presentation
-# consumes the current ticket (UMA 2.0 single-use rule) and, if the
-# negotiation continues, a fresh ticket is indexed to the same family.
+# negotiation; the ticket table is only a rotating index into it. Each
+# presentation consumes the current ticket (UMA 2.0 single-use rule) and, if
+# the negotiation continues, a fresh ticket is indexed to the same family.
 #
 # Keying the record by the ticket instead — the obvious first design — makes
 # the record invisible between the pop and the re-insert, so a concurrent
 # /owner/pending misses it and /owner/pending/{family}/decision 404s on a
 # negotiation that plainly exists. The family is the stable identity here;
 # the ticket is a credential for it.
+#
+# RESOURCES stays here, per process, and deliberately: it is a *derived*
+# cache of what the resource server publishes, re-pullable at any time from
+# the authoritative copy, so replicas converging separately is correct rather
+# than merely tolerable. Standing relationships are the opposite — one wrong
+# answer there is an access-control failure — which is the line between the
+# two.
 # ---------------------------------------------------------------------------
+STORE: store.Store = store.make_store()
 RESOURCES: dict[str, dict] = {}
-NEGOTIATIONS: dict[str, dict] = {}  # family -> negotiation record
-TICKETS: dict[str, str] = {}        # rotating ticket -> family
-RPTS: dict[str, dict] = {}          # jti -> {consumed, operation, family, handle}
-LEDGER: list[dict] = []             # promised / touched / approved entries
-OWNER_QUEUE: list[asyncio.Queue] = []  # SSE subscribers (portal)
-# Standing relationships: the day-1 handshake's output. Keyed by the agent's
-# connection handle — the RFC 7638 JWK thumbprint for a pseudonymous agent
-# (the key is the identity), issuer-qualified subject for an identified one
-# (its session keys rotate; see connection_handle). An unknown agent's first
-# contract commit pends as a connection request — UMA's request_submitted
-# doing double duty as owner-mediated agent registration. Revocation
-# deactivates live RPTs too.
-CONNECTIONS: dict[str, dict] = {}
 
 
 def jwk_thumbprint(jwk: dict) -> str:
@@ -169,70 +156,70 @@ def jwk_thumbprint(jwk: dict) -> str:
     ).rstrip(b"=").decode()
 
 
-def ledger_add(kind: str, family: str, entry: dict) -> None:
-    LEDGER.append({"kind": kind, "family": family, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **entry})
+def utcstamp() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+async def ledger_add(kind: str, family: str, entry: dict) -> None:
+    await STORE.ledger_add(kind, family, utcstamp(), entry)
 
 
 async def owner_notify(payload: dict) -> None:
-    for q in list(OWNER_QUEUE):
-        await q.put(payload)
+    await STORE.notify(payload)
 
 
-def new_ticket(record: dict) -> str:
+async def new_ticket(record: dict) -> str:
     """Mint a ticket and index it to the record's family. The record itself
-    stays in NEGOTIATIONS throughout."""
-    ticket = f"tkt_{secrets.token_urlsafe(24)}"
-    record["expires"] = now() + (PENDING_TTL if record.get("state") == "awaiting-owner" else TICKET_TTL)
-    NEGOTIATIONS[record["family"]] = record
-    TICKETS[ticket] = record["family"]
-    return ticket
+    stays addressable by family throughout."""
+    ttl = PENDING_TTL if record.get("state") == "awaiting-owner" else TICKET_TTL
+    return await STORE.mint_ticket(record, ttl)
 
 
-def consume_ticket(ticket: str) -> dict | None:
-    """Burn the presented ticket and return its negotiation.
-
-    Only the index entry is removed — the negotiation remains addressable by
-    family, so the owner's portal can see and decide a pending request even in
-    the window between one ticket being consumed and its rotation being
-    issued.
-    """
-    family = TICKETS.pop(ticket or "", None)
-    if family is None:
-        return None
-    rec = NEGOTIATIONS.get(family)
-    if not rec or rec["expires"] < now():
-        return None
-    return rec
-
-
-def close_negotiation(rec: dict | None) -> None:
-    """Drop a finished negotiation and any ticket still indexed to it.
-
-    Every path out of the grant loop is terminal except need_info and
-    awaiting-owner, so without this the record set grows for the life of the
-    process. The ledger, not this dict, is the audit trail.
-    """
-    if not rec:
-        return
-    family = rec.get("family")
-    NEGOTIATIONS.pop(family, None)
-    for t in [t for t, f in TICKETS.items() if f == family]:
-        TICKETS.pop(t, None)
-
-
-def reap_expired() -> None:
-    """Sweep negotiations whose ticket window has closed with nobody returning."""
-    stale = [f for f, r in NEGOTIATIONS.items() if r["expires"] < now()]
-    for family in stale:
-        close_negotiation(NEGOTIATIONS.get(family))
+async def close_negotiation(rec: dict | None) -> None:
+    if rec:
+        await STORE.close_negotiation(rec.get("family"))
 
 
 # --- Basics -----------------------------------------------------------------
 
 
+@app.on_event("startup")
+async def open_store() -> None:
+    await STORE.start()
+
+
+@app.on_event("shutdown")
+async def close_store() -> None:
+    await STORE.close()
+
+
 @app.get("/health")
 async def health() -> dict:
+    """Liveness and readiness both.
+
+    Deliberately independent of whether the registry pull has completed. The
+    pull calls this AS's *public* hostname, which routes back here for a JWKS
+    check — so gating readiness on it would leave this service with no ready
+    endpoints, which fails the back-call, which fails the pull, which never
+    lets readiness go green. See /health/registry for the honest answer to
+    "has the pull finished", which is a question worth asking and a terrible
+    readiness probe.
+    """
     return {"status": "ok", "issuer": ISSUER}
+
+
+@app.get("/health/registry")
+async def health_registry() -> JSONResponse:
+    """Has this replica's declarative pull landed yet?
+
+    For `kubectl wait`, the smoke tests and a dashboard panel — never for a
+    readiness probe (see /health).
+    """
+    ready = bool(RESOURCES)
+    return JSONResponse(
+        {"status": "ok" if ready else "pending", "resources": len(RESOURCES)},
+        status_code=200 if ready else 503,
+    )
 
 
 @app.get("/jwks")
@@ -258,45 +245,47 @@ async def discovery() -> dict:
 
 # --- Terms roster (MyTerms pattern: proffered terms are persistent documents) -
 
-# Every version of every proffered terms document, kept dereferenceable at a
-# stable URI for the life of the AS — the "persistent record of the policies
-# the requesting party promises to adhere to" (2010), in MyTerms shape.
-TERMS_DOCS: dict[str, dict] = {}
+# Every version of every proffered terms document is kept dereferenceable at
+# a stable URI for the life of the AS — the "persistent record of the
+# policies the requesting party promises to adhere to" (2010), in MyTerms
+# shape. They live in the store: a terms URI that resolved on one replica and
+# 404'd on another would break exactly the property that makes a signed
+# agreement checkable later.
 
 
 def terms_uri(template_id: str) -> str:
     return f"{ISSUER}/terms/{template_id}"
 
 
-def publish_terms(tier_id: str, tier: dict) -> str:
+async def publish_terms(tier_id: str, tier: dict) -> str:
     """Archive the current version of a tier's terms as a served document.
     Idempotent per template_id (a version's content never changes)."""
     template_id = tier["terms"]["template_id"]
-    if template_id not in TERMS_DOCS:
-        TERMS_DOCS[template_id] = {
+    if await STORE.terms_doc(template_id) is None:
+        await STORE.publish_terms({
             "template_id": template_id,
             "terms_uri": terms_uri(template_id),
             "proffered_by": ISSUER,
             "name": tier["name"],
             "tier": tier_id,
             **{k: v for k, v in tier["terms"].items() if k != "template_id"},
-            "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
+            "published_at": utcstamp(),
+        })
         event("terms.published", template_id=template_id, tier=tier_id)
     return terms_uri(template_id)
 
 
 @app.on_event("startup")
 async def publish_initial_terms() -> None:
-    for tier_id, tier in policy.tiers().items():
-        publish_terms(tier_id, tier)
+    for tier_id, tier in (await STORE.tiers()).items():
+        await publish_terms(tier_id, tier)
 
 
 @app.get("/terms")
 async def terms_index() -> dict:
     return {
         "proffered_by": ISSUER,
-        "terms": sorted(TERMS_DOCS.values(), key=lambda d: d["template_id"]),
+        "terms": await STORE.terms_docs(),
     }
 
 
@@ -365,7 +354,7 @@ def terms_as_jsonld(doc: dict) -> dict:
 
 @app.get("/terms/{template_id:path}")
 async def terms_document(template_id: str, request: Request, format: str = None):
-    doc = TERMS_DOCS.get(template_id)
+    doc = await STORE.terms_doc(template_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="unknown terms document")
     if format == "jsonld":
@@ -384,7 +373,7 @@ def _bearer(request: Request) -> str:
     return authz[7:]
 
 
-def issue_pat(client_id: str) -> dict:
+async def issue_pat(client_id: str) -> dict:
     """Mint a PAT: an OAuth access token for the Protection API, carrying
     the owner it acts about (FedAuthz's RO context) and the RS it was
     issued to."""
@@ -402,14 +391,13 @@ def issue_pat(client_id: str) -> dict:
         algorithm="EdDSA",
         headers={"typ": "pat+jwt", "kid": KID},
     )
-    RS_CLIENTS[client_id]["last_pat_issued"] = time.strftime(
-        "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    await STORE.touch_pat(client_id, utcstamp())
     event("pat.issued", client_id=client_id, expires_in=PAT_TTL)
     return {"access_token": token, "token_type": "Bearer",
             "expires_in": PAT_TTL, "scope": "uma_protection"}
 
 
-def require_pat(request: Request) -> None:
+async def require_pat(request: Request) -> None:
     """The Protection API takes the PAT this AS issued — verified, scoped,
     and revocable via the owner's resource-server registry."""
     try:
@@ -421,7 +409,7 @@ def require_pat(request: Request) -> None:
                             detail=f"protection API requires a valid PAT: {exc}")
     if "uma_protection" not in claims.get("scope", "").split():
         raise HTTPException(status_code=403, detail="PAT lacks uma_protection scope")
-    rs = RS_CLIENTS.get(claims.get("azp", ""))
+    rs = await STORE.resource_server(claims.get("azp", ""))
     if rs is None or rs["status"] != "active":
         raise HTTPException(status_code=401,
                             detail="the owner has revoked this resource server")
@@ -494,8 +482,11 @@ def well_known_prm_url(resource_uri: str) -> str:
             f"/.well-known/oauth-protected-resource{u.path.rstrip('/')}")
 
 
-def pull_registrations(client_id: str) -> int:
+def pull_registrations(client_id: str, rs: dict) -> int:
     """Read the RS's published metadata and materialize the registry.
+
+    Takes the resource-server record rather than looking it up: this runs on
+    a worker thread (see pull_at_startup) and so cannot reach the store.
 
     1. Fetch the public RFC 9728 document (TLS-anchored) and verify its
        signed_metadata against the resource's jwks_uri — the pulled copy is
@@ -508,7 +499,6 @@ def pull_registrations(client_id: str) -> int:
 
     from uma4a_http_sig import sign as http_sign
 
-    rs = RS_CLIENTS[client_id]
     resource_uri = rs["resource_uri"]
     with httpx.Client(verify=AGENT_ISSUER_CA or True, timeout=10.0) as client:
         prm = client.get(well_known_prm_url(resource_uri))
@@ -568,11 +558,9 @@ def pull_registrations(client_id: str) -> int:
 
 @app.on_event("startup")
 async def pull_at_startup() -> None:
-    import asyncio
-
     async def attempt_loop():
         for _ in range(60):
-            for client_id in RS_CLIENTS:
+            for client_id, rs in (await STORE.resource_servers()).items():
                 try:
                     # Off the event loop: the RS authenticates this AS's
                     # signed query by fetching *our* JWKS, so the pull and
@@ -580,7 +568,12 @@ async def pull_at_startup() -> None:
                     # deadlocks a single-threaded AS. (Finding: pull-model
                     # verification must tolerate a live back-call, or keys
                     # must be cached ahead of need.)
-                    await asyncio.to_thread(pull_registrations, client_id)
+                    #
+                    # The same cycle is why /health must not report this
+                    # loop's progress: under an orchestrator that gates
+                    # traffic on readiness, the back-call would have nowhere
+                    # to land and the loop could never finish.
+                    await asyncio.to_thread(pull_registrations, client_id, rs)
                     return
                 except Exception as exc:
                     event("resources.pull_retry", client_id=client_id,
@@ -596,7 +589,7 @@ async def pull_at_startup() -> None:
 
 @app.post("/perm")
 async def register_permission(request: Request) -> JSONResponse:
-    require_pat(request)
+    await require_pat(request)
     body = await request.json()
     rid = body.get("resource_id")
     # FedAuthz §4.1: the AS only issues tickets against its own registry.
@@ -608,11 +601,9 @@ async def register_permission(request: Request) -> JSONResponse:
         # the RS-side re-push that classic RReg required.
         # (to_thread: see pull_at_startup — the pull triggers a JWKS
         # back-call from the RS and must not block this event loop.)
-        import asyncio
-
-        for client_id in RS_CLIENTS:
+        for client_id, rs in (await STORE.resource_servers()).items():
             try:
-                await asyncio.to_thread(pull_registrations, client_id)
+                await asyncio.to_thread(pull_registrations, client_id, rs)
             except Exception as exc:
                 event("resources.pull_retry", client_id=client_id,
                       error=str(exc)[:200])
@@ -634,7 +625,7 @@ async def register_permission(request: Request) -> JSONResponse:
             status_code=400,
         )
     family = f"fam_{secrets.token_urlsafe(8)}"
-    ticket = new_ticket(
+    ticket = await new_ticket(
         {
             "family": family,
             "state": "issued",
@@ -646,7 +637,7 @@ async def register_permission(request: Request) -> JSONResponse:
     return JSONResponse({"ticket": ticket}, status_code=201)
 
 
-def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
+async def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
     """Decode and look up an RPT. Returns (claims, record, error_code)."""
     try:
         claims = jwt.decode(
@@ -660,10 +651,10 @@ def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
         return None, None, "expired"
     except jwt.InvalidTokenError:
         return None, None, "invalid_signature"
-    rec = RPTS.get(claims.get("jti", ""))
+    rec = await STORE.rpt(claims.get("jti", ""))
     if rec is None:
         return claims, None, "unknown_token"
-    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
+    if (conn := await STORE.connection(rec.get("handle") or "")) is not None:
         if conn["status"] != "active":
             return claims, rec, "connection_revoked"
     if claims.get("single_use") and rec["consumed"]:
@@ -673,8 +664,8 @@ def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
 
 @app.post("/introspect")
 async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
-    require_pat(request)
-    claims, rec, err = _decode_rpt(token)
+    await require_pat(request)
+    claims, rec, err = await _decode_rpt(token)
     if err:
         # RFC 7662 permits additional members. Without a reason the PEP cannot
         # tell "come back after re-negotiating" from "the owner revoked you and
@@ -682,15 +673,17 @@ async def introspect(request: Request, token: str = Form(...), consume: str = Fo
         event("rpt.introspected", corr=(rec or {}).get("family"), result=err)
         return {"active": False, "error": err}
 
-    if (conn := CONNECTIONS.get(rec.get("handle", ""))) is not None:
-        conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if rec.get("handle"):
+        await STORE.touch_connection(rec["handle"], utcstamp())
     # Consumption is no longer done here by default: the PEP has not yet
     # verified proof-of-possession at this point, so burning the token now
     # lets an unsigned replay destroy a grant the owner just approved. The
     # PEP calls /consume once every check has passed. The parameter is kept
     # for the single-shot case where a caller has already verified.
     if claims.get("single_use") and consume == "true":
-        rec["consumed"] = True
+        if await STORE.consume_rpt(claims.get("jti", "")) is None:
+            event("rpt.introspected", corr=rec["family"], result="already_consumed")
+            return {"active": False, "error": "already_consumed"}
         event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
 
     event("rpt.introspected", corr=rec["family"], result="active")
@@ -713,28 +706,37 @@ async def consume_rpt(request: Request, token: str = Form(...)) -> dict:
     """Burn a single-use RPT — the last step of enforcement, not the first.
 
     Split out of introspection so the PEP can verify proof-of-possession and
-    the operation binding *before* anything is spent. Check-then-act, so the
-    burn itself has to be the atomic step: a caller that loses the race is
-    told so and must deny.
+    the operation binding *before* anything is spent. The burn is the atomic
+    step: whoever loses the race is told so, and must deny.
+
+    That word "atomic" used to be aspirational. The decode above is a read
+    and the burn below is a write, and this was safe only because one event
+    loop never yielded between them — a property of the deployment, not of
+    the design. It is now a property of the store: a single statement that
+    both decides and writes, and reports which caller won. UMA 2.0 says an
+    RPT may be single-use; it never says the burn must be indivisible,
+    because in 2018 an authorization server was one process.
     """
-    require_pat(request)
-    claims, rec, err = _decode_rpt(token)
+    await require_pat(request)
+    claims, rec, err = await _decode_rpt(token)
     if err:
         return {"consumed": False, "error": err}
     if not claims.get("single_use"):
         return {"consumed": False, "error": "not_single_use"}
-    rec["consumed"] = True
-    event("rpt.consumed", corr=rec["family"], jti=claims.get("jti", ""))
-    return {"consumed": True, "family": rec["family"]}
+    family = await STORE.consume_rpt(claims.get("jti", ""))
+    if family is None:
+        return {"consumed": False, "error": "already_consumed"}
+    event("rpt.consumed", corr=family, jti=claims.get("jti", ""))
+    return {"consumed": True, "family": family}
 
 
 @app.post("/audit/access")
 async def audit_access(request: Request) -> dict:
     """The PEP reports allowed calls so the ledger's 'touched' column is
     grounded in enforcement, not client claims."""
-    require_pat(request)
+    await require_pat(request)
     body = await request.json()
-    ledger_add("touched", body.get("family", "?"), {
+    await ledger_add("touched", body.get("family", "?"), {
         "tool": body.get("tool"),
         "summary": body.get("summary"),
     })
@@ -745,12 +747,12 @@ async def audit_access(request: Request) -> dict:
 # --- Grant API (agent-facing, UMA 2.0 Grant shape) ---------------------------
 
 
-def terms_template_for(rec: dict, tier_id: str, tier: dict, family: str) -> dict:
+async def terms_template_for(rec: dict, tier_id: str, tier: dict, family: str) -> dict:
     template = dict(tier["terms"])
     template.update(
         {
             "proffered_by": ISSUER,
-            "terms_uri": publish_terms(tier_id, tier),
+            "terms_uri": await publish_terms(tier_id, tier),
             "nonce": rec["nonce"],
             "family": family,
             "resource_id": rec["resource_id"],
@@ -759,14 +761,14 @@ def terms_template_for(rec: dict, tier_id: str, tier: dict, family: str) -> dict
     return template
 
 
-def need_info_response(rec: dict, tier_id: str, tier: dict) -> JSONResponse:
+async def need_info_response(rec: dict, tier_id: str, tier: dict) -> JSONResponse:
     family = rec["family"]
     rec["state"] = "need_info"
     rec["nonce"] = secrets.token_urlsafe(12)
     rec["tier"] = tier_id
-    template = terms_template_for(rec, tier_id, tier, family)
+    template = await terms_template_for(rec, tier_id, tier, family)
     rec["template"] = template
-    rotated = new_ticket(rec)
+    rotated = await new_ticket(rec)
     event("need_info.terms_dictated", corr=family, tier=tier_id,
           template_id=template["template_id"], resource_id=rec["resource_id"])
     return JSONResponse(
@@ -963,10 +965,10 @@ def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
     return contract, signer_jwk
 
 
-def issue_rpt(rec: dict, contract_hash: str, signer_jwk: dict,
-              operation: dict | None) -> dict:
+async def issue_rpt(rec: dict, contract_hash: str, signer_jwk: dict,
+                    operation: dict | None) -> dict:
     family = rec["family"]
-    tier = policy.tiers()[rec["tier"]]
+    tier = (await STORE.tiers())[rec["tier"]]
     exp = int(now()) + min(3600, tier["terms"]["expires_in"])
     jti = f"rpt_{uuid.uuid4().hex[:12]}"
     claims = {
@@ -994,9 +996,7 @@ def issue_rpt(rec: dict, contract_hash: str, signer_jwk: dict,
     token = jwt.encode(claims, SIGNING_KEY, algorithm="EdDSA",
                        headers={"typ": "aa-auth+jwt", "kid": KID})
     handle = connection_handle(rec["contract"]["_identity"], signer_jwk)
-    RPTS[jti] = {"consumed": False, "family": family,
-                 "operation": claims.get("operation"),
-                 "handle": handle}
+    await STORE.record_rpt(jti, family, handle, claims.get("operation"))
     event("rpt.issued", corr=family, jti=jti, single_use=claims.get("single_use", False),
           tier=rec["tier"])
 
@@ -1039,7 +1039,7 @@ async def token(
     # PAT issuance: a resource server the owner has authorized exchanges its
     # client credentials for a uma_protection-scoped token (FedAuthz's PAT).
     if grant_type == "client_credentials":
-        rs = RS_CLIENTS.get(client_id or "")
+        rs = await STORE.resource_server(client_id or "")
         if rs is None or not secrets.compare_digest(client_secret or "", rs["secret"]):
             return JSONResponse({"error": "invalid_client"}, status_code=401)
         if rs["status"] != "active":
@@ -1049,13 +1049,13 @@ async def token(
                 status_code=403)
         if scope != "uma_protection":
             return JSONResponse({"error": "invalid_scope"}, status_code=400)
-        return JSONResponse(issue_pat(client_id))
+        return JSONResponse(await issue_pat(client_id))
 
     if grant_type != "urn:ietf:params:oauth:grant-type:uma-ticket":
         return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
 
-    reap_expired()
-    rec = consume_ticket(ticket)
+    await STORE.reap_expired()
+    rec = await STORE.consume_ticket(ticket)
     if rec is None:
         event("ticket.presented", corr=None, result="invalid_grant")
         return JSONResponse({"error": "invalid_grant"}, status_code=400)
@@ -1068,26 +1068,27 @@ async def token(
     if decline == "true" and rec["state"] == "need_info":
         event("terms.declined", corr=family, tier=rec.get("tier"),
               template_id=rec.get("template", {}).get("template_id"))
-        ledger_add("refused", family, {
+        await ledger_add("refused", family, {
             "tier": rec.get("tier"),
             "terms_uri": rec.get("template", {}).get("terms_uri"),
         })
-        close_negotiation(rec)
+        await close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Pending ask-me ticket being re-presented (beat 3, taking longer).
     if rec["state"] == "awaiting-owner":
         return await pending_poll(rec)
 
-    tier_id, tier = policy.tier_for_resource(rec["resource_id"])
+    tier_id, tier = policy.tier_for_resource(await STORE.tiers(),
+                                             rec["resource_id"])
     if tier_id is None:
         event("policy.evaluated", corr=family, result="no-tier")
-        close_negotiation(rec)
+        await close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
 
     # Beat 2: no contract yet -> dictate Alice's terms.
     if not claim_token:
-        return need_info_response(rec, tier_id, tier)
+        return await need_info_response(rec, tier_id, tier)
 
     # Beat 3: contract committed.
     if claim_token_format != AGREEMENT_FORMAT:
@@ -1098,7 +1099,7 @@ async def token(
         contract, signer_jwk = verify_contract(claim_token, rec)
     except Exception as exc:
         event("contract.rejected", corr=family, reason=str(exc))
-        close_negotiation(rec)
+        await close_negotiation(rec)
         return JSONResponse(
             {"error": "request_denied", "error_description": str(exc)}, status_code=403
         )
@@ -1113,7 +1114,7 @@ async def token(
         rec["agent_sub"] = contract["_identity"]["sub"]
     event("contract.committed", corr=family, tier=rec["tier"],
           contract=contract_hash, identity=contract["_identity"]["level"])
-    ledger_add("promised", family, {
+    await ledger_add("promised", family, {
         "tier": rec["tier"],
         "purpose": contract["purpose"],
         "prohibited": contract["prohibited"],
@@ -1128,7 +1129,7 @@ async def token(
     # relationship with this agent?"). Alice's approval creates the connection
     # AND releases this negotiation in one tap.
     handle = connection_handle(contract["_identity"], signer_jwk)
-    conn = CONNECTIONS.get(handle)
+    conn = await STORE.connection(handle)
     needs_connection = conn is None or conn["status"] != "active"
     needs_operation_approval = tier["ask_me"]
 
@@ -1138,7 +1139,7 @@ async def token(
         rec["decision"] = None
         rec["pending_kind"] = kind
         rec["handle"] = handle
-        rotated = new_ticket(rec)
+        rotated = await new_ticket(rec)
         event("ticket.awaiting_owner", corr=family, tier=rec["tier"], kind=kind)
         await owner_notify(
             {
@@ -1160,11 +1161,11 @@ async def token(
             status_code=403,
         )
 
-    conn["last_access"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    await STORE.touch_connection(handle, utcstamp())
     event("policy.evaluated", corr=family, result="auto-grant", tier=rec["tier"],
           connection=handle)
-    granted = issue_rpt(rec, contract_hash, signer_jwk, None)
-    close_negotiation(rec)
+    granted = await issue_rpt(rec, contract_hash, signer_jwk, None)
+    await close_negotiation(rec)
     return JSONResponse(granted)
 
 
@@ -1174,31 +1175,31 @@ async def pending_poll(rec: dict) -> JSONResponse:
         if rec.get("pending_kind") == "connection":
             handle = rec["handle"]
             identity = rec["contract"]["_identity"]
-            CONNECTIONS[handle] = {
+            await STORE.put_connection({
                 "handle": handle,
                 "identity": identity,
                 "label": identity.get("sub") or f"Agent {handle[4:12]}",
                 "status": "active",
-                "first_seen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "first_seen": utcstamp(),
                 "last_access": None,
                 "tiers": ["tier1", "tier2", "tier3"],
-            }
+            })
             event("connection.approved", corr=family, handle=handle)
-            ledger_add("connected", family, {"handle": handle,
-                                             "identity": identity})
+            await ledger_add("connected", family, {"handle": handle,
+                                                   "identity": identity})
         event("policy.evaluated", corr=family, result="owner-approved", tier=rec["tier"])
         # Tier policy still applies after connection: an ask-me tier needs its
         # per-operation approval, which Alice's single tap covered only if this
         # negotiation carried the operation (it did — the contract binds it).
-        granted = issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
-                            rec["contract"].get("operation"))
-        close_negotiation(rec)
+        granted = await issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
+                                  rec["contract"].get("operation"))
+        await close_negotiation(rec)
         return JSONResponse(granted)
     if rec.get("decision") == "denied":
         event("policy.evaluated", corr=family, result="owner-denied", tier=rec["tier"])
-        close_negotiation(rec)
+        await close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
-    rotated = new_ticket(rec)  # still pending: rotate and keep waiting
+    rotated = await new_ticket(rec)  # still pending: rotate and keep waiting
     return JSONResponse(
         {"error": "request_submitted", "ticket": rotated, "interval": POLL_INTERVAL},
         status_code=403,
@@ -1211,22 +1212,19 @@ async def pending_poll(rec: dict) -> JSONResponse:
 @app.get("/owner/pending")
 async def owner_pending(request: Request) -> list:
     require_owner(request)
-    out = []
-    for rec in NEGOTIATIONS.values():
-        if rec["state"] == "awaiting-owner" and rec.get("decision") is None:
-            out.append(
-                {
-                    "family": rec["family"],
-                    "kind": rec.get("pending_kind", "operation"),
-                    "tier": rec["tier"],
-                    "purpose": rec["contract"]["purpose"],
-                    "operation": rec["contract"].get("operation"),
-                    "prohibited": rec["contract"]["prohibited"],
-                    "identity": rec["contract"]["_identity"],
-                    "handle": rec.get("handle"),
-                }
-            )
-    return out
+    return [
+        {
+            "family": rec["family"],
+            "kind": rec.get("pending_kind", "operation"),
+            "tier": rec["tier"],
+            "purpose": rec["contract"]["purpose"],
+            "operation": rec["contract"].get("operation"),
+            "prohibited": rec["contract"]["prohibited"],
+            "identity": rec["contract"]["_identity"],
+            "handle": rec.get("handle"),
+        }
+        for rec in await STORE.pending_negotiations()
+    ]
 
 
 @app.post("/owner/pending/{family}/decision")
@@ -1236,15 +1234,15 @@ async def owner_decision(family: str, request: Request) -> dict:
     decision = body.get("decision")
     if decision not in ("approved", "denied"):
         raise HTTPException(status_code=400, detail="decision must be approved|denied")
-    rec = NEGOTIATIONS.get(family)
-    if rec is None or rec["state"] != "awaiting-owner":
+    # The store's guard, not a read-then-write here: a double tap, or two
+    # portals open on the same request, must produce one decision.
+    if not await STORE.decide(family, decision):
         raise HTTPException(status_code=404, detail="no pending negotiation for that family")
-    rec["decision"] = decision
     event("owner.decision", corr=family, decision=decision)
     # Record both outcomes: "what did I decide" is an audit question, and a
     # denial is as much a decision as an approval.
-    ledger_add("approved" if decision == "approved" else "denied", family,
-               {"decision": decision})
+    await ledger_add("approved" if decision == "approved" else "denied", family,
+                     {"decision": decision})
     await owner_notify({"type": "decided", "family": family, "decision": decision})
     return {"family": family, "decision": decision}
 
@@ -1256,19 +1254,17 @@ async def owner_resource_servers(request: Request) -> list:
     require_owner(request)
     return [
         {"client_id": cid, **{k: v for k, v in rs.items() if k != "secret"}}
-        for cid, rs in RS_CLIENTS.items()
+        for cid, rs in (await STORE.resource_servers()).items()
     ]
 
 
 @app.post("/owner/resource-servers/{client_id}/revoke")
 async def owner_revoke_resource_server(client_id: str, request: Request) -> dict:
     require_owner(request)
-    rs = RS_CLIENTS.get(client_id)
-    if rs is None:
+    if not await STORE.revoke_resource_server(client_id):
         raise HTTPException(status_code=404, detail="unknown resource server")
-    rs["status"] = "revoked"
     event("resource_server.revoked", client_id=client_id)
-    ledger_add("revoked", "-", {"resource_server": client_id})
+    await ledger_add("revoked", "-", {"resource_server": client_id})
     return {"client_id": client_id, "status": "revoked"}
 
 
@@ -1278,9 +1274,10 @@ async def owner_resources(request: Request) -> list:
     resource, joined with the tier whose policy governs it. This is the
     surface Alice attaches policy to before any agent has ever called."""
     require_owner(request)
+    tiers = await STORE.tiers()
     out = []
     for rid, desc in RESOURCES.items():
-        tier_id, tier = policy.tier_for_resource(rid)
+        tier_id, tier = policy.tier_for_resource(tiers, rid)
         out.append({
             "_id": rid,
             "name": desc.get("name") or rid,
@@ -1297,7 +1294,7 @@ async def owner_resources(request: Request) -> list:
 @app.get("/owner/policies")
 async def owner_policies(request: Request) -> dict:
     require_owner(request)
-    return policy.tiers()
+    return await STORE.tiers()
 
 
 @app.put("/owner/policies/{tier_id}")
@@ -1305,36 +1302,34 @@ async def owner_update_policy(tier_id: str, request: Request) -> dict:
     require_owner(request)
     patch = await request.json()
     try:
-        updated = policy.update_tier(tier_id, patch)
+        updated = await STORE.update_tier(tier_id, patch)
     except KeyError:
         raise HTTPException(status_code=404, detail="unknown tier")
     event("policy.updated", tier=tier_id, template_id=updated["terms"]["template_id"])
     # Publish the new version immediately so its terms URI dereferences from
     # the moment it exists; earlier versions remain served (persistent record).
-    publish_terms(tier_id, updated)
+    await publish_terms(tier_id, updated)
     return updated
 
 
 @app.get("/owner/connections")
 async def owner_connections(request: Request) -> list:
     require_owner(request)
-    return sorted(CONNECTIONS.values(), key=lambda c: c["first_seen"], reverse=True)
+    return await STORE.connections()
 
 
 @app.post("/owner/connections/{handle}/revoke")
 async def owner_revoke_connection(handle: str, request: Request) -> dict:
     require_owner(request)
-    conn = CONNECTIONS.get(handle)
-    if conn is None:
+    # Deactivating the connection and burning the tokens issued under it is
+    # one step, not two: a revocation that flipped the connection and then
+    # failed would leave the agent holding exactly the authority Alice had
+    # just withdrawn.
+    killed = await STORE.revoke_connection(handle)
+    if killed is None:
         raise HTTPException(status_code=404, detail="unknown connection")
-    conn["status"] = "revoked"
-    killed = 0
-    for rec in RPTS.values():
-        if rec.get("handle") == handle and not rec["consumed"]:
-            rec["consumed"] = True
-            killed += 1
     event("connection.revoked", handle=handle, rpts_deactivated=killed)
-    ledger_add("revoked", "-", {"handle": handle, "rpts_deactivated": killed})
+    await ledger_add("revoked", "-", {"handle": handle, "rpts_deactivated": killed})
     await owner_notify({"type": "decided", "family": "-", "decision": "revoked"})
     return {"handle": handle, "status": "revoked", "rpts_deactivated": killed}
 
@@ -1342,24 +1337,24 @@ async def owner_revoke_connection(handle: str, request: Request) -> dict:
 @app.get("/owner/ledger")
 async def owner_ledger(request: Request) -> list:
     require_owner(request)
-    return LEDGER
+    return await STORE.ledger()
 
 
 @app.get("/owner/events")
 async def owner_events(request: Request):
-    """SSE stream for the portal: pending approvals arriving, decisions landing."""
+    """SSE stream for the portal: pending approvals arriving, decisions landing.
+
+    The subscription is the store's, not this process's. Alice's browser
+    holds one stream against whichever replica answered her request, while
+    the approval she is waiting for may be produced by any of them — so the
+    fan-out has to be a property of the state, not of the process that
+    happens to be serving her.
+    """
     require_owner(request)
     from sse_starlette.sse import EventSourceResponse
 
-    queue: asyncio.Queue = asyncio.Queue()
-    OWNER_QUEUE.append(queue)
-
     async def stream():
-        try:
-            while True:
-                item = await queue.get()
-                yield {"event": item["type"], "data": json.dumps(item)}
-        finally:
-            OWNER_QUEUE.remove(queue)
+        async for item in STORE.subscribe():
+            yield {"event": item["type"], "data": json.dumps(item)}
 
     return EventSourceResponse(stream())

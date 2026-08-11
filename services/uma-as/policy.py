@@ -4,15 +4,19 @@ This is deliberately a small, legible document (not a policy language):
 each tier names the resources it covers, the terms template the AS dictates
 for them, and whether granting requires asking Alice. The portal edits it
 through the owner API.
+
+The tiers themselves live in the store, not here — Alice edits them at
+runtime, so at more than one replica a module-level dict would let two
+authorization servers disagree about her policy. What stays here is the part
+that is genuinely policy and not state: the default she starts from, and the
+rules for how an owner edit is applied.
 """
 
 import copy
-import threading
 
-_LOCK = threading.Lock()
-
-# Default policy — the state Alice's "morning scene" produces.
-_TIERS: dict[str, dict] = {
+# Default policy — the state Alice's "morning scene" produces. The store seeds
+# itself from this once; every later read comes from the store.
+DEFAULT_TIERS: dict[str, dict] = {
     "tier1": {
         "name": "Holdings summary",
         "resources": ["alice-vault/get_positions"],
@@ -65,35 +69,39 @@ _TIERS: dict[str, dict] = {
 }
 
 
-def tiers() -> dict[str, dict]:
-    with _LOCK:
-        return copy.deepcopy(_TIERS)
+def defaults() -> dict[str, dict]:
+    return copy.deepcopy(DEFAULT_TIERS)
 
 
-def tier_for_resource(resource_id: str) -> tuple[str, dict] | tuple[None, None]:
-    with _LOCK:
-        for tid, t in _TIERS.items():
-            if resource_id in t["resources"]:
-                return tid, copy.deepcopy(t)
+def tier_for_resource(tiers: dict[str, dict],
+                      resource_id: str) -> tuple[str, dict] | tuple[None, None]:
+    """Which tier governs a resource. Pure: the caller supplies the tiers it
+    read, so the lookup can never see a different policy than the one the
+    caller is acting on."""
+    for tid, t in tiers.items():
+        if resource_id in t["resources"]:
+            return tid, copy.deepcopy(t)
     return None, None
 
 
-def update_tier(tier_id: str, patch: dict) -> dict:
+def apply_patch(tier: dict, patch: dict) -> dict:
     """Owner edits: terms fields and the ask_me switch. Resources are fixed
-    by registration, not editable here."""
-    with _LOCK:
-        if tier_id not in _TIERS:
-            raise KeyError(tier_id)
-        tier = _TIERS[tier_id]
-        if "ask_me" in patch:
-            tier["ask_me"] = bool(patch["ask_me"])
-        terms_patch = patch.get("terms", {})
-        for field in ("purpose", "expires_in", "prohibited"):
-            if field in terms_patch:
-                tier["terms"][field] = terms_patch[field]
-        # Any owner edit produces a new template version so contracts are
-        # verifiably tied to the terms in force when they were signed.
-        base = tier["terms"]["template_id"].rsplit("/v", 1)[0]
-        version = int(tier["terms"]["template_id"].rsplit("/v", 1)[1]) + 1
-        tier["terms"]["template_id"] = f"{base}/v{version}"
-        return copy.deepcopy(tier)
+    by registration, not editable here.
+
+    Pure — it returns the edited tier rather than mutating shared state, so
+    the store can apply it inside whatever transaction keeps the version bump
+    atomic.
+    """
+    tier = copy.deepcopy(tier)
+    if "ask_me" in patch:
+        tier["ask_me"] = bool(patch["ask_me"])
+    terms_patch = patch.get("terms", {})
+    for field in ("purpose", "expires_in", "prohibited"):
+        if field in terms_patch:
+            tier["terms"][field] = terms_patch[field]
+    # Any owner edit produces a new template version so contracts are
+    # verifiably tied to the terms in force when they were signed.
+    base = tier["terms"]["template_id"].rsplit("/v", 1)[0]
+    version = int(tier["terms"]["template_id"].rsplit("/v", 1)[1]) + 1
+    tier["terms"]["template_id"] = f"{base}/v{version}"
+    return tier
