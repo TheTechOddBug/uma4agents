@@ -1,0 +1,57 @@
+# Waypoints: L7, and only where L7 is genuinely required.
+#
+# ztunnel handles identity, mTLS and L4 authorization for every workload in
+# the mesh at no per-pod cost. What it cannot do is read a request — so a
+# rule that names an HTTP path needs a proxy that parses HTTP, and that is
+# what a waypoint is.
+#
+# Two namespaces get one, and in both cases the rule it enables is a real
+# security property rather than decoration:
+#
+#   alice     — /owner/* must be reachable only by Alice's portal, while
+#               /token, /perm, /introspect and /consume must be reachable by
+#               the edge and by Meridian's enforcement point. Expressed at
+#               L4 this is one port, and permitting the resource server to
+#               reach the port permits it to rewrite Alice's policy.
+#
+#   meridian  — /check* belongs to the gateway alone, and /owner-resources
+#               is served only to Alice's authorization server. Same shape,
+#               same reason.
+#
+# The other four namespaces get none. Every waypoint is a pod and an extra
+# hop, and "which workload may talk to which" is a question ztunnel already
+# answers there.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: alice
+  labels:
+    # `all`, not `service`. A Gateway load-balances to endpoint addresses
+    # rather than to the Service VIP, so traffic from agentgateway to the
+    # enforcement point never passes a service-scoped waypoint — it arrives
+    # at the pod, where ztunnel evaluates the policy, cannot read a path,
+    # and denies. A workload-scoped waypoint intercepts inbound traffic
+    # however the caller addressed it.
+    istio.io/waypoint-for: all
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: meridian
+  labels:
+    istio.io/waypoint-for: all
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE

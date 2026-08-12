@@ -1,0 +1,93 @@
+# *.uma.lab, for the browser.
+#
+# The same hickory-dns zone the compose stack serves, running as a pod and
+# published on a NodePort that the kind cluster maps to the host's :53. That
+# means /etc/resolver/uma.lab — written once by `make dns-setup` — keeps
+# working unchanged, and the Kubernetes path introduces no new host state at
+# all.
+#
+# In-cluster resolution is a separate problem with a separate answer; see
+# coredns-rewrite.yaml.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hickory-dns
+  namespace: uma-edge
+data:
+  named.toml: |
+    listen_addrs_ipv4 = ["0.0.0.0"]
+    # An unprivileged port inside the container: hickory-dns starts as root
+    # and drops privileges, which a hardened pod (no privilege escalation, all
+    # capabilities dropped) will not permit. Running as a normal user on a
+    # high port and letting the Service map 53 onto it avoids the whole
+    # question rather than granting a capability to work around it.
+    listen_port = 5353
+
+    [[zones]]
+    zone = "uma.lab"
+    zone_type = "Primary"
+    file = "/var/named/uma.lab.zone"
+  uma.lab.zone: |
+    $TTL 60
+    @   IN  SOA ns.uma.lab. admin.uma.lab. ( 1 3600 600 86400 60 )
+        IN  NS  ns.uma.lab.
+    ns  IN  A   127.0.0.1
+    @   IN  A   127.0.0.1
+    *   IN  A   127.0.0.1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns
+  namespace: uma-edge
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dns }
+  template:
+    metadata:
+      labels: { app: dns }
+    spec:
+      serviceAccountName: dns
+      containers:
+        - name: hickory
+          image: docker.io/hickorydns/hickory-dns:0.25.2
+          args: ["--config", "/etc/named.toml", "--zonedir", "/var/named"]
+          ports:
+            - { name: dns-udp, containerPort: 5353, protocol: UDP }
+            - { name: dns-tcp, containerPort: 5353, protocol: TCP }
+          volumeMounts:
+            - { name: cfg, mountPath: /etc/named.toml, subPath: named.toml }
+            - { name: cfg, mountPath: /var/named/uma.lab.zone, subPath: uma.lab.zone }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: cfg
+          configMap: { name: hickory-dns }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dns
+  namespace: uma-edge
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns
+  namespace: uma-edge
+spec:
+  type: NodePort
+  selector: { app: dns }
+  ports:
+    - { name: dns-udp, port: 53, targetPort: 5353, nodePort: 30053, protocol: UDP }
+    - { name: dns-tcp, port: 53, targetPort: 5353, nodePort: 30053, protocol: TCP }

@@ -1,0 +1,67 @@
+# Bob's firm's public presence.
+#
+# Two things the requesting side needs somewhere on the web: a Client ID
+# Metadata Document, so Alice's approval dialog can show an operator instead
+# of a bare key thumbprint, and a Web Bot Auth key directory, so a resource
+# that has never met this agent can learn its key belongs to a published
+# operator. Both are display and discovery only — nothing here can widen
+# access, because the connection is keyed by the agent's key or its verified
+# issuer.
+#
+# Two replicas, which is only correct because the service was changed to stop
+# holding state: it serves keys it was given rather than keys it collected.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-operator
+  namespace: sterling-vance
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-operator
+  namespace: sterling-vance
+spec:
+  selector: { app: agent-operator }
+  ports:
+    - { name: http, port: 9030, targetPort: 9030 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-operator
+  namespace: sterling-vance
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: agent-operator }
+  template:
+    metadata:
+      labels: { app: agent-operator }
+    spec:
+      serviceAccountName: agent-operator
+      containers:
+        - name: agent-operator
+          image: localhost:5001/u4a/agent-operator:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 9030 }
+          env:
+            - name: AGENT_OPERATOR_ORIGIN
+              value: https://agent.uma.lab
+          startupProbe:
+            httpGet: { path: /health, port: 9030 }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /health, port: 9030 }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }

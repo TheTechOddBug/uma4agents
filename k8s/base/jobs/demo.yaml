@@ -1,0 +1,72 @@
+# The demo, run from Bob's side of the boundary.
+#
+# The same clients/demo-driver/driver.py the compose stack runs, unchanged,
+# in the namespace that represents the requesting party. That placement is
+# the point: it reaches Alice's resources only through the edge, because the
+# mesh gives it no other route, which is what the compose stack could only
+# assert.
+#
+# Alice's taps are simulated (--simulate-alice) so the run is headless; the
+# owner API call it makes to approve is itself subject to her policy, and it
+# authenticates as her via Keycloak exactly as her portal does.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent
+  namespace: sterling-vance
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: demo
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: demo }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: agent
+      containers:
+        - name: demo
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          # The driver needs the agent-side libraries the AS image does not
+          # carry. Installed at run time, as the compose demo profile does.
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              pip install -q httpx 'pyjwt[crypto]' 'aauth==0.3.2' 2>/dev/null
+              exec python3 /driver/driver.py --cacert /certs/rootCA.pem $DEMO_ARGS
+          env:
+            # Which acts to walk, and whether to tap for Alice. The make
+            # target substitutes this; the default walks the whole day.
+            - name: DEMO_ARGS
+              value: "--act all --simulate-alice"
+            - name: PYTHONPATH
+              value: /driver/lib
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PS_ADMIN_TOKEN
+              value: uma4agents-ps-admin
+          volumeMounts:
+            - { name: driver, mountPath: /driver/driver.py, subPath: driver.py, readOnly: true }
+            - { name: lib, mountPath: /driver/lib, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+            - { name: keys, mountPath: /driver/keys }
+          workingDir: /driver
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+      volumes:
+        - name: driver
+          configMap: { name: demo-driver }
+        - name: lib
+          configMap: { name: demo-lib }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
+        - name: keys
+          emptyDir: {}

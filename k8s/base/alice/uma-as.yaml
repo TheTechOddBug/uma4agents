@@ -1,0 +1,150 @@
+# Alice's authorization server, replicated.
+#
+# Three of them, behind one Service, all answering for the same owner. This
+# is what the store abstraction in services/uma-as/store.py was written for:
+# a ticket minted here must be spendable there exactly once, and the burn has
+# to be a single indivisible step rather than a read followed by a write.
+# See rec 9 in FINDINGS.md.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: uma-as
+  namespace: alice
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uma-as
+  namespace: alice
+spec:
+  selector: { app: uma-as }
+  ports:
+    - { name: http, port: 9000, targetPort: 9000 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uma-as
+  namespace: alice
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: uma-as }
+  template:
+    metadata:
+      labels: { app: uma-as }
+    spec:
+      serviceAccountName: uma-as
+      # One per node. A PodDisruptionBudget stops a voluntary drain taking
+      # too many at once; this stops them all landing on the same node in the
+      # first place, which is the failure a budget cannot help with.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: uma-as }
+      containers:
+        - name: uma-as
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 9000 }
+          env:
+            - name: UMA_AS_ISSUER
+              value: https://alice-as.uma.lab
+            - name: UMA_AS_OWNER_ISSUER
+              value: https://keycloak.uma.lab/realms/alice
+            - name: UMA_AS_OWNER
+              value: alice
+            - name: UMA_AS_RS_RESOURCE_URI
+              value: https://gateway.uma.lab/mcp
+            - name: UMA_AS_RS_CLIENT_ID
+              value: meridian-gateway
+            - name: UMA_AS_RS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: uma-as-config, key: rs-client-secret }
+            # The replicated backend. Under compose this variable is unset
+            # and the in-process store is used instead — same image, same
+            # code, one env var apart.
+            - name: UMA_AS_STORE
+              value: postgres
+            - name: UMA_AS_DATABASE_URL
+              value: postgres://u4a:u4a-dev-password@uma-as-db-rw.alice.svc.cluster.local:5432/u4a
+            # The same path and the same variable the compose stack uses, so
+            # nothing in the application knows which shape it is running in.
+            - name: UMA4A_CA_BUNDLE
+              value: /certs/rootCA.pem
+          volumeMounts:
+            - { name: ca, mountPath: /certs, readOnly: true }
+            # The signing key, from a Secret rather than generated per pod.
+            # Three replicas each minting their own Ed25519 key would publish
+            # three different JWKS behind one Service, and roughly two thirds
+            # of every token verification would fail against the wrong key.
+            - { name: signing-key, mountPath: /keys, readOnly: true }
+
+          # Liveness and readiness both point at /health, which is
+          # deliberately independent of whether the registry pull has
+          # finished. The pull dereferences this server's own public
+          # hostname, which routes back here for a JWKS check — so gating
+          # readiness on it would leave the Service with no ready endpoints,
+          # fail the back-call, fail the pull, and never go green. What an
+          # operator would see is a healthy process stuck at 0/1 for two
+          # minutes and then a silent give-up. /health/registry answers "has
+          # the pull landed" for `kubectl wait` and dashboards; it must never
+          # become a probe.
+          startupProbe:
+            httpGet: { path: /health, port: 9000 }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /health, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 9000 }
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # CPU requests, no CPU limit. Throttling makes Ed25519 signing and
+          # TLS handshakes intermittently slow, which shows up as a flaky
+          # demo and teaches a false lesson about the protocol. In a
+          # multi-tenant production cluster you would set one; here the
+          # tradeoff runs the other way, and it is worth saying so rather
+          # than leaving it looking like an oversight.
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+
+          lifecycle:
+            preStop:
+              # Let an in-flight grant finish. A negotiation interrupted
+              # between the commit and the token is not fatal — the ticket is
+              # still valid and the agent retries — but there is no reason to
+              # cause it.
+              exec: { command: ["sleep", "5"] }
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
+        - name: signing-key
+          secret: { secretName: uma-as-signing-key }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: uma-as
+  namespace: alice
+spec:
+  # Two of three. Alice's authorization server is the one component whose
+  # absence stops every agent everywhere, so a node drain may take one.
+  minAvailable: 2
+  selector:
+    matchLabels: { app: uma-as }

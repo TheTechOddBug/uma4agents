@@ -1,0 +1,11 @@
+profile: ambient
+# kind's nodes keep CNI configuration in the standard location, but the
+# kubelet's plugin directory differs from the upstream default. Getting this
+# wrong presents as pods that never join the mesh, with nothing in the
+# istiod log to say why.
+cni:
+  cniBinDir: /opt/cni/bin
+  cniConfDir: /etc/cni/net.d
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 128Mi }

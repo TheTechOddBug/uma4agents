@@ -1,0 +1,63 @@
+# The authorization server's state, as a Postgres cluster.
+#
+# Three instances with synchronous replication, because the guarantees this
+# database is holding are not "some rows": a permission ticket is spent once,
+# a per-operation grant is burned once, and a revocation must not be visible
+# to one replica and invisible to another. Losing a committed burn would let
+# an owner-approved trade run twice.
+#
+# CloudNativePG rather than a StatefulSet we wrote: failover, backups and
+# rolling minor upgrades are exactly the parts that are easy to get wrong and
+# boring to get right, and `kubectl cnpg promote` mid-demo is a better
+# argument than a paragraph about durability.
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: uma-as-db
+  namespace: alice
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.2
+
+  # Synchronous, not eventual. A grant is not durable until a second instance
+  # has it, because the failure this is guarding against is exactly "the node
+  # holding the only copy of the burn goes away".
+  postgresql:
+    synchronous:
+      method: any
+      number: 1
+
+  bootstrap:
+    initdb:
+      database: u4a
+      owner: u4a
+      secret:
+        name: uma-as-db-credentials
+
+  storage:
+    size: 1Gi
+
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+  # Spread across nodes; two copies on one node is one node away from none.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: uma-as-db-credentials
+  namespace: alice
+type: kubernetes.io/basic-auth
+stringData:
+  # A local-lab credential, like every other value in this repo's dev
+  # defaults — see the README's "Demo credentials, not secrets" table. It
+  # never leaves the cluster: only alice/uma-as may reach the database, and
+  # the mesh policy in ../policy enforces that by workload identity.
+  username: u4a
+  password: u4a-dev-password

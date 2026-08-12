@@ -1,0 +1,86 @@
+# The AAuth person/agent server.
+#
+# A third party to both sides: Bob's agent enrols here and receives a
+# verifiable agent token, and Alice's authorization server checks that token
+# against this issuer's published keys rather than taking Bob's word for it.
+# Neither of them owns it, which is why it is in its own namespace.
+#
+# A StatefulSet because it has real disk — a SQLite database and its own
+# signing keys. The demo's default path is pseudonymous and does not need it
+# at all; this is what the identified-agent path uses.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: person-server
+  namespace: aauth
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: person-server
+  namespace: aauth
+spec:
+  selector: { app: person-server }
+  ports:
+    - { name: http, port: 8765, targetPort: 8765 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: person-server
+  namespace: aauth
+spec:
+  serviceName: person-server
+  replicas: 1
+  selector:
+    matchLabels: { app: person-server }
+  template:
+    metadata:
+      labels: { app: person-server }
+    spec:
+      serviceAccountName: person-server
+      containers:
+        - name: person-server
+          image: localhost:5001/u4a/person-server:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 8765 }
+          env:
+            - name: AAUTH_DATABASE_URL
+              value: sqlite:////data/aauth.db
+            - name: AAUTH_PS_SIGNING_KEY_PATH
+              value: /data/.aauth/ps-signing-key.pem
+            - name: AAUTH_AS_SIGNING_KEY_PATH
+              value: /data/.aauth/as-signing-key.pem
+            - name: AAUTH_PS_PUBLIC_ORIGIN
+              value: https://ps.uma.lab
+            - name: AAUTH_AS_PUBLIC_ORIGIN
+              value: https://ps.uma.lab
+            - name: AAUTH_AS_SERVER_DOMAIN
+              value: ps.uma.lab
+            - name: AAUTH_PS_ADMIN_TOKEN
+              value: uma4agents-ps-admin
+            - name: AAUTH_AS_PERSON_TOKEN
+              value: uma4agents-ps-admin
+            - name: AAUTH_PS_INSECURE_DEV
+              value: "true"
+            - name: AAUTH_AS_INSECURE_DEV
+              value: "true"
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          startupProbe:
+            httpGet: { path: /.well-known/aauth-person.json, port: 8765 }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /.well-known/aauth-person.json, port: 8765 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 384Mi }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 512Mi } }

@@ -1,0 +1,56 @@
+# Split-horizon DNS: *.uma.lab resolves inside the cluster too.
+#
+# This is the single most load-bearing piece of plumbing in the whole
+# deployment, and it exists because of a protocol property rather than a
+# convenience.
+#
+# The authorization server pulls its registry from the resource server's
+# *published* metadata, which means it dereferences the RS's public
+# identifier — https://gateway.uma.lab/... — from inside the cluster. It is
+# not allowed to shortcut to a Service name: the document it fetches has to
+# be the one the public would get, verified against the TLS name the public
+# would see, or the pulled copy proves nothing about what is published.
+#
+# Under compose this works because the edge container carries a network alias
+# for every public hostname. The Kubernetes equivalent is a CoreDNS rewrite
+# that sends every *.uma.lab query to the edge Gateway's Service.
+#
+# TLS is unaffected, and that is the property that makes the whole thing
+# work: SNI and the Host header come from the URL, not from the DNS answer.
+# The AS still presents SNI `gateway.uma.lab`, the edge still serves the
+# certificate for it, and the certificate still validates against the lab CA.
+# Only the address lookup is redirected.
+#
+# Applied by patching kube-system's CoreDNS ConfigMap — kind ships plain
+# CoreDNS with no import directory to drop a file into. See
+# k8s/scripts/coredns-patch.sh, which is what actually merges this in.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-uma-lab
+  namespace: uma-edge
+data:
+  # The server block merged into the CoreDNS Corefile.
+  #
+  # `answer auto` rewrites the response name back to what was asked for, so
+  # the client sees an answer for gateway.uma.lab rather than for the
+  # Service's cluster-local name. Without it, resolvers that check that the
+  # answer matches the question reject the reply.
+  uma-lab.server: |
+    uma.lab:53 {
+        errors
+        rewrite stop {
+            name regex (.*)\.uma\.lab edge.uma-edge.svc.cluster.local
+            answer auto
+        }
+        rewrite stop {
+            name exact uma.lab edge.uma-edge.svc.cluster.local
+            answer auto
+        }
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+        }
+        cache 30
+    }

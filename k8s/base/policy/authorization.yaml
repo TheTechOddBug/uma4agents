@@ -1,0 +1,333 @@
+# The trust boundary.
+#
+# This directory is the content. Everything else in k8s/ is plumbing that
+# gets the same four beats running that already ran under compose; this is
+# the part that could not be expressed there at all.
+#
+# ztunnel gives every workload a SPIFFE identity derived from its
+# ServiceAccount — spiffe://cluster.local/ns/<namespace>/sa/<name> — and mTLS
+# between all of them. These policies are written against those identities,
+# so "who may call this" is answered by a certificate rather than by network
+# position. A pod that gets a new IP, or a workload that lies about its
+# name, changes nothing.
+#
+# ────────────────────────────────────────────────────────────────────────
+# THREE RULES THAT BREAK THE GRANT IF YOU GET THEM WRONG, AND FAIL SILENTLY
+#
+# 1. alice/uma-as MUST be allowed out to the edge on :443. The authorization
+#    server dereferences its own public hostname to pull the registry. Deny
+#    it and the pull retries for two minutes and then gives up with one log
+#    line; every later grant fails with invalid_resource_id.
+#
+# 2. meridian/uma-pep MUST be allowed to reach alice/uma-as on /jwks. The
+#    pull is a *cycle*: the AS signs its query, and the resource server
+#    authenticates it by fetching the AS's published keys mid-request. Deny
+#    that and the AS's own pull hangs on a call it is itself waiting for.
+#
+# 3. The waypoint intercepts traffic *inbound* to a namespace's services, not
+#    a workload's egress. Rule 1 is therefore an egress question and is not
+#    solved by anything written here.
+# ────────────────────────────────────────────────────────────────────────
+#
+# ────────────────────────────────────────────────────────────────────────
+# WHERE A POLICY IS ENFORCED DEPENDS ON WHAT IT TARGETS
+#
+# A policy with `selector` is enforced by ztunnel, at L4. A policy that names
+# an HTTP path must instead be bound with `targetRefs` to the *Service*,
+# which is what hands it to that Service's waypoint.
+#
+# Get this wrong and the failure is total rather than partial: ztunnel cannot
+# evaluate a path, so it does not fall back to allowing the connection — it
+# denies it. Every call to the enforcement point returns 403 and the gateway
+# reports only "external authorization failed", which is the correct answer
+# to the wrong question.
+# ────────────────────────────────────────────────────────────────────────
+---
+# Mesh-wide mTLS. Nothing in this cluster talks to anything else in the clear.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+---
+# ═══ alice ═══════════════════════════════════════════════════════════════
+#
+# Default deny. Without a matching ALLOW below, nothing reaches anything in
+# this namespace.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: alice
+spec:
+  {}
+---
+# The authorization server's public surface: the grant loop, discovery, and
+# the Protection API. Reachable by the edge (which is how an agent arrives)
+# and by Meridian's enforcement point (which introspects and consumes).
+#
+# Note what is *not* here: /owner. The owner API is deliberately excluded
+# from this rule and granted separately below, because a rule written at L4
+# — "may this workload reach port 9000" — cannot make that distinction, and
+# letting the resource server reach the port would let it read and rewrite
+# Alice's policy.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: uma-as-grant-surface
+  namespace: alice
+spec:
+  targetRefs:
+    - kind: Service
+      group: ""
+      name: uma-as
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/uma-edge/sa/edge
+              - cluster.local/ns/meridian/sa/uma-pep
+      to:
+        - operation:
+            paths:
+              - /token
+              - /perm
+              - /introspect
+              - /consume
+              - /jwks
+              - /audit/access
+              - /terms
+              - /terms/*
+              - /.well-known/*
+              - /health
+              - /health/*
+---
+# Alice's own surface. Only her portal may ask her authorization server what
+# is pending, change her tiers, or read her ledger.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: uma-as-owner-api
+  namespace: alice
+spec:
+  targetRefs:
+    - kind: Service
+      group: ""
+      name: uma-as
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/alice/sa/alice-portal
+      to:
+        - operation:
+            paths: ["/owner", "/owner/*"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: keycloak-callers
+  namespace: alice
+spec:
+  selector:
+    matchLabels: { app: keycloak }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/uma-edge/sa/edge          # Alice's browser
+              - cluster.local/ns/alice/sa/alice-portal     # the OIDC exchange
+              - cluster.local/ns/alice/sa/uma-as           # her realm's JWKS
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: alice-portal-callers
+  namespace: alice
+spec:
+  selector:
+    matchLabels: { app: alice-portal }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/uma-edge/sa/edge"]
+---
+# The database. One caller, ever.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: uma-as-db-callers
+  namespace: alice
+spec:
+  selector:
+    matchLabels: { cnpg.io/cluster: uma-as-db }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/alice/sa/uma-as
+              # CloudNativePG's operator manages failover and backups.
+              - cluster.local/ns/cnpg-system/sa/cnpg-cloudnative-pg
+    # The instances themselves: streaming replication on 5432, and the
+    # instance manager that runs the election on 8000. Restricting this to
+    # 5432 looks tighter and quietly breaks failover — the cluster stays
+    # "healthy" until the moment it has to promote.
+    - from:
+        - source:
+            principals: ["cluster.local/ns/alice/sa/uma-as-db"]
+---
+# ═══ meridian ════════════════════════════════════════════════════════════
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: meridian
+spec:
+  {}
+---
+# The enforcement point, split by path the same way the AS is.
+#
+# /check* is the ext_authz callback and belongs to the gateway alone.
+# /owner-resources is the "protected webfinger": the owner-bound listing of
+# what this resource server holds for Alice, served only to her authorization
+# server — which is also the second half of the pull cycle named at the top
+# of this file.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: uma-pep-surfaces
+  namespace: meridian
+spec:
+  targetRefs:
+    - kind: Service
+      group: ""
+      name: uma-pep
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/meridian/sa/meridian"]
+      to:
+        - operation:
+            paths: ["/check", "/check/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/alice/sa/uma-as
+              - cluster.local/ns/meridian/sa/meridian
+      to:
+        - operation:
+            paths:
+              - /owner-resources
+              - /jwks
+              - /.well-known/*
+              - /health
+---
+# The vault. Only the gateway in front of it, and Alice's own portal —
+# because she owns it and reads it directly, which is the asymmetry the
+# whole lab is about. Notably *not* the enforcement point: the PEP decides,
+# it never fetches.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: alice-vault-callers
+  namespace: meridian
+spec:
+  selector:
+    # kmcp labels what it creates with the recommended keys rather than a
+    # bare `app`, so a selector guessed from the other workloads here
+    # matches nothing — and a policy that selects nothing protects nothing
+    # while looking exactly like one that does.
+    matchLabels: { app.kubernetes.io/name: alice-vault }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/meridian/sa/meridian
+              - cluster.local/ns/alice/sa/alice-portal
+---
+# The agent-facing gateway. Reachable from the edge — which is how Bob's
+# agent arrives, and the only way it can.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: meridian-gateway-callers
+  namespace: meridian
+spec:
+  selector:
+    matchLabels: { gateway.networking.k8s.io/gateway-name: meridian }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/uma-edge/sa/edge"]
+---
+# The waypoints themselves must be allowed through to the workloads they
+# front, and this is the piece that is easy to miss.
+#
+# Once a workload is behind a waypoint the traffic arrives in two hops:
+# caller → waypoint (where the path rules above are evaluated) → workload
+# (where ztunnel evaluates workload policy). On that second hop the source
+# identity is the *waypoint's*, not the original caller's. With a
+# default-deny in the namespace and no rule naming the waypoint, everything
+# is refused after the policy that was supposed to permit it has already
+# said yes — which presents as a 503 with nothing denied in any log, because
+# from the waypoint's point of view nothing was.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-waypoint
+  namespace: alice
+spec:
+  selector:
+    matchLabels: { istio.io/use-waypoint: waypoint }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/alice/sa/waypoint"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-waypoint
+  namespace: meridian
+spec:
+  selector:
+    matchLabels: { istio.io/use-waypoint: waypoint }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/meridian/sa/waypoint"]
+---
+# ═══ aauth ═══════════════════════════════════════════════════════════════
+#
+# The identity authority answers anyone who asks — that is what a published
+# issuer is for. It is in the mesh so that its callers are attested and
+# logged, not so that they are restricted.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: person-server-callers
+  namespace: aauth
+spec:
+  selector:
+    matchLabels: { app: person-server }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/uma-edge/sa/edge
+              - cluster.local/ns/alice/sa/uma-as
+              - cluster.local/ns/sterling-vance/sa/agent

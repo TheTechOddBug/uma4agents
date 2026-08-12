@@ -1,0 +1,76 @@
+# The lab's certificate authority, issued in-cluster.
+#
+# The compose stack needs mkcert and openssl on the host and a `make init`
+# before anything runs. None of that is needed here: cert-manager mints a CA,
+# signs *.uma.lab with it, and trust-manager copies the CA into every
+# namespace at the same path and under the same environment variables the
+# compose stack already uses. The applications do not know the difference.
+#
+# The chain is deliberately explicit rather than a one-liner, because the
+# shape is the teaching content: a self-signed issuer exists only to sign one
+# CA certificate; that CA is what everything else is issued from.
+---
+# 1. An issuer that can sign exactly one thing: our CA.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+# 2. The lab CA itself. Long-lived, because re-issuing it invalidates every
+#    trust bundle in the cluster at once.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: uma-lab-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: uma.lab local CA
+  secretName: uma-lab-ca
+  duration: 87600h    # 10 years
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+# 3. A cluster-wide issuer backed by that CA, so any namespace can be issued
+#    a certificate the rest of the lab already trusts.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: uma-lab-ca
+spec:
+  ca:
+    secretName: uma-lab-ca
+---
+# 4. The CA certificate, distributed. Every namespace gets a ConfigMap whose
+#    key is `rootCA.pem` — the same filename the compose stack mounts — so
+#    UMA4A_CA_BUNDLE and SSL_CERT_FILE keep their compose values and no
+#    application code changes for Kubernetes.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: uma-lab-ca-bundle
+spec:
+  sources:
+    - secret:
+        name: uma-lab-ca
+        key: ca.crt
+  target:
+    configMap:
+      key: rootCA.pem
+    namespaceSelector:
+      # Every namespace this lab owns is labelled with its party, whatever
+      # that party is; the label's *presence* is what means "part of this lab,
+      # and should trust its CA". Matching on a value would mean listing the
+      # parties here as well, in a second place that could fall out of date.
+      matchExpressions:
+        - key: u4a.ai/party
+          operator: Exists

@@ -1,0 +1,95 @@
+# The parties, as namespaces.
+#
+# FedAuthz §1.4 divides responsibility between the resource owner, the
+# resource server and the authorization server — between *parties*, not
+# processes. The compose stack collapses all of them onto one Docker network,
+# which is exactly the thing docs/ARCHITECTURE.md argues against, and the
+# seam survives there only as prose.
+#
+# Here it is structural. Each party gets a namespace, each workload gets its
+# own ServiceAccount, and ztunnel gives every one of them a cryptographic
+# identity of the form spiffe://cluster.local/ns/<ns>/sa/<sa>. The policies in
+# ../policy then express the boundary in terms of those identities rather
+# than in terms of who happens to be able to reach whom.
+#
+# The headline the whole exercise is for: sterling-vance has no path into
+# alice or meridian at all. Bob's agent reaches the resource server the same
+# way any caller on the internet would — through the edge — and that is
+# enforced by identity rather than by hope.
+#
+# Every namespace is labelled for ambient mode. There are no sidecars: a
+# workload is enrolled by its namespace label and nothing is injected into
+# the pod, which is why the vault can be an unmodified MCP server and still
+# be inside the mesh.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      The public on-ramp. Everything from outside arrives here first.
+  name: uma-edge
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: edge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      Alice: her identity, her authorization server, her policy, her portal.
+  name: alice
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: resource-owner
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      Meridian Wealth. A different legal entity that holds Alice's assets: it enforces her policy and can never read it.
+  name: meridian
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: resource-server
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      Bob's firm and its agent. Has no path into alice or meridian except through the edge.
+  name: sterling-vance
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: requesting-party
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      A third-party identity authority, neither Alice's nor Bob's, that both sides resolve rather than trust each other about.
+  name: aauth
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: identity-authority
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      Logs and dashboards. Sees protocol events, never grant state.
+  name: observability
+  labels:
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    u4a.ai/party: operator-plane

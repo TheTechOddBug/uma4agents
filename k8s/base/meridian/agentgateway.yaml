@@ -1,0 +1,145 @@
+# The agent-facing gateway, and the enforcement contract expressed as policy.
+#
+# This is the Kubernetes translation of gateway/agw.yaml. The mapping matters
+# more than the YAML, because it is the evidence for FINDINGS rec 1 — the
+# FedAuthz job list moves between hosts without the protocol noticing:
+#
+#   gateway/agw.yaml (file)                  AgentgatewayPolicy (here)
+#   ------------------------------------     ---------------------------------
+#   extAuthz.host: uma-pep:9002              extAuth.backendRef {name, port}
+#   includeRequestBody.maxRequestBytes       extAuth.forwardBody.maxSize
+#   includeRequestHeaders: [...]             extAuth.http.allowedRequestHeaders
+#   protocol.http.path: '"/check" + ...'     extAuth.http.path   (same CEL)
+#   (implicitly fail-closed)                 extAuth.failureMode: FailClosed
+#
+# Only the names move. The CEL expression is byte-identical, which is why
+# uma-pep's /check{rest:path} route needed no change at all. Verified by
+# `make k8s-verify-extauth`.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: meridian
+  namespace: meridian
+spec:
+  gatewayClassName: agentgateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8080
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# The MCP backend. Stateful session routing because the vault speaks
+# streamable-http and uses Mcp-Session-Id; stateless routing would break
+# affinity to the process holding the session.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: alice-vault
+  namespace: meridian
+spec:
+  mcp:
+    sessionRouting: Stateful
+    targets:
+      - name: alice-vault
+        static:
+          host: alice-vault.meridian.svc.cluster.local
+          port: 9020
+          protocol: StreamableHTTP
+          path: /mcp
+---
+# The protected surface: the MCP endpoint itself, plus the discovery
+# documents the PEP serves. Discovery is deliberately unauthenticated — the
+# public metadata says what shape the door is, and the permission ticket says
+# whose door it is and on what terms.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: alice-vault-mcp
+  namespace: meridian
+spec:
+  parentRefs:
+    - name: meridian
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /mcp }
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: alice-vault
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: meridian-discovery
+  namespace: meridian
+spec:
+  parentRefs:
+    - name: meridian
+  rules:
+    - matches:
+        # RFC 9728 protected resource metadata, its AAuth-vocabulary twin,
+        # the resource's signing keys, and the owner-bound listing that only
+        # Alice's authorization server may read (the PEP checks its
+        # signature; see uma-pep's /owner-resources).
+        - path: { type: PathPrefix, value: /.well-known/oauth-protected-resource }
+        - path: { type: PathPrefix, value: /.well-known/aauth-resource.json }
+        - path: { type: PathPrefix, value: /jwks }
+        - path: { type: PathPrefix, value: /owner-resources }
+      backendRefs:
+        - name: uma-pep
+          port: 9002
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: uma-enforcement
+  namespace: meridian
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: alice-vault-mcp
+  traffic:
+    extAuth:
+      backendRef:
+        name: uma-pep
+        port: 9002
+      # Said out loud although it is the default: an enforcement point that
+      # fails open when its authorization service is unreachable is not an
+      # enforcement point.
+      failureMode: FailClosed
+      # The PEP reads the JSON-RPC body to learn which tool is being called;
+      # without it every MCP request looks alike and tier policy cannot be
+      # applied at all.
+      forwardBody:
+        maxSize: 16384
+      http:
+        # Byte-identical to the CEL in gateway/agw.yaml.
+        path: '"/check" + request.path'
+        allowedRequestHeaders:
+          # Past forwardBody.maxSize the body is truncated and forwarded, not
+          # refused — the CRD's own description says otherwise and is wrong.
+          # A cut-off body does not parse, so the tool name vanishes from a
+          # call that was merely padded. The PEP denies on this header rather
+          # than inferring truncation from an unparseable body.
+          - x-envoy-auth-partial-body
+          - authorization
+          - signature
+          - signature-input
+          - host
+          - content-type
+          # SEP-2243 mirrors the JSON-RPC method and target into headers. The
+          # PEP reconciles them against the body rather than trusting either.
+          - mcp-method
+          - mcp-name
+          - mcp-protocol-version
+          # MCP 2026-07-28 requires Origin validation at the resource.
+          - origin
+          # Web Bot Auth: covered by the request signature, so the PEP needs
+          # it to reconstruct the signature base.
+          - signature-agent
+          # W3C Trace Context, so protocol events join the caller's trace.
+          - traceparent

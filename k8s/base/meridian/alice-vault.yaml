@@ -1,0 +1,38 @@
+# Alice's vault, as a first-class Kubernetes object.
+#
+# This is a stock MCP server with no authorization code in it at all — the
+# same image the compose stack runs, in its default ENFORCEMENT_MODE=gateway.
+# It does not hold a PAT, does not know what a permission ticket is, and has
+# never heard of Alice's policy. Everything protecting it happens in front of
+# it.
+#
+# It is declared as a kmcp MCPServer rather than a Deployment we wrote,
+# because that is the shape the finding argues for: FINDINGS' primitive 6
+# transforms UMA's durable resources into *tool surfaces*, and an MCPServer
+# is exactly a tool surface as a resource the cluster understands. The
+# controller turns it into a Deployment and a Service; what a reader sees is
+# a declaration of the thing being protected.
+---
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: alice-vault
+  namespace: meridian
+spec:
+  transportType: http
+  httpTransport:
+    targetPort: 9020
+    path: /mcp
+  deployment:
+    image: localhost:5001/u4a/alice-vault-mcp:dev
+    imagePullPolicy: Always
+    port: 9020
+    replicas: 1
+    env:
+      # The default. The same image can enforce Alice's policy in-process
+      # instead (ENFORCEMENT_MODE=embedded, no gateway in the path) — see
+      # k8s/components/embedded-mode.
+      ENFORCEMENT_MODE: gateway
+    resources:
+      requests: { cpu: 50m, memory: 96Mi }
+      limits: { memory: 256Mi }
