@@ -74,6 +74,31 @@ const BASE = {
   '#alice-row':        { opacity: 0.25 },
   '#alice-row .own-row': { stroke: '#232c3d' },
   '#question':         { x: VAULT_CENTRE, y: GROUND - 300, opacity: 0, scale: 1 },
+
+  // Act two. The story's cast and the machine share one stage, so each act
+  // hides the other rather than the page swapping drawings.
+  '#story':            { opacity: 1 },
+  '#arch':             { opacity: 0 },
+  '#ns-bob':           { opacity: 0 },
+  '#ns-edge':          { opacity: 0 },
+  '#ns-meridian':      { opacity: 0 },
+  '#ns-alice':         { opacity: 0 },
+  '#arch-agent':       { opacity: 0 },
+  '#arch-operator':    { opacity: 0 },
+  '#arch-edge':        { opacity: 0 },
+  '#arch-agw':         { opacity: 0 },
+  '#arch-pep':         { opacity: 0 },
+  '#arch-vault':       { opacity: 0 },
+  '#arch-as':          { opacity: 0 },
+  '#arch-db':          { opacity: 0 },
+  '#arch-keycloak':    { opacity: 0 },
+  '#arch-portal':      { opacity: 0 },
+  '#arch-mesh':        { opacity: 0 },
+  '#beat-1':           { opacity: 0 },
+  '#beat-2':           { opacity: 0 },
+  '#beat-4':           { opacity: 0 },
+  '#arch-denied':      { opacity: 0, scale: 1 },
+  '#arch-scale':       { opacity: 0 },
 };
 
 /* Each scene declares only two things:
@@ -262,39 +287,153 @@ export const SCENES = [
   },
   {
     at: 68600,
-    text: '',
-    // The story ends where it began, and the striking of the set is part of
-    // the last beat rather than something the loop does with a cut: the
-    // curtain comes up, everyone goes back to their opening marks behind it,
-    // and it lifts on the first frame again. Which is why this scene's `end`
-    // restores the base — by the time the curtain is out of the way, the
-    // stage already matches it, so starting over is invisible.
+    beat: null,
+    text: 'That is the whole protocol. Four beats, one owner, one agent that is not hers.',
+    end: {},
+    play() {
+      animate('#titlecard', { opacity: [0, 1], duration: 900 });
+      animate(['#agent', '#bob'], { opacity: [0.16, 0], duration: 500, delay: 1200 });
+      animate('#titlecard', { opacity: [1, 0], duration: 800, delay: 2900 });
+    },
+  },
+  {
+    at: 73000,
+    beat: 'The architecture',
+    text: 'That is the protocol. This is the machine it runs on — and the four beats are the same four beats.',
     end: {
-      '#alice': { x: HOME }, '#bob': { opacity: 0, x: OFFSTAGE_L },
+      '#story': { opacity: 0 }, '#arch': { opacity: 1 },
+      '#ns-bob': { opacity: 1 }, '#ns-edge': { opacity: 1 },
+      '#ns-meridian': { opacity: 1 }, '#ns-alice': { opacity: 1 },
+    },
+    play() {
+      // The story's set strikes; the machine fades up in its place.
+      animate('#story', { opacity: [1, 0], duration: 600 });
+      animate('#arch', { opacity: [0, 1], duration: 700, delay: 400 });
+      animate(['#ns-bob', '#ns-edge', '#ns-meridian', '#ns-alice'], {
+        opacity: [0, 1], duration: 600, delay: (_, i) => 700 + i * 260,
+      });
+    },
+  },
+  {
+    at: 79000,
+    beat: 'The parties',
+    text: 'Each party is its own boundary. Bob’s firm, the brokerage that holds the assets, and Alice — who owns them and is not either of the others.',
+    end: {
+      '#arch-agent': { opacity: 1 }, '#arch-operator': { opacity: 1 },
+      '#arch-edge': { opacity: 1 }, '#arch-agw': { opacity: 1 },
+      '#arch-pep': { opacity: 1 }, '#arch-vault': { opacity: 1 },
+      '#arch-as': { opacity: 1 }, '#arch-db': { opacity: 1 },
+      '#arch-keycloak': { opacity: 1 }, '#arch-portal': { opacity: 1 },
+    },
+    play() {
+      const nodes = ['#arch-agent', '#arch-operator', '#arch-edge', '#arch-agw',
+                     '#arch-pep', '#arch-vault', '#arch-as', '#arch-db',
+                     '#arch-keycloak', '#arch-portal'];
+      animate(nodes, {
+        opacity: [0, 1], duration: 420, delay: (_, i) => i * 170, ease: 'outQuad',
+      });
+    },
+  },
+  {
+    at: 85400,
+    beat: 'The mesh',
+    text: 'Every connection between them is mutually authenticated, and every box has a cryptographic name rather than an address.',
+    end: { '#arch-mesh': { opacity: 1 } },
+    play() {
+      animate('#arch-mesh', { opacity: [0, 1], duration: 700 });
+      animate('#arch-mesh .mesh-line', {
+        strokeDashoffset: [40, 0], duration: 900, delay: (_, i) => i * 90,
+      });
+    },
+  },
+  {
+    at: 90600,
+    beat: 'Beat 1 · challenge',
+    text: 'The agent arrives at the front door like anyone else, and the enforcement point in front of the vault refuses it — with a ticket.',
+    end: { '#beat-1': { opacity: 1 } },
+    play() {
+      animate('#beat-1', { opacity: [0, 1], duration: 500 });
+      animate('#beat-1 .flow', { strokeDashoffset: [180, 0], duration: 900, ease: 'outQuad' });
+      animate('#arch-pep .shield-sm', {
+        stroke: ['#5b8cff', '#f2b955', '#5b8cff'], duration: 1400, delay: 700,
+      });
+    },
+  },
+  {
+    at: 95800,
+    beat: 'Beats 2 and 3',
+    text: 'The ticket takes it past the resource server entirely, to Alice’s own authorization server — three of them, agreeing through one database.',
+    end: { '#beat-2': { opacity: 1 }, '#arch-scale': { opacity: 1 } },
+    play() {
+      animate('#beat-2', { opacity: [0, 1], duration: 500 });
+      animate('#beat-2 .flow', { strokeDashoffset: [420, 0], duration: 1300, ease: 'outQuad' });
+      animate('#arch-as', { scale: [1, 1.03, 1], duration: 900, delay: 1100 });
+      animate('#arch-scale', {
+        opacity: [0, 1], y: [-8, 0], duration: 600, delay: 1600, ease: 'outBack',
+      });
+    },
+  },
+  {
+    at: 101600,
+    beat: 'Beat 4 · grant',
+    text: 'What comes back is scoped to what was agreed, and the enforcement point spends it once. A second attempt with the same grant is refused.',
+    end: { '#beat-4': { opacity: 1 } },
+    play() {
+      animate('#beat-4', { opacity: [0, 1], duration: 500 });
+      animate('#beat-4 .flow', { strokeDashoffset: [320, 0], duration: 1100, ease: 'outQuad' });
+      animate('#arch-vault .row-own', {
+        fill: ['rgba(91, 140, 255, 0.35)', 'rgba(46, 208, 121, 0.45)'],
+        duration: 700, delay: 900,
+      });
+      animate('#arch-pep .shield-sm', {
+        stroke: ['#5b8cff', '#2ed079', '#5b8cff'], duration: 1400, delay: 900,
+      });
+    },
+  },
+  {
+    at: 107200,
+    beat: 'The boundary',
+    text: 'And there is no shortcut. Bob’s side cannot reach Alice’s at all — not because nobody wrote the address down, but because the mesh refuses it.',
+    end: { '#arch-denied': { opacity: 1 } },
+    play() {
+      animate('#arch-denied', { opacity: [0, 1], duration: 600 });
+      animate('#arch-denied .flow--deny', { strokeDashoffset: [520, 0], duration: 900 });
+      animate('#arch-denied g', {
+        scale: [0.5, 1], duration: 600, delay: 700, ease: 'outBack',
+      });
+    },
+  },
+  {
+    at: 113000,
+    text: '',
+    // Strike the machine behind the curtain, exactly as act one does, so the
+    // loop opens on the first frame rather than cutting to it.
+    end: {
+      '#alice': { x: HOME, opacity: 1 }, '#bob': { opacity: 0, x: OFFSTAGE_L },
       '#agent': { opacity: 0, x: OFFSTAGE_L - 90 },
       '#ticket': { x: VAULT_MARK, opacity: 0 },
       '#laptop-lid': { rotate: 0 }, '#place-nightstand': { opacity: 0 },
       '#vault-spokes': { rotate: 0 },
       '#alice-row': { opacity: 0.25 }, '#alice-row .own-row': { stroke: '#232c3d' },
+      '#arch': { opacity: 0 }, '#story': { opacity: 1 },
     },
     play() {
       animate('#titlecard', { opacity: [0, 1], duration: 900 });
-      // behind the curtain
-      animate(['#agent', '#bob'], { opacity: [0.16, 0], duration: 500, delay: 1500 });
-      animate('#alice', { x: [OFFSTAGE_L, HOME], duration: 10, delay: 2000 });
-      animate('#agent', { x: [VAULT_MARK, OFFSTAGE_L - 90], duration: 10, delay: 2000 });
-      animate('#bob', { x: [BOB_MARK, OFFSTAGE_L], duration: 10, delay: 2000 });
-      animate('#laptop-lid', { rotate: [82, 0], duration: 10, delay: 2000 });
-      animate('#place-nightstand', { opacity: [1, 0], duration: 400, delay: 2000 });
-      animate('#vault-spokes', { rotate: [380, 0], duration: 10, delay: 2000 });
-      animate('#alice-row', { opacity: [1, 0.25], duration: 400, delay: 2000 });
-      animate('#alice-row .own-row', { stroke: ['#5b8cff', '#232c3d'], duration: 400, delay: 2000 });
+      animate('#arch', { opacity: [1, 0], duration: 500, delay: 1200 });
+      animate('#story', { opacity: [0, 1], duration: 500, delay: 1700 });
+      animate('#alice', { opacity: [0, 1], x: [OFFSTAGE_L, HOME], duration: 10, delay: 1800 });
+      animate(['#agent', '#bob'], { opacity: [0.16, 0], duration: 400, delay: 1800 });
+      animate('#laptop-lid', { rotate: [82, 0], duration: 10, delay: 1800 });
+      animate('#place-nightstand', { opacity: [1, 0], duration: 400, delay: 1800 });
+      animate('#vault-spokes', { rotate: [380, 0], duration: 10, delay: 1800 });
+      animate('#alice-row', { opacity: [1, 0.25], duration: 400, delay: 1800 });
+      animate('#alice-row .own-row', { stroke: ['#5b8cff', '#232c3d'], duration: 400, delay: 1800 });
       animate('#titlecard', { opacity: [1, 0], duration: 900, delay: 3400 });
     },
   },
 ];
 
-const TOTAL = 73000;
+const TOTAL = 119000;
 
 /* ---- the machine --------------------------------------------------------- */
 

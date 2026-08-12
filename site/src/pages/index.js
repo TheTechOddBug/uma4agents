@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Layout from "../components/Layout";
 import SEO from "../components/SEO";
 import { SCENES, mount, prefersReducedMotion } from "../animation/story";
+import ArchitectureStage from "../animation/ArchitectureStage";
 import "../style/stage.css";
 
 /**
@@ -53,7 +54,21 @@ const IndexPage = () => {
                   <stop offset="1" stopColor="#8f6bff" stopOpacity="0"/>
                 </radialGradient>
 
-                {/* Actors wait offstage at x=-140, which is outside the viewBox but
+                {/* Arrowheads for act two's flows. */}
+        <marker id="mAccent" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#5b8cff"/>
+        </marker>
+        <marker id="mGreen" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#2ed079"/>
+        </marker>
+        <marker id="mWarn" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#f2b955"/>
+        </marker>
+
+        {/* Actors wait offstage at x=-140, which is outside the viewBox but
                      not outside the element: when the element is wider than the
                      viewBox's aspect ratio the drawing is letterboxed, and anything
                      beyond the viewBox renders happily into the side bands. So the
@@ -66,7 +81,12 @@ const IndexPage = () => {
               <g clipPath="url(#stage-clip)">
               <rect x="0" y="175" width="1200" height="465" fill="url(#glow1)"/>
               <rect x="200" y="220" width="1000" height="420" fill="url(#glow2)"/>
-              <path d="M40 560 H1160" className="ground"/>
+              {/* Act one's set, as one thing. Act two hides it wholesale rather
+            than each scene remembering to fade nine props individually —
+            which is the sort of list that is right the day it is written and
+            wrong the day something is added to it. */}
+        <g id="story">
+        <path d="M40 560 H1160" className="ground"/>
 
               {/* ===================== PLACES (they don't move) ==================== */}
 
@@ -243,7 +263,11 @@ const IndexPage = () => {
                 <g className="ledger-row"><text x="-182" y="56">approved</text><text x="50" y="56" className="ledger-v">the one trade</text></g>
               </g>
 
-              <g id="titlecard" opacity="0">
+              </g>
+
+        <ArchitectureStage />
+
+        <g id="titlecard" opacity="0">
                 <rect x="0" y="175" width="1200" height="465" className="curtain"/>
                 <g transform="translate(600 380)">
                   <rect x="-25" y="-104" width="50" height="50" rx="13" fill="url(#mark)"/>
