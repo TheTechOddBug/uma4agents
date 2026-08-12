@@ -1,0 +1,22 @@
+# Meridian's front door: the resource server, as the world sees it.
+#
+# gateway.uma.lab is the identifier the resource publishes itself under, and
+# the one Alice's authorization server dereferences when it pulls the
+# registry. It resolves to this route from outside the cluster and, via the
+# CoreDNS rewrite, from inside it as well — which is what lets the AS fetch
+# the *published* document rather than a shortcut to a Service.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: meridian-gateway
+  namespace: meridian
+spec:
+  parentRefs:
+    - { name: edge, namespace: uma-edge }
+  hostnames: ["gateway.uma.lab"]
+  rules:
+    - backendRefs:
+        # The agentgateway Gateway's own Service, not the vault: everything
+        # public about this resource goes through the enforcement point.
+        - { name: meridian, port: 8080 }

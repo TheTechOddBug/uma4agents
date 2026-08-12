@@ -1,0 +1,117 @@
+# The enforcement point.
+#
+# Meridian's, not Alice's. It holds a PAT issued by her authorization server,
+# challenges unauthorized calls, introspects grants, verifies
+# proof-of-possession and burns single-use tokens — the whole FedAuthz job
+# list — and it can never read her policy. That separation is the reason it
+# lives in this namespace and not in hers.
+#
+# Two replicas, because it is stateless apart from its signing key: it holds
+# no negotiation, no ticket, no grant. Everything it decides, it decides from
+# the request in front of it plus a call to the AS.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: uma-pep
+  namespace: meridian
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uma-pep
+  namespace: meridian
+spec:
+  selector: { app: uma-pep }
+  ports:
+    - { name: http, port: 9002, targetPort: 9002 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uma-pep
+  namespace: meridian
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: uma-pep }
+  template:
+    metadata:
+      labels: { app: uma-pep }
+    spec:
+      serviceAccountName: uma-pep
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: uma-pep }
+      containers:
+        - name: uma-pep
+          image: localhost:5001/u4a/uma-pep:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 9002 }
+          env:
+            # The AS's public identity, used for anything that must match what
+            # the agent was told, and its in-cluster address for the calls
+            # that are ours to make.
+            - name: UMA_AS_PUBLIC
+              value: https://alice-as.uma.lab
+            - name: UMA_AS_INTERNAL
+              value: http://uma-as.alice.svc.cluster.local:9000
+            - name: UMA_AS_RS_CLIENT_ID
+              value: meridian-gateway
+            - name: UMA_AS_RS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: meridian-config, key: rs-client-secret }
+            - name: UMA_REALM
+              value: alice-vault
+            # The authority the RFC 9421 signature base is rebuilt from.
+            # Deliberately configuration and never the request: the Host
+            # header does not survive the ext_authz hop (it arrives as this
+            # service's own address), and an authority taken from a header is
+            # an authority an attacker can set. See FINDINGS rec 1.
+            - name: UMA_EXPECTED_AUTHORITY
+              value: gateway.uma.lab
+            - name: UMA4A_CA_BUNDLE
+              value: /certs/rootCA.pem
+          volumeMounts:
+            - { name: ca, mountPath: /certs, readOnly: true }
+            - { name: signing-key, mountPath: /keys, readOnly: true }
+          startupProbe:
+            httpGet: { path: /health, port: 9002 }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /health, port: 9002 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 9002 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
+        - name: signing-key
+          secret: { secretName: uma-pep-signing-key }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: uma-pep
+  namespace: meridian
+spec:
+  # One of two. Note there is deliberately no budget on any single-replica
+  # workload in this stack: minAvailable:1 against replicas:1 blocks a node
+  # drain forever, which is the most common way a budget makes things worse.
+  minAvailable: 1
+  selector:
+    matchLabels: { app: uma-pep }

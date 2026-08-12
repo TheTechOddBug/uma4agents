@@ -1,0 +1,14 @@
+# Sized for a laptop. cert-manager here issues a handful of certificates once
+# and then does nothing, so its defaults are an order of magnitude more than
+# this cluster needs.
+resources:
+  requests: { cpu: 10m, memory: 64Mi }
+  limits: { memory: 128Mi }
+webhook:
+  resources:
+    requests: { cpu: 10m, memory: 48Mi }
+    limits: { memory: 96Mi }
+cainjector:
+  resources:
+    requests: { cpu: 10m, memory: 96Mi }
+    limits: { memory: 192Mi }

@@ -1,0 +1,13 @@
+# Meridian's copy of the client secret it exchanges for a PAT.
+#
+# Deliberately duplicated rather than shared with alice/uma-as-config: these
+# are two different parties, and one Secret referenced from both namespaces
+# would model them as one. In a real deployment they would not be able to
+# read each other's anyway.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: meridian-config
+  namespace: meridian
+stringData:
+  rs-client-secret: gateway-dev-secret

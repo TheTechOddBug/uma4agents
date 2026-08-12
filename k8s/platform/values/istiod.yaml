@@ -1,0 +1,13 @@
+# Ambient mode: no sidecars anywhere. ztunnel carries L4 identity and mTLS on
+# every node, and a waypoint is deployed only where an L7 rule genuinely
+# needs one (k8s/base/policy).
+profile: ambient
+
+# The trust domain shows up in every AuthorizationPolicy principal, so it is
+# worth leaving at the default rather than inventing one — the policies read
+# as spiffe://cluster.local/ns/<namespace>/sa/<serviceaccount>, which is the
+# form every Istio document uses.
+pilot:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }

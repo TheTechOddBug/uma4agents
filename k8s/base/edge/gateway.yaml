@@ -1,0 +1,81 @@
+# The north-south edge: kgateway, terminating TLS for every *.uma.lab name.
+#
+# This replaces the Envoy container the compose stack runs, and the routes
+# below are a one-for-one translation of edge/envoy.yaml's virtual hosts. The
+# interesting difference is that cross-namespace backends now require the
+# target namespace to *grant* the reference (see referencegrants.yaml) — the
+# edge cannot route to a service just because it knows its name.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: edge-server
+  namespace: uma-edge
+spec:
+  secretName: edge-server-tls
+  issuerRef:
+    name: uma-lab-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+    - "uma.lab"
+    - "*.uma.lab"
+    - "localhost"
+  duration: 8760h
+  renewBefore: 720h
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: edge
+  namespace: uma-edge
+spec:
+  gatewayClassName: kgateway
+  infrastructure:
+    # Without this reference the GatewayParameters below are inert and
+    # kgateway provisions its default LoadBalancer on a random node port,
+    # which the host mapping does not reach.
+    parametersRef:
+      group: gateway.kgateway.dev
+      kind: GatewayParameters
+      name: edge-params
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.uma.lab"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: edge-server-tls
+      allowedRoutes:
+        # Routes live beside the workloads they front, in the namespace that
+        # owns them, rather than all being written here by whoever runs the
+        # edge. Each party publishes its own front door.
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+              - key: u4a.ai/party
+                operator: Exists
+---
+# kgateway provisions a Service for the Gateway; pin it to the NodePort the
+# kind cluster maps to the host's :443, so https://portal.uma.lab works in a
+# browser exactly as it does under compose.
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayParameters
+metadata:
+  name: edge-params
+  namespace: uma-edge
+spec:
+  kube:
+    service:
+      type: NodePort
+      # 30443 is what k8s/kind/cluster.yaml maps to the host's :443. Pinned
+      # rather than allocated, because the host mapping is fixed at cluster
+      # creation and a randomly-assigned port would land nowhere.
+      ports:
+        - port: 443
+          nodePort: 30443
+      extraLabels:
+        u4a.ai/edge: "true"
