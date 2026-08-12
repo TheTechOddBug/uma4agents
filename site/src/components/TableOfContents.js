@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import slugify from "../utils/slugify";
 
 /**
  * Contents for a rendered article.
@@ -13,14 +14,6 @@ import React, { useEffect, useState } from "react";
  * Setting the id on the same node the link points at makes the two
  * impossible to disagree about.
  */
-const slugify = (text) =>
-  text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .slice(0, 60);
-
 const TableOfContents = ({ containerSelector = ".blog-body" }) => {
   const [headings, setHeadings] = useState([]);
 
