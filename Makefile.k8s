@@ -149,6 +149,25 @@ k8s-demo-all:
 k8s-policy-test:
 	$(call run_job,policy-test,cat $(K8S)/base/jobs/policy-test.yaml,300s)
 
+## k8s-load: concurrency against the deployed shape, not against the store
+# 24 agents negotiating at once through the edge, against three authorization
+# servers sharing one database. Asserts every ticket is distinct, that a
+# ticket presented by many at once is answered exactly once, and that the
+# replicas are indistinguishable.
+.PHONY: k8s-load
+k8s-load:
+	$(call run_job,load-test,cat $(K8S)/base/jobs/load-test.yaml,300s)
+
+## k8s-chaos: kill things while Alice is being asked
+# Puts a request in front of her, deletes the authorization server that took
+# it, then fails the database over — and shows the pend surviving both. The
+# premise of the whole demo is that the owner may be asleep for hours; this
+# is what makes that a property of the deployment rather than of the protocol
+# alone.
+.PHONY: k8s-chaos
+k8s-chaos:
+	@./k8s/scripts/chaos.sh
+
 ## k8s-audit: print Alice's ledger from the deployed lab
 .PHONY: k8s-audit
 k8s-audit:

@@ -42,6 +42,24 @@
 # reports only "external authorization failed", which is the correct answer
 # to the wrong question.
 # ────────────────────────────────────────────────────────────────────────
+#
+# ────────────────────────────────────────────────────────────────────────
+# A PRINCIPAL RULE SILENTLY EXCLUDES ANYTHING OUTSIDE THE MESH
+#
+# `principals` matches a SPIFFE identity, and only a workload in the mesh
+# has one. Name the ServiceAccount of a controller that is not enrolled and
+# the rule matches nothing — not "matches loosely", nothing — so the caller
+# is denied by the namespace default and the rule that was supposed to admit
+# it looks correct in every review.
+#
+# That is how the database operator was locked out of the database it
+# manages: the rule named it correctly and cnpg-system was not in the mesh,
+# so its traffic arrived with no identity at all. The cluster kept serving
+# and only stopped being *manageable* — no failover, no promotion — which is
+# invisible until the day it matters. Any namespace whose workloads must be
+# named in a policy has to be enrolled; k8s/base/namespaces enrols
+# cnpg-system for exactly this reason.
+# ────────────────────────────────────────────────────────────────────────
 ---
 # Mesh-wide mTLS. Nothing in this cluster talks to anything else in the clear.
 apiVersion: security.istio.io/v1
@@ -174,7 +192,9 @@ spec:
         - source:
             principals:
               - cluster.local/ns/alice/sa/uma-as
-              # CloudNativePG's operator manages failover and backups.
+              # CloudNativePG's operator manages failover and backups. Naming
+              # it here only works because cnpg-system is *in* the mesh — see
+              # the note below, which cost an afternoon.
               - cluster.local/ns/cnpg-system/sa/cnpg-cloudnative-pg
     # The instances themselves: streaming replication on 5432, and the
     # instance manager that runs the election on 8000. Restricting this to

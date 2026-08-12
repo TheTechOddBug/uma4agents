@@ -47,16 +47,47 @@ class PostgresStore:
     # --- lifecycle ---------------------------------------------------------
 
     async def start(self) -> None:
+        """Connect, create the schema if absent, seed, and start listening.
+
+        Retried rather than fatal. A replicated database is unreachable for a
+        few seconds every time it fails over or is upgraded, and a process
+        that exits on that turns a routine event into a crash loop — which is
+        worse than the outage, because the pod then backs off for minutes
+        after the database is fine again.
+
+        This is the failure the chaos target found: kill the primary while an
+        authorization server happens to be starting, and the server exits
+        instead of waiting the two seconds the promotion takes.
+        """
         import pathlib
 
-        self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=8)
         schema = (pathlib.Path(__file__).parent / "schema.sql").read_text()
-        async with self._pool.acquire() as conn:
-            # Every replica runs this; CREATE ... IF NOT EXISTS makes the
-            # losers no-ops rather than errors.
-            await conn.execute(schema)
-        await self._seed()
-        await self._start_listener()
+        last: Exception | None = None
+        for attempt in range(30):
+            try:
+                self._pool = await asyncpg.create_pool(
+                    self._dsn, min_size=1, max_size=8,
+                    # Do not wait forever on a primary that is being replaced.
+                    command_timeout=10, timeout=10)
+                async with self._pool.acquire() as conn:
+                    # Every replica runs this; CREATE ... IF NOT EXISTS makes
+                    # the losers no-ops rather than errors.
+                    await conn.execute(schema)
+                await self._seed()
+                await self._start_listener()
+                return
+            except Exception as exc:            # noqa: BLE001 — any of them
+                last = exc
+                if self._pool is not None:
+                    await self._pool.close()
+                    self._pool = None
+                print(json.dumps({
+                    "event": "store.connect_retry", "attempt": attempt + 1,
+                    "error": str(exc)[:160],
+                }), flush=True)
+                await asyncio.sleep(2)
+        raise RuntimeError(
+            f"could not reach the grant database after 30 attempts: {last}")
 
     async def _seed(self) -> None:
         """Insert the defaults if nobody has yet. ON CONFLICT DO NOTHING is

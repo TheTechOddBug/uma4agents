@@ -1,0 +1,143 @@
+# Concurrency, against the deployed shape.
+#
+# `make store-test` races callers at the store directly. This races them at
+# the *deployment*: N agents negotiating at once through the edge, against
+# three authorization servers behind one Service, sharing one database.
+#
+# The assertion is the one FINDINGS rec 9 is about. A per-operation grant is
+# single-use, and "once" has to mean once across all three replicas — not
+# once per process. If the burn were still a read followed by a write, this
+# is where it would show up: two callers told yes for the same trade, and no
+# error anywhere.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: load-test
+  namespace: sterling-vance
+data:
+  load.py: |
+    """Negotiate concurrently, then race the burn."""
+    import concurrent.futures as cf
+    import json, ssl, sys, urllib.error, urllib.parse, urllib.request
+
+    AS = "https://alice-as.uma.lab"
+    GW = "https://gateway.uma.lab"
+    ctx = ssl.create_default_context(cafile="/certs/rootCA.pem")
+    AGENTS = int(sys.argv[1]) if len(sys.argv) > 1 else 24
+
+    def call(url, data=None, headers=None, method=None):
+        req = urllib.request.Request(url, data=data, headers=headers or {},
+                                     method=method)
+        return urllib.request.urlopen(req, timeout=25, context=ctx)
+
+    def challenge(i):
+        """Beat 1: ask for something, be refused, keep the ticket."""
+        body = json.dumps({"jsonrpc": "2.0", "id": i, "method": "tools/call",
+                           "params": {"name": "get_positions"}}).encode()
+        try:
+            call(f"{GW}/mcp", body, {
+                "content-type": "application/json", "mcp-method": "tools/call",
+                "mcp-name": "get_positions", "mcp-protocol-version": "2026-07-28",
+            }, "POST")
+            return None
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401:
+                return None
+            www = exc.headers.get("WWW-Authenticate", "")
+            for part in www.split(","):
+                part = part.strip()
+                if part.startswith("ticket="):
+                    return part.split("=", 1)[1].strip('"')
+            try:
+                return json.loads(exc.read().decode()).get("ticket")
+            except Exception:
+                return None
+
+    print(f"\n== {AGENTS} agents ask at once ==")
+    with cf.ThreadPoolExecutor(max_workers=AGENTS) as pool:
+        tickets = list(pool.map(challenge, range(AGENTS)))
+    got = [t for t in tickets if t]
+    print(f"  {len(got)} of {AGENTS} were challenged and hold a ticket")
+
+    # Every ticket must be distinct. A ticket handed to two agents would be
+    # one agent able to continue another's negotiation.
+    unique = len(set(got))
+    ok_unique = unique == len(got)
+    print(("  ok   " if ok_unique else "  FAIL ") +
+          f"every ticket is distinct ({unique} unique of {len(got)})")
+
+    print("\n== the same ticket, presented by many at once ==")
+    # One ticket is single-use. Present it from N threads and exactly one
+    # presentation may be answered; the rest must be told invalid_grant.
+    target = got[0]
+    def present(_):
+        data = urllib.parse.urlencode({
+            "grant_type": "urn:ietf:params:oauth:grant-type:uma-ticket",
+            "ticket": target,
+        }).encode()
+        try:
+            r = call(f"{AS}/token", data,
+                     {"content-type": "application/x-www-form-urlencoded"}, "POST")
+            return r.status
+        except urllib.error.HTTPError as exc:
+            payload = exc.read().decode()
+            # need_info is the AS answering; invalid_grant is it refusing a
+            # ticket that has already been spent.
+            if "need_info" in payload:
+                return 403
+            return -1
+
+    with cf.ThreadPoolExecutor(max_workers=16) as pool:
+        outcomes = list(pool.map(present, range(16)))
+    answered = sum(1 for o in outcomes if o in (200, 403))
+    ok_ticket = answered == 1
+    print(("  ok   " if ok_ticket else "  FAIL ") +
+          f"exactly one presentation is answered ({answered} of 16)")
+
+    print("\n== which replica answered ==")
+    # Three replicas behind one Service. They must be indistinguishable:
+    # same signing key, same view of the ticket that was just spent.
+    keys = set()
+    for _ in range(15):
+        keys.add(json.load(call(f"{AS}/jwks"))["keys"][0]["x"])
+    ok_keys = len(keys) == 1
+    print(("  ok   " if ok_keys else "  FAIL ") +
+          f"all replicas sign with one key ({len(keys)} distinct seen)")
+
+    failed = [n for n, ok in [("distinct tickets", ok_unique),
+                              ("single-use ticket", ok_ticket),
+                              ("one signing key", ok_keys)] if not ok]
+    print(f"\nk8s-load: {3 - len(failed)} passed, {len(failed)} failed")
+    sys.exit(1 if failed else 0)
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-test
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: load-test }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: smoke
+      containers:
+        - name: load
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["python3", "/script/load.py", "24"]
+          volumeMounts:
+            - { name: script, mountPath: /script, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 256Mi }
+      volumes:
+        - name: script
+          configMap: { name: load-test }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }

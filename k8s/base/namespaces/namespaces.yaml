@@ -93,3 +93,20 @@ metadata:
     istio.io/dataplane-mode: ambient
     pod-security.kubernetes.io/enforce: baseline
     u4a.ai/party: operator-plane
+---
+# The platform namespaces that this lab's policies name.
+#
+# CloudNativePG's operator has to reach the database instances to run a
+# failover, and the rule that permits it names its ServiceAccount — which
+# only matches if it has an identity to match on. Enrolled for that reason
+# and no other; nothing here is a workload of the lab.
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    u4a.ai/description: >-
+      CloudNativePG's operator. In the mesh so the policy protecting Alice's
+      database can name it.
+  name: cnpg-system
+  labels:
+    istio.io/dataplane-mode: ambient
