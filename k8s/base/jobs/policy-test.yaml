@@ -1,0 +1,119 @@
+# Does the trust boundary actually deny?
+#
+# A policy suite that only proves the allows is worthless: everything passes
+# on a cluster with no policy at all. These are the refusals, asserted from
+# the requesting party's namespace — the side that is supposed to be shut
+# out of everything except the front door.
+#
+# Run it after `make k8s-demo-all` and both halves have been shown: the grant
+# works, and it works only along the one path it is allowed to.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: policy-test
+  namespace: sterling-vance
+data:
+  policy.py: |
+    """Assert the mesh refusals, from Bob's side of the boundary."""
+    import json, socket, ssl, sys, urllib.error, urllib.request
+
+    ctx = ssl.create_default_context(cafile="/certs/rootCA.pem")
+    passed, failed = [], []
+
+    def check(name, fn):
+        try:
+            ok, detail = fn()
+        except Exception as exc:
+            ok, detail = False, f"{type(exc).__name__}: {str(exc)[:80]}"
+        (passed if ok else failed).append(name)
+        print(("  ok   " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    def denied(url, method="GET"):
+        """True when the mesh refused us, however it chose to say so."""
+        try:
+            urllib.request.urlopen(
+                urllib.request.Request(url, method=method), timeout=8, context=ctx)
+            return False, "the call succeeded — this should have been refused"
+        except urllib.error.HTTPError as exc:
+            return exc.code == 403, f"HTTP {exc.code} (expected a refusal)"
+        except (urllib.error.URLError, socket.timeout, ConnectionError):
+            # ztunnel refuses at L4 by resetting; there is no status line.
+            return True, ""
+
+    print("\n== the requesting party is shut out of the owner's side ==")
+    check("cannot reach Alice's authorization server directly",
+          lambda: denied("http://uma-as.alice.svc.cluster.local:9000/health"))
+    check("cannot read Alice's policy",
+          lambda: denied("http://uma-as.alice.svc.cluster.local:9000/owner/policies"))
+    check("cannot reach her identity provider directly",
+          lambda: denied("http://keycloak.alice.svc.cluster.local:8080/realms/alice"))
+    check("cannot reach her portal directly",
+          lambda: denied("http://alice-portal.alice.svc.cluster.local:9010/health"))
+    check("cannot reach her database",
+          lambda: denied("http://uma-as-db-rw.alice.svc.cluster.local:5432/"))
+
+    print("\n== and out of the resource server's internals ==")
+    check("cannot reach the vault behind the gateway",
+          lambda: denied("http://alice-vault.meridian.svc.cluster.local:9020/mcp"))
+    check("cannot call the enforcement point's ext_authz callback",
+          lambda: denied("http://uma-pep.meridian.svc.cluster.local:9002/check/mcp"))
+    check("cannot read the owner-bound resource listing",
+          lambda: denied("http://uma-pep.meridian.svc.cluster.local:9002/owner-resources"))
+
+    print("\n== but the front door is open, and discovery is public ==")
+    def allowed(url):
+        r = urllib.request.urlopen(url, timeout=10, context=ctx)
+        return r.status == 200, ""
+    check("the resource's published metadata is readable by anyone",
+          lambda: allowed("https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"))
+    check("the authorization server answers on its public name",
+          lambda: allowed("https://alice-as.uma.lab/health"))
+
+    def challenged():
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                           "params": {"name": "get_positions"}}).encode()
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                "https://gateway.uma.lab/mcp", data=body, method="POST",
+                headers={"content-type": "application/json",
+                         "mcp-method": "tools/call", "mcp-name": "get_positions",
+                         "mcp-protocol-version": "2026-07-28"}), timeout=15, context=ctx)
+            return False, "allowed without a grant"
+        except urllib.error.HTTPError as exc:
+            return exc.code == 401 and "uma_challenge" in exc.read().decode(), f"HTTP {exc.code}"
+    check("and a tool call there is challenged, not refused outright", challenged)
+
+    print(f"\nk8s-policy-test: {len(passed)} passed, {len(failed)} failed")
+    sys.exit(1 if failed else 0)
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: policy-test
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: policy-test }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: smoke
+      containers:
+        - name: policy
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["python3", "/script/policy.py"]
+          volumeMounts:
+            - { name: script, mountPath: /script, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 192Mi }
+      volumes:
+        - name: script
+          configMap: { name: policy-test }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }

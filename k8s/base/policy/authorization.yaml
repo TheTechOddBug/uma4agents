@@ -176,13 +176,13 @@ spec:
               - cluster.local/ns/alice/sa/uma-as
               # CloudNativePG's operator manages failover and backups.
               - cluster.local/ns/cnpg-system/sa/cnpg-cloudnative-pg
-    # The instances also replicate to each other.
+    # The instances themselves: streaming replication on 5432, and the
+    # instance manager that runs the election on 8000. Restricting this to
+    # 5432 looks tighter and quietly breaks failover — the cluster stays
+    # "healthy" until the moment it has to promote.
     - from:
         - source:
-            namespaces: ["alice"]
-      to:
-        - operation:
-            ports: ["5432"]
+            principals: ["cluster.local/ns/alice/sa/uma-as-db"]
 ---
 # ═══ meridian ════════════════════════════════════════════════════════════
 apiVersion: security.istio.io/v1
@@ -242,7 +242,11 @@ metadata:
   namespace: meridian
 spec:
   selector:
-    matchLabels: { app: alice-vault }
+    # kmcp labels what it creates with the recommended keys rather than a
+    # bare `app`, so a selector guessed from the other workloads here
+    # matches nothing — and a policy that selects nothing protects nothing
+    # while looking exactly like one that does.
+    matchLabels: { app.kubernetes.io/name: alice-vault }
   action: ALLOW
   rules:
     - from:

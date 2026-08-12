@@ -1,0 +1,160 @@
+# The smoke test, as an in-cluster Job.
+#
+# It runs inside the cluster deliberately: from here, *.uma.lab resolves
+# through CoreDNS and the lab CA is already mounted, so the checks need no
+# host DNS, no /etc/resolver, no sudo and no trusted certificate on the
+# developer's machine. The compose equivalent has to pin --resolve and
+# --cacert on every call to get the same effect.
+#
+# The checks themselves are the same ones `make smoke-test` runs, plus the
+# ones that only mean something here: that the authorization server's replicas
+# agree, and that the trust boundary denies what it claims to.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: smoke
+  namespace: sterling-vance
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smoke-test
+  namespace: sterling-vance
+data:
+  smoke.py: |
+    """Verify the deployed lab, from where an agent stands."""
+    import json, ssl, sys, urllib.error, urllib.request
+
+    CA = "/certs/rootCA.pem"
+    ctx = ssl.create_default_context(cafile=CA)
+    passed, failed = [], []
+
+    def check(name, fn):
+        try:
+            ok, detail = fn()
+        except Exception as exc:
+            ok, detail = False, f"{type(exc).__name__}: {str(exc)[:90]}"
+        (passed if ok else failed).append((name, detail))
+        print(("  ok   " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    def get(url, **kw):
+        return urllib.request.urlopen(urllib.request.Request(url, **kw), context=ctx, timeout=15)
+
+    def post(url, data, headers):
+        return urllib.request.urlopen(
+            urllib.request.Request(url, data=data, headers=headers, method="POST"),
+            context=ctx, timeout=15)
+
+    print("\n== the lab answers on its public names ==")
+    check("the authorization server is up",
+          lambda: (json.load(get("https://alice-as.uma.lab/health"))["status"] == "ok", ""))
+    check("it publishes its keys",
+          lambda: (len(json.load(get("https://alice-as.uma.lab/jwks"))["keys"]) >= 1, ""))
+    check("Alice's realm is imported",
+          lambda: (get("https://keycloak.uma.lab/realms/alice/.well-known/openid-configuration").status == 200, ""))
+    check("the portal serves",
+          lambda: (get("https://portal.uma.lab/health").status == 200, ""))
+    check("the agent operator publishes its CIMD",
+          lambda: (json.load(get("https://agent.uma.lab/agent.json"))["client_id"]
+                   == "https://agent.uma.lab/agent.json", ""))
+    check("the identity authority is discoverable",
+          lambda: (get("https://ps.uma.lab/.well-known/aauth-person.json").status == 200, ""))
+
+    print("\n== discovery, before any relationship exists ==")
+    def prm():
+        doc = json.load(get("https://gateway.uma.lab/.well-known/oauth-protected-resource/mcp"))
+        return (doc.get("resource") == "https://gateway.uma.lab/mcp"
+                and "https://alice-as.uma.lab" in doc.get("authorization_servers", [])
+                and "signed_metadata" in doc), ""
+    check("the resource publishes signed RFC 9728 metadata naming Alice's AS", prm)
+    check("the same layer in AAuth vocabulary",
+          lambda: (get("https://gateway.uma.lab/.well-known/aauth-resource.json").status == 200, ""))
+
+    print("\n== beat 1, through the gateway ==")
+    def challenge():
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                           "params": {"name": "get_positions"}}).encode()
+        try:
+            post("https://gateway.uma.lab/mcp", body,
+                 {"content-type": "application/json", "mcp-method": "tools/call",
+                  "mcp-name": "get_positions", "mcp-protocol-version": "2026-07-28"})
+            return False, "the call was allowed without a grant"
+        except urllib.error.HTTPError as exc:
+            payload = exc.read().decode()
+            return (exc.code == 401 and "uma_challenge" in payload,
+                    f"status {exc.code}, body {payload[:70]}")
+    check("an unauthorized tool call is refused with a ticket", challenge)
+
+    print("\n== the registry, pulled across the edge ==")
+    def registry():
+        # /health/registry is 200 only once the declarative pull has landed.
+        # It is deliberately not the readiness probe: the pull dereferences
+        # this server's own public hostname and routes back to it.
+        return get("https://alice-as.uma.lab/health/registry").status == 200, ""
+    check("the authorization server pulled what the resource publishes", registry)
+
+    print("\n== what only the deployed shape can show ==")
+    def one_key():
+        # Three replicas behind one Service. Ask enough times to have very
+        # probably hit all of them, and require a single answer.
+        seen = {json.load(get("https://alice-as.uma.lab/jwks"))["keys"][0]["x"]
+                for _ in range(12)}
+        return len(seen) == 1, f"{len(seen)} distinct signing keys behind one Service"
+    check("every replica of the authorization server signs with one key", one_key)
+
+    def boundary():
+        # Bob's side may not touch Alice's authorization server except
+        # through the front door. This pod is in sterling-vance.
+        try:
+            get("http://uma-as.alice.svc.cluster.local:9000/health")
+            return False, "reached it directly — the mesh policy is not holding"
+        except urllib.error.HTTPError as exc:
+            return exc.code == 403, f"status {exc.code}"
+        except Exception:
+            return True, ""
+    check("the requesting party cannot reach the owner's AS directly", boundary)
+
+    def vault_boundary():
+        try:
+            get("http://alice-vault.meridian.svc.cluster.local:9020/mcp")
+            return False, "reached the vault directly — the mesh policy is not holding"
+        except urllib.error.HTTPError as exc:
+            return exc.code in (403, 405), f"status {exc.code}"
+        except Exception:
+            return True, ""
+    check("the requesting party cannot reach the vault directly", vault_boundary)
+
+    print(f"\nk8s-smoke-test: {len(passed)} passed, {len(failed)} failed")
+    sys.exit(1 if failed else 0)
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-test
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: smoke-test }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: smoke
+      containers:
+        - name: smoke
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["python3", "/script/smoke.py"]
+          volumeMounts:
+            - { name: script, mountPath: /script, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 192Mi }
+      volumes:
+        - name: script
+          configMap: { name: smoke-test }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
