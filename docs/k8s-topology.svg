@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b8cff"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2ed079"/>
+    </marker>
+    <marker id="w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f2b955"/>
+    </marker>
+    <linearGradient id="mk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8f6bff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="660" fill="#080a0f"/>
+
+  <!-- header -->
+  <rect x="40" y="28" width="196" height="26" rx="9" fill="url(#mk)"/>
+  <text x="52" y="46" font-family="ui-monospace, Menlo, monospace" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.4">U4A ON KUBERNETES</text>
+  <text x="252" y="46" font-size="14" fill="#9aa4ba">one namespace per party, and a mesh that keeps them apart</text>
+
+  <!-- ═══ sterling-vance ═══ -->
+  <rect x="40" y="86" width="238" height="470" rx="12" fill="#0f131c" stroke="#232c3d" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="159" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#9aa4ba" text-anchor="middle">STERLING &amp; VANCE</text>
+  <text x="159" y="130" font-size="11.5" font-style="italic" fill="#4b5468" text-anchor="middle">the requesting party</text>
+
+  <rect x="64" y="152" width="190" height="70" rx="9" fill="#0f131c" stroke="#8f6bff" stroke-width="1.6"/>
+  <text x="80" y="177" font-size="14" font-weight="620" fill="#eef1f7">Bob’s agent</text>
+  <text x="80" y="196" font-size="11" fill="#616c85">signs every request (9421)</text>
+  <text x="80" y="212" font-size="11" fill="#616c85">holds the ticket</text>
+
+  <rect x="64" y="238" width="190" height="62" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="80" y="262" font-size="14" font-weight="620" fill="#eef1f7">agent-operator ×2</text>
+  <text x="80" y="281" font-size="11" fill="#616c85">CIMD · Web Bot Auth keys</text>
+
+  <!-- ═══ edge ═══ -->
+  <rect x="302" y="86" width="112" height="470" rx="12" fill="#0f131c" stroke="#232c3d" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="358" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#9aa4ba" text-anchor="middle">UMA-EDGE</text>
+
+  <rect x="322" y="152" width="72" height="180" rx="9" fill="#0f131c" stroke="#5b8cff" stroke-width="1.6"/>
+  <path d="M358 176 v132" stroke="#5b8cff" stroke-width="3" stroke-linecap="round" stroke-dasharray="7 6"/>
+  <text x="358" y="352" font-size="11.5" fill="#9aa4ba" text-anchor="middle">kgateway</text>
+  <text x="358" y="368" font-size="11" fill="#616c85" text-anchor="middle">TLS *.uma.lab</text>
+  <text x="358" y="384" font-size="11" fill="#616c85" text-anchor="middle">7 HTTPRoutes</text>
+
+  <rect x="322" y="408" width="72" height="52" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="358" y="430" font-size="11.5" fill="#9aa4ba" text-anchor="middle">hickory</text>
+  <text x="358" y="446" font-size="11" fill="#616c85" text-anchor="middle">DNS</text>
+
+  <!-- ═══ meridian ═══ -->
+  <rect x="438" y="86" width="330" height="470" rx="12" fill="#0f131c" stroke="#232c3d" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="603" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#9aa4ba" text-anchor="middle">MERIDIAN WEALTH</text>
+  <text x="603" y="130" font-size="11.5" font-style="italic" fill="#4b5468" text-anchor="middle">the resource server — holds the assets, enforces, never decides</text>
+
+  <rect x="462" y="152" width="140" height="76" rx="9" fill="#0f131c" stroke="#8f6bff" stroke-width="1.6"/>
+  <text x="478" y="176" font-size="14" font-weight="620" fill="#eef1f7">agentgateway</text>
+  <text x="478" y="195" font-size="11" fill="#616c85">Gateway API · MCP</text>
+  <text x="478" y="211" font-size="11" fill="#616c85">extAuth → uma-pep</text>
+
+  <rect x="620" y="152" width="126" height="76" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <path d="M683 162 l22 9 v16 q0 19 -22 27 q-22 -8 -22 -27 v-16 z" fill="#0d1119" stroke="#5b8cff" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="683" y="218" font-size="11.5" fill="#9aa4ba" text-anchor="middle">uma-pep ×2</text>
+
+  <rect x="462" y="256" width="284" height="94" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="478" y="280" font-size="14" font-weight="620" fill="#eef1f7">alice-vault</text>
+  <text x="478" y="298" font-size="11" fill="#616c85">a kmcp MCPServer — no authorization code in it</text>
+  <rect x="478" y="310" width="252" height="10" rx="3" fill="#151b26"/>
+  <rect x="478" y="324" width="252" height="10" rx="3" fill="rgba(91,140,255,0.35)"/>
+  <text x="740" y="333" font-size="10" fill="#5b8cff" text-anchor="end">Alice’s row</text>
+
+  <rect x="462" y="376" width="284" height="52" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="478" y="399" font-size="12.5" fill="#9aa4ba">waypoint</text>
+  <text x="478" y="417" font-size="11" fill="#616c85">L7: /check* is the gateway’s alone</text>
+
+  <!-- ═══ alice ═══ -->
+  <rect x="792" y="86" width="368" height="470" rx="12" fill="#0f131c" stroke="#232c3d" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="976" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#9aa4ba" text-anchor="middle">ALICE</text>
+  <text x="976" y="130" font-size="11.5" font-style="italic" fill="#4b5468" text-anchor="middle">the resource owner — decides, and is usually asleep</text>
+
+  <rect x="832" y="164" width="168" height="72" rx="9" fill="#0f131c" stroke="#5b8cff" stroke-width="1.6" opacity="0.3"/>
+  <rect x="824" y="158" width="168" height="72" rx="9" fill="#0f131c" stroke="#5b8cff" stroke-width="1.6" opacity="0.55"/>
+  <rect x="816" y="152" width="168" height="72" rx="9" fill="#0f131c" stroke="#5b8cff" stroke-width="1.6"/>
+  <text x="832" y="176" font-size="14" font-weight="620" fill="#eef1f7">uma-as ×3</text>
+  <text x="832" y="195" font-size="11" fill="#616c85">her terms · tickets · grants</text>
+  <text x="832" y="211" font-size="11" fill="#616c85">one signing key (a Secret)</text>
+
+  <rect x="1010" y="152" width="126" height="72" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <path d="M1050 172 a23 7 0 0 0 46 0 a23 7 0 0 0 -46 0 v30 a23 7 0 0 0 46 0 v-30" fill="none" stroke="#616c85" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="1073" y="216" font-size="11.5" fill="#9aa4ba" text-anchor="middle">Postgres ×3</text>
+
+  <rect x="816" y="256" width="168" height="62" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="832" y="280" font-size="14" font-weight="620" fill="#eef1f7">keycloak</text>
+  <text x="832" y="299" font-size="11" fill="#616c85">is this Alice?</text>
+
+  <rect x="1002" y="256" width="134" height="62" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="1018" y="280" font-size="14" font-weight="620" fill="#eef1f7">her portal</text>
+  <text x="1018" y="299" font-size="11" fill="#616c85">where she taps</text>
+
+  <rect x="816" y="376" width="320" height="52" rx="9" fill="#0f131c" stroke="#232c3d" stroke-width="1.6"/>
+  <text x="832" y="399" font-size="12.5" fill="#9aa4ba">waypoint</text>
+  <text x="832" y="417" font-size="11" fill="#616c85">L7: /owner/* is the portal’s alone</text>
+
+  <!-- ═══ the beats ═══ -->
+  <path d="M254 176 H322" stroke="#f2b955" stroke-width="2.4" fill="none" marker-end="url(#w)"/>
+  <path d="M394 176 H462" stroke="#f2b955" stroke-width="2.4" fill="none" marker-end="url(#w)"/>
+  <text x="358" y="146" font-family="ui-monospace, Menlo, monospace" font-size="10.5" fill="#f2b955" text-anchor="middle">1 · challenged</text>
+
+  <path d="M254 204 H300" stroke="#5b8cff" stroke-width="2.4" fill="none" marker-end="url(#a)"/>
+  <path d="M416 204 H460" stroke="#5b8cff" stroke-width="2.4" fill="none" marker-end="url(#a)"/>
+  <path d="M748 204 H814" stroke="#5b8cff" stroke-width="2.4" fill="none" marker-end="url(#a)"/>
+  <text x="880" y="146" font-family="ui-monospace, Menlo, monospace" font-size="10.5" fill="#5b8cff" text-anchor="middle">2 · her terms   3 · signed</text>
+
+  <path d="M816 240 H603 M603 240 V256" stroke="#2ed079" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+  <text x="700" y="254" font-family="ui-monospace, Menlo, monospace" font-size="10.5" fill="#2ed079" text-anchor="middle">4 · granted, spent once</text>
+
+  <path d="M984 188 H1010" stroke="#616c85" stroke-width="1.6" fill="none" stroke-dasharray="3 4"/>
+  <path d="M900 224 V256" stroke="#616c85" stroke-width="1.6" fill="none" stroke-dasharray="3 4"/>
+
+  <!-- the refusal -->
+  <path d="M254 490 H792" stroke="#f2b955" stroke-width="2.2" stroke-dasharray="6 6" opacity="0.45" fill="none"/>
+  <circle cx="523" cy="490" r="21" fill="#0f0e0d" stroke="#f2b955" stroke-width="2.8"/>
+  <path d="M515 482 L531 498 M531 482 L515 498" stroke="#f2b955" stroke-width="3" stroke-linecap="round"/>
+  <text x="523" y="528" font-family="ui-monospace, Menlo, monospace" font-size="10.5" fill="#f2b955" text-anchor="middle">no direct path — default-deny, and no identity that matches</text>
+
+  <!-- footer -->
+  <text x="40" y="600" font-family="ui-monospace, Menlo, monospace" font-size="11" fill="#616c85">mTLS everywhere · every box is a SPIFFE identity, not an address · ztunnel at L4, a waypoint only where a path rule needs one</text>
+  <text x="40" y="624" font-family="ui-monospace, Menlo, monospace" font-size="11" fill="#4b5468">kind · Gateway API 1.6 · Istio 1.30 ambient · kgateway 2.4 · agentgateway 1.4 · kmcp 0.3 · CloudNativePG · cert-manager</text>
+  <text x="1160" y="624" font-family="ui-monospace, Menlo, monospace" font-size="11" fill="#4b5468" text-anchor="end">docs/KUBERNETES.md</text>
+</svg>

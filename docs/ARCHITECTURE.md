@@ -60,6 +60,11 @@ gateway — is the subject of this lab.
 plain MCP servers behind it that know nothing about UMA, and an *embedded*
 shape with no gateway, where the MCP server handles the grant itself.
 
+There are also two *deployment* shapes over the same source: this compose
+stack, and a Kubernetes reference architecture where each party is its own
+namespace and the seam between them is enforced by a service mesh rather than
+described in a document like this one. See [KUBERNETES.md](KUBERNETES.md).
+
 That is allowed because of what FedAuthz does and does not say. It gives the
 resource server a job list — hold a PAT ([FedAuthz
 §1.5](https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-federated-authz-2.0.html)),

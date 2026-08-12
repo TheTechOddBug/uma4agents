@@ -1,0 +1,237 @@
+# The lab on Kubernetes
+
+The same source as the compose stack, deployed the way it would actually run:
+each party in its own namespace, a service mesh between them, and the
+authorization server replicated behind a database.
+
+`make up` (compose) stays the fast path — ninety seconds, no cluster. This is
+the second shape, and the fact that both run one codebase is itself the
+finding: the grant layer does not care which it is in.
+
+![Topology](k8s-topology.svg)
+
+---
+
+## Demo guide
+
+Fifteen minutes, start to finish. Everything below is copy-paste.
+
+### 0. Once per machine
+
+```bash
+brew install kind helm          # docker + kubectl come with Docker Desktop
+make dns-setup                  # one sudo, for *.uma.lab in a browser
+```
+
+### 1. Bring it up (~10 min, mostly image pulls)
+
+```bash
+make down                       # compose and kind both want :443 and :53
+make kind-up
+```
+
+**Notice:** no `make init`. No mkcert, no openssl, no certificate on your
+machine — cert-manager issues the lab CA inside the cluster and trust-manager
+copies it into every namespace.
+
+### 2. Prove it works
+
+```bash
+make k8s-smoke-test             # expect 13 passed, 0 failed
+```
+
+**Notice** the last three checks. They are the ones compose cannot ask: all
+three replicas of the authorization server sign with **one key**, and Bob's
+namespace **cannot reach** Alice's side or the vault.
+
+### 3. Walk Alice's day
+
+```bash
+make k8s-demo-all               # expect PASS, four acts
+```
+
+**Notice** in the output:
+
+| Look for | What it means |
+|---|---|
+| `challenged: 401 … ticket tkt_…` | Beat 1. The vault refused and issued a ticket. |
+| `challenge corroborated` | The agent checked the challenge against published metadata rather than trusting it. |
+| `terms proffered: …` | Beat 2. Alice's server dictated terms; she is not online. |
+| `Alice has been asked — holding the ticket` | Tier 3 pends. Pending is a protocol state, not an error. |
+| `single-use grant is consumed` | The same grant, replayed, is refused. |
+| `revocation is terminal` | She revoked; it is not an invitation to re-negotiate. |
+
+### 4. See it in a browser
+
+```bash
+make k8s-trust-ca               # prints the one command for a green padlock
+open https://portal.uma.lab     # alice / alice-demo
+```
+
+**Click:** Settings → Security → Agent Authorization.
+**Notice:** connected agents, what each promised, what it touched, and the one
+action she personally approved. **Click** Revoke on the agent — then re-run
+`make k8s-demo-all` and watch it be refused.
+
+### 5. The part that needs a cluster
+
+```bash
+make k8s-policy-test            # expect 11 passed, 0 failed
+```
+
+**Notice** the eight refusals. A policy suite that only proves the allows
+passes on a cluster with no policy at all. The sharpest line:
+
+```
+ok   cannot read Alice's policy
+```
+
+The enforcement point **can** reach `/jwks` on that same port and workload,
+and is refused `/owner/*`. Same service, different path — that is what the
+waypoint is for.
+
+```bash
+make k8s-load                   # 24 agents at once; expect 3 passed
+```
+
+**Notice:** `exactly one presentation is answered (1 of 16)`. Sixteen threads
+present the same ticket to three different servers. One wins.
+
+```bash
+make k8s-chaos                  # ~5 min; expect 5 passed
+```
+
+**Notice** the order of events: a request is waiting for Alice, the
+authorization server that took it is **deleted**, the database primary is
+**killed**, a standby takes over — and she still answers *that same request*.
+
+### 6. Look around
+
+```bash
+make k8s-status                 # what is running, per party
+make k8s-audit                  # her ledger: promised / touched / approved
+make k8s-reset                  # rewind the story, keep the cluster
+make kind-down                  # delete everything
+```
+
+---
+
+## The parties
+
+| Namespace | Runs | Is |
+|---|---|---|
+| `uma-edge` | kgateway, hickory-dns | the public on-ramp |
+| `alice` | keycloak, `uma-as` ×3, CNPG ×3, her portal | the resource owner |
+| `meridian` | agentgateway, `uma-pep` ×2, the vault | the resource server |
+| `sterling-vance` | agent-operator ×2, the agent | the requesting party |
+| `aauth` | person-server | a third-party identity authority |
+| `observability` | — | the operator plane |
+
+FedAuthz §1.4 divides responsibility between **parties**, not processes. The
+compose stack collapses all of them onto one Docker network, which is the
+thing [ARCHITECTURE.md](ARCHITECTURE.md) argues against; here each is a
+separate workload identity and the seam is enforced rather than described.
+
+`alice` versus `meridian` is the one that carries the argument: Meridian holds
+the assets and enforces the policy, and can never read it.
+
+---
+
+## Three things that are genuinely different here
+
+**No certificates on your machine.** cert-manager mints the CA, trust-manager
+distributes it to every namespace at the same path and under the same
+environment variables compose uses (`UMA4A_CA_BUNDLE`, `SSL_CERT_FILE`). No
+application code knows which shape it is running in.
+
+**The authorization server is replicated for real.** Three of them, on a
+synchronously-replicated Postgres, with one signing key in a Secret rather
+than three minted per pod. This is what
+[`services/uma-as/store.py`](../services/uma-as/store.py) was written for,
+and why rec 9 in [FINDINGS.md](../FINDINGS.md) exists: single-use has to mean
+*indivisible*, not merely once per process.
+
+**The vault is a `MCPServer`.** kmcp turns it into a Deployment and a Service;
+what a reader sees is a declaration of the thing being protected. That is what
+"tool surfaces as registered resources" looks like when the cluster
+understands the type.
+
+---
+
+## The split-horizon, and why it is load-bearing
+
+Alice's authorization server pulls its registry from the resource server's
+*published* metadata — which means it dereferences `https://gateway.uma.lab/…`
+**from inside the cluster**. It may not shortcut to a Service name: the
+document it fetches has to be the one the public would get, verified against
+the TLS name the public would see, or the pulled copy proves nothing about
+what is published.
+
+A CoreDNS rewrite sends every `*.uma.lab` query to the edge Gateway. TLS is
+unaffected, and that is the property that makes it work: SNI and `Host` come
+from the URL, not from the DNS answer.
+
+Host-side, the same hickory-dns zone runs on a NodePort mapped to `:53`, so
+`/etc/resolver/uma.lab` from `make dns-setup` keeps working and the Kubernetes
+path introduces **no new host state**.
+
+---
+
+## Probes, and the deadlock they can cause
+
+The obvious readiness signal for an authorization server in a pull profile is
+"my registry is populated". It deadlocks.
+
+The pull calls this server's own public hostname, which routes back to it for
+a JWKS check. Gate readiness on the pull and the Service has no ready
+endpoints, so the back-call fails, so the pull fails, so readiness never goes
+green. What an operator sees is a healthy-looking pod stuck at `0/1` for two
+minutes and then one quiet log line.
+
+So `/health` is deliberately independent of the pull, and `/health/registry`
+answers "has it landed" for `kubectl wait` and dashboards — **never** as a
+probe. The asymmetry is the point.
+
+---
+
+## Four traps, each of which fails by pointing somewhere else
+
+These cost real time. Each is commented where it bit.
+
+**A kgateway `Gateway` ignores its `GatewayParameters`** without
+`infrastructure.parametersRef`, and silently provisions a LoadBalancer on a
+random port the host mapping never reaches.
+
+**An `AuthorizationPolicy` with `selector` is enforced by ztunnel at L4.** One
+naming an HTTP path must bind with `targetRefs` to the Service. Get it wrong
+and ztunnel cannot evaluate the path, so it denies outright — every call 403,
+and the gateway reports only "external authorization failed".
+
+**A Gateway load-balances to endpoint addresses, not the Service VIP**, so its
+traffic never passes a service-scoped waypoint. The waypoints here are
+`waypoint-for: all`.
+
+**Behind a waypoint, the second hop carries the waypoint's identity**, not the
+caller's. Without a rule naming it, everything is refused *after* the policy
+meant to permit it already said yes — a 503 with nothing denied in any log.
+
+And one more, found by `make k8s-chaos` rather than by reading: **a
+`principals` rule silently excludes anything outside the mesh.** CloudNativePG's
+operator was named correctly and `cnpg-system` was not enrolled, so its traffic
+arrived with no identity at all. The database kept serving and quietly stopped
+being able to fail over — invisible until the day it matters.
+
+---
+
+## Deliberately not here
+
+**kagent's `Agent`** is opt-in. An Agent needs a model provider credential, and
+requiring one would break the one-command promise.
+
+**agentregistry.** This lab's discovery argument is that discovery is
+owner-mediated: signed RFC 9728 metadata for public structure, and a protected
+listing for owner-bound instances. A catalog listing "Alice's positions tool"
+is the exact privacy leak `services/uma-pep/app.py` calls out.
+
+**agentevals.** Nothing here is non-deterministic; these are conformance checks
+with binary outcomes. It would earn a place if the kagent path became default.

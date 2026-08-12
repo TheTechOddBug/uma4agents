@@ -22,6 +22,8 @@ would rather watch it than read it.
 
 See **[FINDINGS.md](FINDINGS.md)** for the recommendations to spec authors,
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the system design,
+**[docs/KUBERNETES.md](docs/KUBERNETES.md)** for the reference architecture and
+a fifteen-minute demo guide,
 **[docs/PROTOCOL.md](docs/PROTOCOL.md)** for the wire contract, and
 **[docs/MCP-BINDING.md](docs/MCP-BINDING.md)** for how the grant rides MCP
 2026-07-28 (plus the extension it proposes,
@@ -151,8 +153,9 @@ agreed. Full detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `make embedded-check` | Run the whole grant with the resource enforcing itself — no gateway in the path |
 | `make sig-test` | Unit-test the RFC 9421 profile |
 | `make store-test` | Race 32 callers at each single-use artifact, on both storage backends |
-| `make kind-cluster` / `make kind-down` | Create / delete the local Kubernetes cluster |
-| `make k8s-verify-extauth` | Prove the ext_authz contract survives the move from a config file to CRDs |
+| `make kind-up` / `make kind-down` | The whole Kubernetes lab, from nothing / delete it |
+| `make k8s-smoke-test`, `k8s-policy-test` | Verify the deployed lab; prove the trust boundary denies |
+| `make k8s-demo-all`, `k8s-load`, `k8s-chaos` | Walk Alice's day; 24 agents at once; break it mid-grant |
 | `make reset` | Rewind demo state |
 | `make trust-ca` | Trust the local CA in your system store |
 
