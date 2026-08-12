@@ -8,7 +8,9 @@
 [build]
   base = "site"
   command = "npm ci && npm run build"
-  publish = "site/public"
+  # Relative to `base`, not to the repo root — "site/public" here resolves to
+  # site/site/public, which is nowhere.
+  publish = "public"
 
 [build.environment]
   NODE_VERSION = "20.15.0"
