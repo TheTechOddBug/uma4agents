@@ -1,5 +1,7 @@
 # UMA for Agents
 
+[![The four-beat grant: Alice sets her terms and leaves; another party's agent is refused, handed a ticket, given her terms, signs them, and is let in](docs/hero.svg)](https://u4a.ai)
+
 A working proof-of-concept that carries [User-Managed Access (UMA)
 2.0](https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-grant-2.0.html)
 into the agent era: the owner sets policy once, and other people's AI agents
@@ -17,8 +19,8 @@ proof-of-possession.
 > *offline* owner actually answers. UMA worked that out a decade ago. This binds
 > the two, and shows what it looks like with agent-shaped mechanics.
 
-**[u4a.ai](https://u4a.ai)** explains the shape in about a minute, if you
-would rather watch it than read it.
+The animation above is the short version; **[u4a.ai](https://u4a.ai)** is the
+whole story, with narration and a scrubber.
 
 See **[FINDINGS.md](FINDINGS.md)** for the recommendations to spec authors,
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the system design,
@@ -125,6 +127,13 @@ for you to approve. See [clients/agent-shim/README.md](clients/agent-shim/README
 ## Architecture at a glance
 
 ![Architecture](docs/architecture.svg)
+
+Deployed at scale, each party becomes its own namespace and the seam between
+them is enforced by a service mesh rather than described in a document —
+`make kind-up`, then [docs/KUBERNETES.md](docs/KUBERNETES.md) for the
+fifteen-minute walkthrough.
+
+![Kubernetes topology](docs/k8s-topology.svg)
 
 ## How it works, briefly
 

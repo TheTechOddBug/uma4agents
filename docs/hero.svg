@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" width="1000" height="360" role="img" aria-labelledby="t d">
+  <title id="t">UMA for Agents — the four-beat grant</title>
+  <desc id="d">Alice sets her access terms and goes offline. Another party's agent is refused by her resource server and handed a ticket, takes the ticket to her authorization server, is given her terms, signs them, and is granted scoped access — all while she is away.</desc>
+
+  <!--
+    An animated banner for the README.
+
+    CSS keyframes rather than JavaScript, because GitHub renders an SVG in a
+    README as an image: <style> and @keyframes run, <script> never does. One
+    18-second loop, no external references, no webfont.
+
+    Every animated thing sits inside a plain <g> that carries its position,
+    and the animation drives an inner <g> that has no transform of its own.
+    A CSS transform replaces the element's transform attribute rather than
+    adding to it, so animating a positioned element directly sends it to the
+    top-left corner and out of frame.
+
+    The full version, with narration and a scrubber, is https://u4a.ai
+  -->
+
+  <style>
+    .ink   { fill: none; stroke: #eef1f7; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .head  { fill: #0f131c; stroke: #eef1f7; stroke-width: 3; }
+    .panel { fill: #0f131c; stroke: #232c3d; stroke-width: 2; }
+    .panel2{ fill: #151b26; stroke: #232c3d; stroke-width: 2; }
+    .roof  { fill: #151b26; stroke: #232c3d; stroke-width: 2; stroke-linejoin: round; }
+    .screen{ fill: #0d1119; stroke: #5b8cff; stroke-width: 2.4; }
+    .bot   { fill: #151b26; stroke: #8f6bff; stroke-width: 2.6; }
+    .eye   { fill: #5b8cff; }
+    .shield{ fill: #0d1119; stroke: #5b8cff; stroke-width: 2.6; stroke-linejoin: round; }
+    .tick  { fill: none; stroke: #5b8cff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+    .dial  { fill: #151b26; stroke: #616c85; stroke-width: 2.4; }
+    .spoke { stroke: #616c85; stroke-width: 2; stroke-linecap: round; }
+    .ground{ stroke: #232c3d; stroke-width: 2; }
+    .rowdim{ fill: #151b26; }
+    .paper { fill: #f4f1e8; }
+    .pline { stroke: #8a8477; stroke-width: 2.6; stroke-linecap: round; }
+    .ticket{ fill: #f2b955; }
+    .tline { stroke: #6b5320; stroke-width: 2.2; stroke-linecap: round; }
+    .no    { fill: none; stroke: #f2b955; stroke-width: 3.4; stroke-linecap: round; }
+    .yes   { fill: none; stroke: #2ed079; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+    .lbl   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 1.4px; fill: #616c85; text-anchor: middle; }
+    .sub   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; letter-spacing: 0.6px; fill: #454e63; text-anchor: middle; }
+    .cap   { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 18px; fill: #eef1f7; text-anchor: middle; opacity: 0; }
+    .beat  { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 2.2px; fill: #5b8cff; text-anchor: middle; opacity: 0; }
+
+    /* One 18s cycle. Every animation below is a slice of it, so the whole
+       thing stays in step without a timeline to co-ordinate them. */
+    #agentMove { animation: walk 18s linear infinite; }
+    #aliceGo   { animation: leave 18s linear infinite; }
+    #lid       { animation: shut 18s linear infinite; transform-box: fill-box; transform-origin: 0 100%; }
+    #ticketGo  { animation: ticket 18s linear infinite; }
+    #scrollUp  { animation: scroll 18s linear infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+    #vno       { animation: refuse 18s linear infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+    #vyes      { animation: allow 18s linear infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+    #ownrow    { animation: granted 18s linear infinite; }
+    .eye       { animation: blink 18s linear infinite; }
+
+    @keyframes walk {
+      0%, 12%   { transform: translateX(-760px); }   /* not here yet */
+      20%, 33%  { transform: translateX(0); }        /* at the resource server */
+      43%, 57%  { transform: translateX(-160px); }   /* at her server */
+      67%, 100% { transform: translateX(0); }        /* back, and let in */
+    }
+    @keyframes leave {
+      0%, 12%   { transform: translateX(0); opacity: 1; }
+      24%, 100% { transform: translateX(-150px); opacity: 0; }
+    }
+    @keyframes shut {
+      0%, 8%    { transform: rotate(0deg); }
+      15%, 100% { transform: rotate(78deg); }
+    }
+    @keyframes ticket {
+      0%, 23%   { opacity: 0; transform: translate(0, 0); }
+      28%, 37%  { opacity: 1; transform: translate(0, 0); }      /* handed over */
+      45%, 55%  { opacity: 1; transform: translate(-160px, 0); } /* carried */
+      59%, 100% { opacity: 0; transform: translate(-160px, 0); }
+    }
+    @keyframes scroll {
+      0%, 46%   { opacity: 0; transform: scaleY(0.08); }
+      52%, 64%  { opacity: 1; transform: scaleY(1); }
+      68%, 100% { opacity: 0; transform: scaleY(1); }
+    }
+    @keyframes refuse {
+      0%, 23%   { opacity: 0; transform: scale(0.6); }
+      27%, 36%  { opacity: 1; transform: scale(1); }
+      40%, 100% { opacity: 0; transform: scale(1); }
+    }
+    @keyframes allow {
+      0%, 70%   { opacity: 0; transform: scale(0.6); }
+      76%, 94%  { opacity: 1; transform: scale(1); }
+      98%, 100% { opacity: 0; transform: scale(1); }
+    }
+    @keyframes granted {
+      0%, 72%   { fill: rgba(91,140,255,0.35); }
+      78%, 95%  { fill: rgba(46,208,121,0.5); }
+      99%, 100% { fill: rgba(91,140,255,0.35); }
+    }
+    @keyframes blink {
+      0%, 5%, 7%, 47%, 49%, 100% { opacity: 1; }
+      6%, 48%                    { opacity: 0.2; }
+    }
+
+    /* The captions, each visible for its own slice of the same 18 seconds. */
+    #c1, #b1 { animation: cap1 18s linear infinite; }
+    #c2      { animation: cap2 18s linear infinite; }
+    #c3, #b3 { animation: cap3 18s linear infinite; }
+    #c4, #b4 { animation: cap4 18s linear infinite; }
+    #c5, #b5 { animation: cap5 18s linear infinite; }
+    /* Each caption covers the action it describes, rather than trailing it:
+       the refusal at 27-36%, the terms at 52-64%, the grant at 76-94%. */
+    @keyframes cap1 { 0%, 14% { opacity: 1; } 17%, 100% { opacity: 0; } }
+    @keyframes cap2 { 0%, 17% { opacity: 0; } 19%, 25% { opacity: 1; } 27%, 100% { opacity: 0; } }
+    @keyframes cap3 { 0%, 25% { opacity: 0; } 27%, 40% { opacity: 1; } 42%, 100% { opacity: 0; } }
+    @keyframes cap4 { 0%, 42% { opacity: 0; } 44%, 65% { opacity: 1; } 67%, 100% { opacity: 0; } }
+    @keyframes cap5 { 0%, 67% { opacity: 0; } 69%, 97% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* Anyone who has asked their system not to animate things gets a
+       finished frame instead of the loop. */
+    @media (prefers-reduced-motion: reduce) {
+      #agentMove, #aliceGo, #lid, #ticketGo, #scrollUp, #vno, #vyes, #ownrow,
+      .eye, #c1, #c2, #c3, #c4, #c5, #b1, #b3, #b4, #b5 { animation: none; }
+      #aliceGo { opacity: 1; }
+      #c1, #b1 { opacity: 1; }
+      #ticketGo, #scrollUp, #vno, #vyes { opacity: 0; }
+    }
+  </style>
+
+  <rect width="1000" height="360" fill="#080a0f"/>
+  <path class="ground" d="M40 244 H960"/>
+
+  <!-- Alice's desk -->
+  <g transform="translate(120 244)">
+    <rect class="panel2" x="-74" y="-48" width="148" height="13" rx="4"/>
+    <rect class="panel2" x="-38" y="-58" width="76" height="10" rx="3"/>
+    <g transform="translate(-38 -58)"><g id="lid"><rect class="screen" x="0" y="-46" width="76" height="46" rx="4"/></g></g>
+    <text class="lbl" y="32">ALICE</text>
+    <text class="sub" y="48">sets her terms, then leaves</text>
+  </g>
+
+  <!-- Alice herself. Outer group positions, inner group animates. -->
+  <g transform="translate(216 244)"><g id="aliceGo">
+    <circle class="head" cx="0" cy="-72" r="12"/>
+    <path class="ink" d="M-13 -76a13 13 0 0 1 26 0q-8 -6 -13 -3q-5 -3 -13 3z"/>
+    <path class="ink" d="M0 -60 V-27"/>
+    <path class="ink" d="M0 -53 L-18 -38"/>
+    <path class="ink" d="M0 -53 L18 -38"/>
+    <path class="ink" d="M0 -27 L-13 0"/>
+    <path class="ink" d="M0 -27 L13 0"/>
+  </g></g>
+
+  <!-- Her authorization server -->
+  <g transform="translate(470 244)">
+    <rect class="panel" x="-66" y="-124" width="132" height="124" rx="10"/>
+    <path class="roof" d="M-66 -124 L0 -162 L66 -124 Z"/>
+    <path class="shield" d="M0 -106 l25 10 v18 q0 21 -25 31 q-25 -10 -25 -31 v-18 z"/>
+    <path class="tick" d="M-10 -79 l7 8 l14 -16"/>
+    <text class="lbl" y="32">HER AUTHORIZATION SERVER</text>
+    <text class="sub" y="48">her policy · her terms · answers while she sleeps</text>
+  </g>
+
+  <!-- The resource server, holding many owners' things -->
+  <g transform="translate(830 244)">
+    <rect class="panel" x="-78" y="-176" width="156" height="176" rx="10"/>
+    <rect class="rowdim" x="-64" y="-162" width="128" height="30" rx="5"/>
+    <rect id="ownrow" x="-64" y="-124" width="128" height="30" rx="5" fill="rgba(91,140,255,0.35)"/>
+    <rect class="rowdim" x="-64" y="-86" width="128" height="30" rx="5"/>
+    <rect class="rowdim" x="-64" y="-48" width="128" height="30" rx="5"/>
+    <g transform="translate(46 -109)">
+      <circle class="dial" cx="0" cy="0" r="13"/>
+      <path class="spoke" d="M0 -13 V13 M-13 0 H13"/>
+    </g>
+    <text class="lbl" y="32">A RESOURCE SERVER</text>
+    <text class="sub" y="48">many owners · one of these rows is hers</text>
+
+    <g id="vno">
+      <circle class="no" cx="0" cy="-109" r="34"/>
+      <path class="no" d="M-14 -123 L14 -95 M14 -123 L-14 -95"/>
+    </g>
+    <g id="vyes">
+      <circle class="yes" cx="0" cy="-109" r="34"/>
+      <path class="yes" d="M-15 -109 l11 12 l20 -23"/>
+    </g>
+  </g>
+
+  <!-- The agent -->
+  <g transform="translate(720 244)"><g id="agentMove">
+    <path class="ink" d="M0 -86 V-78"/>
+    <circle cx="0" cy="-89" r="3.4" fill="#8f6bff"/>
+    <rect class="bot" x="-17" y="-78" width="34" height="27" rx="8"/>
+    <circle class="eye" cx="-6.5" cy="-64" r="3.2"/>
+    <circle class="eye" cx="6.5" cy="-64" r="3.2"/>
+    <rect class="bot" x="-13" y="-47" width="26" height="27" rx="8"/>
+    <path class="ink" d="M-13 -39 L-24 -30"/>
+    <path class="ink" d="M13 -39 L24 -30"/>
+    <path class="ink" d="M-6 -20 V0"/>
+    <path class="ink" d="M6 -20 V0"/>
+  </g></g>
+
+  <!-- The ticket it is handed, and the terms it is shown -->
+  <g transform="translate(720 150)"><g id="ticketGo">
+    <path class="ticket" d="M-31 -17 h62 v10 a7 7 0 0 0 0 14 v10 h-62 v-10 a7 7 0 0 0 0 -14 z"/>
+    <path class="tline" d="M-17 -3 H17 M-17 7 H7"/>
+  </g></g>
+
+  <g transform="translate(470 118)"><g id="scrollUp">
+    <rect class="paper" x="-52" y="-36" width="104" height="72" rx="6"/>
+    <path class="pline" d="M-36 -18 H36 M-36 -5 H36 M-36 8 H24 M-36 21 H12"/>
+  </g></g>
+
+  <!-- Narration -->
+  <text id="b1" class="beat" x="500" y="316">SHE IS NOT ONLINE FOR ANY OF THIS</text>
+  <text id="c1" class="cap"  x="500" y="342">Alice writes her terms once, then closes the laptop.</text>
+
+  <text id="c2" class="cap"  x="500" y="342">Someone else’s agent comes asking for something of hers.</text>
+
+  <text id="b3" class="beat" x="500" y="316">BEAT 1 · CHALLENGE</text>
+  <text id="c3" class="cap"  x="500" y="342">It is refused — and handed a ticket, and her server’s address.</text>
+
+  <text id="b4" class="beat" x="500" y="316">BEATS 2 AND 3 · TERMS, THEN SIGNED</text>
+  <text id="c4" class="cap"  x="500" y="342">Her server dictates the terms. The agent signs them, or leaves.</text>
+
+  <text id="b5" class="beat" x="500" y="316">BEAT 4 · GRANT</text>
+  <text id="c5" class="cap"  x="500" y="342">Signed, it is let in — that purpose, that long, and no further.</text>
+</svg>
