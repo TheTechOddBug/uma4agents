@@ -1,6 +1,6 @@
 {
   "name": "u4a-site",
-  "description": "u4a.ai — UMA for Agents",
+  "description": "u4a.ai \u2014 UMA for Agents",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -18,7 +18,6 @@
   "dependencies": {
     "animejs": "^4.5.0",
     "gatsby": "^5.16.1",
-    "gatsby-plugin-netlify": "^5.1.1",
     "gatsby-plugin-sass": "^6.16.0",
     "gatsby-remark-copy-linked-files": "^6.16.0",
     "gatsby-remark-prismjs": "^7.16.0",
@@ -44,5 +43,10 @@
     "sharp@0.32.6": true,
     "es5-ext@0.10.64": true,
     "msgpackr-extract@3.0.4": true
+  },
+  "overrides": {
+    "sanitize-html": {
+      "htmlparser2": "^9.1.0"
+    }
   }
 }

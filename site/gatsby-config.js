@@ -30,6 +30,7 @@ module.exports = {
         ],
       },
     },
-    "gatsby-plugin-netlify",
+    // No gatsby-plugin-netlify here: @netlify/plugin-gatsby installs
+    // gatsby-adapter-netlify, which supersedes it and disables it anyway.
   ],
 };
