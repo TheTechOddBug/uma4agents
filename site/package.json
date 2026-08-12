@@ -1,0 +1,48 @@
+{
+  "name": "u4a-site",
+  "description": "u4a.ai — UMA for Agents",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.15.0"
+  },
+  "scripts": {
+    "clean": "gatsby clean",
+    "start": "npm run develop",
+    "build": "npm run clean && mkdir -p .cache && gatsby build",
+    "develop": "npm run clean && mkdir -p .cache && gatsby develop",
+    "develop:fast": "gatsby develop",
+    "serve": "gatsby serve",
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\""
+  },
+  "dependencies": {
+    "animejs": "^4.5.0",
+    "gatsby": "^5.16.1",
+    "gatsby-plugin-netlify": "^5.1.1",
+    "gatsby-plugin-sass": "^6.16.0",
+    "gatsby-remark-copy-linked-files": "^6.16.0",
+    "gatsby-remark-prismjs": "^7.16.0",
+    "gatsby-source-filesystem": "^5.16.0",
+    "gatsby-transformer-remark": "^6.16.0",
+    "prismjs": "^1.29.0",
+    "prop-types": "^15.8.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sass": "^1.69.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "allowScripts": {
+    "gatsby@5.16.1": true,
+    "gatsby-cli@5.16.0": true,
+    "lmdb@2.5.2": true,
+    "lmdb@2.5.3": true,
+    "@parcel/watcher@2.6.0": true,
+    "core-js@3.50.0": true,
+    "core-js-pure@3.50.0": true,
+    "sharp@0.32.6": true,
+    "es5-ext@0.10.64": true,
+    "msgpackr-extract@3.0.4": true
+  }
+}

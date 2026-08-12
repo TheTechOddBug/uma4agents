@@ -70,6 +70,28 @@ are vendored into this repository — they are fetched at build or run time by
       datasource definitions under observability/ are original works of this
       project.
 
+The website under site/ (u4a.ai) is a separate build with its own
+dependencies, resolved from npm at build time and likewise not vendored here:
+
+  Gatsby ........................................................ MIT
+      https://github.com/gatsbyjs/gatsby
+      Static site framework. The configuration, components, styles and
+      content under site/ are original works of this project.
+
+  anime.js (v4) ................................................. MIT
+      Copyright (c) 2025 Julian Garnier
+      Drives the home page's animation. The scene machine in
+      site/src/animation/story.js and the illustration it animates are
+      original works of this project.
+
+  React, React DOM .............................................. MIT
+  Prism (syntax highlighting) ................................... MIT
+  Dart Sass ..................................................... MIT
+
+  segno ......................................................... BSD-3-Clause
+      Used once, offline, to generate site/static/qr.svg. Not a build or
+      runtime dependency of the site.
+
 ================================================================================
 Upstream AAuth reference implementations (not licensed for redistribution)
 ================================================================================

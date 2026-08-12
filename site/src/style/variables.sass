@@ -1,0 +1,51 @@
+// ===================================================================
+// u4a.ai design tokens
+//
+// The same visual language as the diagrams in the repo's docs/: a very dark
+// ground, one blue-to-violet accent, green for granted, amber for waiting.
+// The animation on the home page is drawn from exactly these values, so a
+// change here has to be made in src/animation/story.js too — those hex codes
+// are animation targets, not decoration.
+// ===================================================================
+
+// Core palette
+$bg:             #080a0f
+$bg-card:        #0f131c
+$bg-elevated:    #151b26
+$bg-sunken:      #0d1119
+$fg:             #eef1f7
+$fg-muted:       #9aa4ba
+$fg-dim:         #616c85
+
+// Accents
+$accent:         #5b8cff
+$accent-hi:      #7aa2ff   // hover tint
+$violet:         #8f6bff
+$green:          #2ed079
+$amber:          #f2b955
+$red:            #e8836b
+
+$primary:        $accent
+$border:         #232c3d
+$border-strong:  rgba(255, 255, 255, 0.16)
+
+// Radii
+$radius:         0.625rem
+$radius-sm:      8px
+$radius-lg:      12px
+$radius-pill:    999px
+
+// Typography — the system sans stack, no webfont
+$font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif
+$font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+
+// Layout
+$container:      1152px
+$lede-width:     680px
+$nav-height:     72px
+
+// Breakpoints
+$bp-sm:          640px
+$bp-md:          860px
+$bp-lg:          1080px
+$bp-nav:         900px

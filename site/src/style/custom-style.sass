@@ -1,0 +1,9 @@
+@import "./variables.sass"
+
+// Prism first, so the site's own code styling wins where they overlap
+@import "~prismjs/themes/prism-tomorrow"
+
+@import "./_site.sass"
+
+// The home page's animation stage is plain CSS, imported by the page that
+// uses it — see src/style/stage.css for why.

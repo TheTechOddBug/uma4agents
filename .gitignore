@@ -8,8 +8,10 @@ certs/
 # Working material: research notes, spikes, progress (kept local, not published)
 research/
 
-# Runtime data
-data/
+# Runtime data. Anchored to the repo root: unanchored, this also matched
+# site/src/data/, which silently kept the site's own source out of the
+# commit — it built locally and would have failed the moment it was cloned.
+/data/
 **/node_modules/
 __pycache__/
 *.pyc
@@ -20,3 +22,8 @@ aauth/upstream/
 
 # macOS
 .DS_Store
+
+# Gatsby site build artefacts
+site/node_modules/
+site/.cache/
+site/public/

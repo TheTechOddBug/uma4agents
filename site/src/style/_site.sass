@@ -1,0 +1,842 @@
+// ===================================================================
+// Site chrome: reset, layout, typography, buttons, nav, footer,
+// contact form, blog listing and article.
+// The home page's animation stage is plain CSS — see src/style/stage.css.
+// ===================================================================
+
+*, *::before, *::after
+  box-sizing: border-box
+
+html
+  scroll-behavior: smooth
+
+body
+  margin: 0
+  background: $bg
+  color: $fg
+  font-family: $font-sans
+  line-height: 1.6
+  -webkit-font-smoothing: antialiased
+  overflow-x: hidden
+
+img
+  max-width: 100%
+
+a
+  color: $accent
+
+::selection
+  background: rgba(91, 140, 255, 0.3)
+
+:focus-visible
+  outline: 2px solid $accent
+  outline-offset: 3px
+
+.skip-link
+  position: absolute
+  left: -9999px
+  top: 0
+  z-index: 100
+  padding: 0.75rem 1.25rem
+  background: $bg-card
+  color: $fg
+  border: 1px solid $accent
+  border-radius: 0 0 $radius-sm 0
+  &:focus
+    left: 0
+
+.visually-hidden
+  position: absolute
+  width: 1px
+  height: 1px
+  padding: 0
+  margin: -1px
+  overflow: hidden
+  clip-path: inset(50%)
+  white-space: nowrap
+
+// -------------------------------------------------------------------
+// Layout primitives
+// -------------------------------------------------------------------
+.container
+  width: 100%
+  max-width: $container
+  margin: 0 auto
+  padding: 0 1.5rem
+
+.section
+  padding: 5rem 0
+
+.section--flush
+  padding-top: 0
+
+// -------------------------------------------------------------------
+// Typography
+// -------------------------------------------------------------------
+.eyebrow
+  font-family: $font-mono
+  font-size: 0.72rem
+  letter-spacing: 0.18em
+  text-transform: uppercase
+  color: $accent
+  margin: 0 0 1rem
+
+.eyebrow--plain
+  color: $fg-dim
+
+.page-hero
+  padding: clamp(3rem, 8vh, 5.5rem) 0 2.5rem
+
+.page-hero__title
+  font-size: clamp(2.1rem, 5vw, 3.2rem)
+  line-height: 1.1
+  letter-spacing: -0.02em
+  font-weight: 650
+  margin: 0 0 1.25rem
+
+.lede
+  font-size: clamp(1.02rem, 2vw, 1.2rem)
+  color: $fg-muted
+  max-width: $lede-width
+  margin: 0
+
+.body-copy
+  color: $fg-muted
+  margin: 0 0 1rem
+
+// -------------------------------------------------------------------
+// Buttons
+// -------------------------------------------------------------------
+.btn
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 0.5rem
+  padding: 0.7rem 1.25rem
+  border-radius: $radius-sm
+  border: 1px solid transparent
+  font: inherit
+  font-size: 0.9rem
+  font-weight: 550
+  line-height: 1
+  text-decoration: none
+  cursor: pointer
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease
+
+.btn--primary
+  background: $accent
+  color: #06080d
+  &:hover
+    background: $accent-hi
+
+.btn--outline
+  background: transparent
+  color: $fg
+  border-color: $border
+  &:hover
+    border-color: $accent
+    color: $accent
+
+.btn--ghost
+  background: $bg-card
+  color: $fg-muted
+  border-color: $border
+  &:hover
+    color: $fg
+    border-color: $accent
+
+.btn--pill
+  border-radius: $radius-pill
+
+.btn--sm
+  padding: 0.45rem 0.85rem
+  font-size: 0.8rem
+
+.btn-row
+  display: flex
+  flex-wrap: wrap
+  gap: 0.75rem
+  margin-top: 1.5rem
+
+.link-arrow
+  color: $accent
+  text-decoration: none
+  font-size: 0.85rem
+  &:hover
+    text-decoration: underline
+
+.icon-gh
+  width: 18px
+  height: 18px
+  flex: 0 0 auto
+
+.icon-li
+  width: 16px
+  height: 16px
+  flex: 0 0 auto
+
+// -------------------------------------------------------------------
+// Navbar
+// -------------------------------------------------------------------
+.site-nav
+  position: sticky
+  top: 0
+  z-index: 50
+  background: rgba(8, 10, 15, 0.86)
+  backdrop-filter: blur(10px)
+  border-bottom: 1px solid $border
+
+.site-nav__inner
+  max-width: $container
+  margin: 0 auto
+  padding: 0 1.5rem
+  height: $nav-height
+  display: flex
+  align-items: center
+  gap: 1.5rem
+
+.site-nav__brand
+  display: flex
+  align-items: baseline
+  gap: 0.7rem
+  text-decoration: none
+  margin-right: auto
+
+.site-nav__mark
+  font-family: $font-mono
+  font-weight: 700
+  font-size: 1.05rem
+  letter-spacing: 0.06em
+  color: $fg
+  background: linear-gradient(135deg, $accent, $violet)
+  -webkit-background-clip: text
+  background-clip: text
+  -webkit-text-fill-color: transparent
+
+.site-nav__tagline
+  font-size: 0.85rem
+  color: $fg-dim
+  white-space: nowrap
+  @media (max-width: $bp-sm)
+    display: none
+
+.site-nav__links
+  display: flex
+  align-items: center
+  gap: 1.5rem
+  list-style: none
+  margin: 0
+  padding: 0
+  @media (max-width: $bp-nav)
+    display: none
+
+.site-nav__link
+  color: $fg-muted
+  text-decoration: none
+  font-size: 0.9rem
+  &:hover
+    color: $fg
+
+.site-nav__link--active
+  color: $fg
+
+.site-nav__cta
+  @media (max-width: $bp-nav)
+    display: none
+
+.site-nav__burger
+  display: none
+  flex-direction: column
+  justify-content: center
+  gap: 5px
+  width: 40px
+  height: 40px
+  padding: 0
+  background: transparent
+  border: 1px solid $border
+  border-radius: $radius-sm
+  cursor: pointer
+  span
+    display: block
+    width: 18px
+    height: 2px
+    margin: 0 auto
+    background: $fg
+    transition: transform 0.2s ease, opacity 0.2s ease
+  @media (max-width: $bp-nav)
+    display: flex
+
+.site-nav__burger.is-open
+  span:nth-child(1)
+    transform: translateY(7px) rotate(45deg)
+  span:nth-child(2)
+    opacity: 0
+  span:nth-child(3)
+    transform: translateY(-7px) rotate(-45deg)
+
+.site-nav__mobile
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+  padding: 1rem 1.5rem 1.5rem
+  border-top: 1px solid $border
+  background: $bg
+  a
+    color: $fg-muted
+    text-decoration: none
+    padding: 0.6rem 0
+    &:hover
+      color: $fg
+  .btn
+    margin-top: 0.5rem
+    color: #06080d
+
+// -------------------------------------------------------------------
+// Footer
+// -------------------------------------------------------------------
+.site-footer
+  border-top: 1px solid $border
+  padding: 3.5rem 0 2rem
+  margin-top: 4rem
+
+.site-footer__top
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto
+  gap: 3rem
+  align-items: start
+  @media (max-width: $bp-md)
+    grid-template-columns: 1fr
+
+.site-footer__mark
+  font-family: $font-mono
+  font-weight: 700
+  font-size: 1.3rem
+  letter-spacing: 0.06em
+  background: linear-gradient(135deg, $accent, $violet)
+  -webkit-background-clip: text
+  background-clip: text
+  -webkit-text-fill-color: transparent
+  margin-bottom: 0.75rem
+
+.site-footer__blurb
+  color: $fg-muted
+  max-width: 52ch
+  margin: 0 0 1.5rem
+  font-size: 0.95rem
+
+.site-footer__repo
+  display: inline-flex
+  align-items: center
+  gap: 0.55rem
+  color: $fg-muted
+  text-decoration: none
+  font-family: $font-mono
+  font-size: 0.85rem
+  &:hover
+    color: $fg
+
+.site-footer__label
+  font-family: $font-mono
+  font-size: 0.7rem
+  letter-spacing: 0.16em
+  text-transform: uppercase
+  color: $fg-dim
+  margin: 1.75rem 0 0.75rem
+
+.site-footer__people
+  display: flex
+  flex-wrap: wrap
+  gap: 1.25rem
+  a
+    display: inline-flex
+    align-items: center
+    gap: 0.5rem
+    color: $fg-muted
+    text-decoration: none
+    font-size: 0.9rem
+    &:hover
+      color: $fg
+
+.site-footer__qr
+  text-align: center
+  a
+    display: block
+  img
+    display: block
+    padding: 8px
+    border-radius: $radius-sm
+    background: #fff
+  p
+    font-family: $font-mono
+    font-size: 0.7rem
+    letter-spacing: 0.12em
+    text-transform: uppercase
+    color: $fg-dim
+    margin: 0.65rem 0 0
+
+.site-footer__bottom
+  display: flex
+  flex-wrap: wrap
+  justify-content: space-between
+  align-items: center
+  gap: 1rem
+  margin-top: 3rem
+  padding-top: 1.5rem
+  border-top: 1px solid $border
+  color: $fg-dim
+  font-size: 0.82rem
+
+.site-footer__tagline
+  font-style: italic
+
+// -------------------------------------------------------------------
+// Contact
+// -------------------------------------------------------------------
+.contact-grid
+  display: grid
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr)
+  gap: 3rem
+  @media (max-width: $bp-md)
+    grid-template-columns: 1fr
+
+.contact-email
+  display: inline-block
+  font-family: $font-mono
+  font-size: 1.05rem
+  color: $accent
+  text-decoration: none
+  margin-bottom: 1.25rem
+  &:hover
+    text-decoration: underline
+
+.expect-card
+  margin-top: 2rem
+  padding: 1.5rem
+  background: $bg-card
+  border: 1px solid $border
+  border-radius: $radius-lg
+
+.expect-card__title
+  font-size: 1rem
+  margin: 0 0 1rem
+
+.check-list
+  list-style: none
+  margin: 0
+  padding: 0
+  display: grid
+  gap: 0.85rem
+  li
+    position: relative
+    padding-left: 1.6rem
+    color: $fg-muted
+    font-size: 0.92rem
+    &::before
+      content: ""
+      position: absolute
+      left: 0
+      top: 0.5em
+      width: 8px
+      height: 8px
+      border-radius: 50%
+      background: $accent
+
+.form-panel
+  padding: 2rem
+  background: $bg-card
+  border: 1px solid $border
+  border-radius: $radius-lg
+
+.field-grid
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 1rem
+  @media (max-width: $bp-sm)
+    grid-template-columns: 1fr
+
+.field
+  display: flex
+  flex-direction: column
+  gap: 0.4rem
+  margin-bottom: 1rem
+  label
+    font-size: 0.82rem
+    color: $fg-muted
+  input, select, textarea
+    width: 100%
+    padding: 0.7rem 0.85rem
+    background: $bg-sunken
+    border: 1px solid $border
+    border-radius: $radius-sm
+    color: $fg
+    font: inherit
+    font-size: 0.92rem
+    &:focus
+      border-color: $accent
+      outline: none
+  textarea
+    min-height: 150px
+    resize: vertical
+
+.field__req
+  color: $accent
+
+.form-success
+  padding: 1.5rem
+  background: rgba(46, 208, 121, 0.08)
+  border: 1px solid rgba(46, 208, 121, 0.4)
+  border-radius: $radius-lg
+  margin-bottom: 1.5rem
+  p
+    color: $fg-muted
+
+.form-success__title
+  margin: 0 0 0.75rem
+  font-size: 1.15rem
+  color: $green
+
+// -------------------------------------------------------------------
+// Blog listing
+// -------------------------------------------------------------------
+.blog-grid
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))
+  gap: 1.75rem
+
+.blog-card
+  display: flex
+  flex-direction: column
+  background: $bg-card
+  border: 1px solid $border
+  border-radius: $radius-lg
+  overflow: hidden
+  text-decoration: none
+  color: inherit
+  transition: border-color 0.15s ease, transform 0.15s ease
+  &:hover
+    border-color: $accent
+    transform: translateY(-2px)
+
+.blog-card-image
+  position: relative
+  aspect-ratio: 16 / 9
+  background: $bg-elevated
+  img
+    width: 100%
+    height: 100%
+    object-fit: cover
+    display: block
+
+.blog-card-image__fallback
+  width: 100%
+  height: 100%
+  background: linear-gradient(135deg, $bg-elevated, $bg-sunken)
+
+.blog-card-category
+  position: absolute
+  left: 0.85rem
+  bottom: 0.85rem
+  padding: 0.3rem 0.65rem
+  border-radius: $radius-pill
+  background: rgba(8, 10, 15, 0.82)
+  border: 1px solid $border
+  font-family: $font-mono
+  font-size: 0.68rem
+  letter-spacing: 0.1em
+  text-transform: uppercase
+  color: $accent
+
+.blog-card-content
+  padding: 1.35rem
+
+.blog-card-title
+  font-size: 1.15rem
+  line-height: 1.35
+  margin: 0 0 0.6rem
+
+.blog-card-excerpt
+  color: $fg-muted
+  font-size: 0.92rem
+  margin: 0 0 1rem
+
+.blog-card-date
+  font-family: $font-mono
+  font-size: 0.75rem
+  color: $fg-dim
+
+// -------------------------------------------------------------------
+// Blog article
+// -------------------------------------------------------------------
+.blog-hero
+  padding: clamp(2.5rem, 7vh, 4.5rem) 0 2.5rem
+  border-bottom: 1px solid $border
+
+.blog-hero-content
+  max-width: $container
+  margin: 0 auto
+  padding: 0 1.5rem
+  display: grid
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr)
+  gap: 2.5rem
+  align-items: center
+  @media (max-width: $bp-md)
+    grid-template-columns: 1fr
+
+.blog-hero-title
+  font-size: clamp(1.9rem, 4.4vw, 2.9rem)
+  line-height: 1.12
+  letter-spacing: -0.02em
+  font-weight: 650
+  margin: 0 0 1.25rem
+
+.blog-hero-meta
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 0.75rem
+  color: $fg-dim
+  font-size: 0.88rem
+  .author-name
+    color: $fg-muted
+  .publish-date
+    font-family: $font-mono
+    font-size: 0.8rem
+    &::before
+      content: "·"
+      margin-right: 0.75rem
+
+.blog-hero-actions
+  margin-top: 1.5rem
+
+.blog-hero-image
+  img
+    width: 100%
+    border-radius: $radius-lg
+    border: 1px solid $border
+    display: block
+
+.blog-content-area
+  padding: 3rem 0
+
+.blog-content-wrapper
+  max-width: $container
+  margin: 0 auto
+  padding: 0 1.5rem
+  display: grid
+  grid-template-columns: 230px minmax(0, 1fr)
+  gap: 3rem
+  align-items: start
+  @media (max-width: $bp-lg)
+    grid-template-columns: 1fr
+
+// The article comes first in the markup so the contents can be built from
+// the headings it actually rendered; the grid puts the contents back on the
+// left, and stacks it above on narrow screens where there is no aside.
+.blog-content-wrapper .blog-body
+  grid-column: 2
+  @media (max-width: $bp-lg)
+    grid-column: 1
+    grid-row: 2
+
+.blog-content-wrapper .blog-toc
+  grid-column: 1
+  grid-row: 1
+  @media (max-width: $bp-lg)
+    grid-row: 1
+
+.blog-toc
+  position: sticky
+  top: calc(#{$nav-height} + 1.5rem)
+  @media (max-width: $bp-lg)
+    position: static
+    padding-bottom: 1.5rem
+    border-bottom: 1px solid $border
+  h4
+    font-family: $font-mono
+    font-size: 0.68rem
+    letter-spacing: 0.16em
+    color: $fg-dim
+    margin: 0 0 0.9rem
+  ul
+    list-style: none
+    margin: 0
+    padding: 0
+    display: grid
+    gap: 0.55rem
+  li.is-sub
+    padding-left: 0.9rem
+  a
+    color: $fg-muted
+    text-decoration: none
+    font-size: 0.85rem
+    line-height: 1.4
+    &:hover
+      color: $accent
+
+.blog-body
+  min-width: 0
+  font-size: 1.02rem
+  color: #cfd6e4
+
+  h2
+    font-size: clamp(1.4rem, 3vw, 1.8rem)
+    line-height: 1.25
+    letter-spacing: -0.01em
+    margin: 2.75rem 0 1rem
+    color: $fg
+
+  h3
+    font-size: 1.15rem
+    margin: 2rem 0 0.75rem
+    color: $fg
+
+  p
+    margin: 0 0 1.15rem
+
+  strong
+    color: $fg
+
+  em
+    color: $fg-muted
+
+  ul, ol
+    margin: 0 0 1.25rem
+    padding-left: 1.35rem
+  li
+    margin-bottom: 0.5rem
+
+  blockquote
+    margin: 1.75rem 0
+    padding: 0.25rem 0 0.25rem 1.25rem
+    border-left: 3px solid $accent
+    color: $fg-muted
+    font-style: italic
+
+  a
+    color: $accent
+    text-decoration: underline
+    text-underline-offset: 2px
+
+  img
+    border-radius: $radius-lg
+    border: 1px solid $border
+    margin: 1.5rem 0
+
+  hr
+    border: 0
+    border-top: 1px solid $border
+    margin: 2.5rem 0
+
+  table
+    width: 100%
+    border-collapse: collapse
+    margin: 1.5rem 0
+    font-size: 0.9rem
+    display: block
+    overflow-x: auto
+  th, td
+    border: 1px solid $border
+    padding: 0.6rem 0.8rem
+    text-align: left
+  th
+    background: $bg-card
+    color: $fg
+
+  code
+    font-family: $font-mono
+    font-size: 0.86em
+    background: $bg-elevated
+    border: 1px solid $border
+    border-radius: 5px
+    padding: 0.12em 0.4em
+    color: #d9e0f0
+
+  pre
+    position: relative
+    background: $bg-sunken
+    border: 1px solid $border
+    border-radius: $radius-lg
+    padding: 1.15rem
+    overflow-x: auto
+    margin: 1.5rem 0
+    code
+      background: none
+      border: 0
+      padding: 0
+      font-size: 0.84rem
+
+.blog-code-copy
+  position: absolute
+  top: 0.6rem
+  right: 0.6rem
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 30px
+  height: 30px
+  background: $bg-card
+  border: 1px solid $border
+  border-radius: 6px
+  color: $fg-muted
+  cursor: pointer
+  opacity: 0
+  transition: opacity 0.15s ease, color 0.15s ease
+  &:hover
+    color: $fg
+
+pre:hover .blog-code-copy,
+.blog-code-copy:focus-visible
+  opacity: 1
+
+.blog-tags-band
+  border-top: 1px solid $border
+
+.blog-tags-inner
+  max-width: $container
+  margin: 0 auto
+  padding: 2rem 1.5rem
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 1rem
+  h4
+    font-family: $font-mono
+    font-size: 0.68rem
+    letter-spacing: 0.16em
+    color: $fg-dim
+    margin: 0
+
+.blog-tags-list
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+
+.blog-tag
+  padding: 0.3rem 0.7rem
+  border-radius: $radius-pill
+  border: 1px solid $border
+  background: $bg-card
+  color: $fg-muted
+  font-size: 0.8rem
+
+.blog-cta-section
+  max-width: $container
+  margin: 3rem auto 0
+  padding: 3rem 1.5rem
+  text-align: center
+  border-top: 1px solid $border
+  h2
+    font-size: clamp(1.4rem, 3.4vw, 2rem)
+    margin: 0 0 0.85rem
+  p
+    color: $fg-muted
+    max-width: 58ch
+    margin: 0 auto
+  .btn-row
+    justify-content: center
+
+// -------------------------------------------------------------------
+// 404
+// -------------------------------------------------------------------
+.notfound
+  padding: clamp(4rem, 14vh, 8rem) 0

@@ -1,10 +1,32 @@
-# u4a.ai — the site is a directory of static files, so there is nothing to
-# build. No bundler, no framework, no install step: what is committed under
-# site/ is exactly what is served, which is also what lets site/_headers set a
-# content security policy with no exceptions in it.
+# u4a.ai
+#
+# The site is a Gatsby project under site/, so Netlify builds from that
+# directory and publishes what Gatsby emits. Everything it serves is
+# same-origin: the animation library is a dependency rather than a CDN
+# script, the QR code is a committed file, and no webfont is fetched.
 
 [build]
-  publish = "site"
+  base = "site"
+  command = "npm ci && npm run build"
+  publish = "site/public"
 
-# No `command`. If one ever appears here, something has started generating
-# what used to be readable source.
+[build.environment]
+  NODE_VERSION = "20.15.0"
+
+[[plugins]]
+  package = "@netlify/plugin-gatsby"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=63072000"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# The Markdown twin of every post, published by gatsby-node's onPostBuild so
+# that a language model can read the words without the page around them.
+[[headers]]
+  for = "/blog/*.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"

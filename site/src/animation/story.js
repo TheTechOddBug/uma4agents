@@ -1,7 +1,7 @@
 /* The story, as a sequence of scenes.
  *
  * One cast on one stage; the scenes are camera directions rather than
- * separate drawings, so the agent's walk from the vault to Alice's
+ * separate drawings, so the agent's walk from the resource server to Alice's
  * authorization server and back is the same motion the protocol describes.
  *
  * Why a scene machine and not one long timeline
@@ -14,22 +14,23 @@
  * most of the story would quietly never play — and it would look like it
  * worked, because the first tween for each property still runs.
  *
- * So each scene instead declares two things: `set`, the state of anything it
- * changes at the moment it begins, and `play`, the motion within it. Playing
- * a scene means applying the accumulated state and issuing fresh `animate()`
- * calls, which compose correctly because they are separate animations rather
- * than entries in one timeline. Scrubbing becomes exact and cheap: to show
- * any moment, apply the base state plus every scene's `set` up to that point.
+ * So each scene declares two things instead: `end`, what it leaves changed
+ * when it finishes, and `play`, the motion within it. Playing a scene means
+ * applying the accumulated state and issuing fresh `animate()` calls, which
+ * compose correctly because they are separate animations rather than entries
+ * in one timeline. Scrubbing becomes exact and cheap: to show any moment,
+ * apply the base state plus every earlier scene's `end`.
  *
- * The captions are the authoritative text. They are in the DOM as an ordered
- * list whatever happens, so the page explains itself with the animation
+ * The captions are the authoritative text. The page renders them as an
+ * ordered list whatever happens, so it explains itself with the animation
  * switched off, with JavaScript disabled, and to a screen reader. The
  * animation illustrates the words; it does not carry meaning the words lack.
+ *
+ * `mount(root)` wires the machine to an already-rendered DOM and returns a
+ * teardown, so React owns the markup and this owns only the motion.
  */
 
-import { animate, utils } from './vendor/anime.esm.min.js';
-
-const $ = (sel) => document.querySelector(sel);
+import { animate, utils } from "animejs";
 
 /* Where everyone stands. Named so the scenes read as blocking notes. */
 const HOME = 240;
@@ -88,7 +89,7 @@ const BASE = {
  * phone left glowing green through the credits. A scene cannot know what
  * came before it. It can only be honest about what it leaves behind.
  */
-const SCENES = [
+export const SCENES = [
   {
     at: 0,
     text: 'Alice\u2019s money sits at her brokerage \u2014 in a system that holds a thousand other clients\u2019 holdings too.',
@@ -295,73 +296,73 @@ const SCENES = [
 
 const TOTAL = 73000;
 
-/* ---- the story as text, always ----------------------------------------- */
+/* ---- the machine --------------------------------------------------------- */
 
-const storyboard = $('#storyboard');
-for (const s of SCENES) {
-  if (!s.text) continue;
-  const li = document.createElement('li');
-  li.innerHTML = (s.beat ? `<b>${s.beat}.</b> ` : '') + s.text;
-  storyboard.appendChild(li);
+export function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 }
 
-/* ---- applying state ------------------------------------------------------ */
+/**
+ * Attach the story to a rendered stage.
+ *
+ * Every lookup is scoped to `root` rather than the document: React owns this
+ * markup, and a stray global selector would be a second owner.
+ *
+ * @param {HTMLElement} root      the element containing the stage and controls
+ * @param {(i:number)=>void} onScene  called when the visible scene changes
+ * @returns {() => void} teardown
+ */
+export function mount(root, onScene) {
+  const $ = (sel) => root.querySelector(sel);
 
-function apply(state) {
-  for (const [sel, props] of Object.entries(state)) {
-    const targets = document.querySelectorAll(sel);
-    if (targets.length) utils.set(targets, props);
-  }
-}
-
-/* The stage as it stands at the start of scene `i`: the base, plus what
- * every earlier scene left behind. Deriving it rather than storing it is
- * what makes scrubbing exact — there is no snapshot to drift out of date. */
-function stateAt(i) {
-  const out = structuredClone(BASE);
-  for (let n = 0; n < i; n++) {
-    for (const [sel, props] of Object.entries(SCENES[n].end)) {
-      out[sel] = { ...(out[sel] || {}), ...props };
+  function apply(state) {
+    for (const [sel, props] of Object.entries(state)) {
+      const targets = root.querySelectorAll(sel);
+      if (targets.length) utils.set(targets, props);
     }
   }
-  return out;
-}
 
-const prefersReducedMotion =
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* The stage as it stands at the start of scene `i`: the base, plus what
+   * every earlier scene left behind. Deriving it rather than storing it is
+   * what makes scrubbing exact — there is no snapshot to drift out of date. */
+  function stateAt(i) {
+    const out = structuredClone(BASE);
+    for (let n = 0; n < i; n++) {
+      for (const [sel, props] of Object.entries(SCENES[n].end)) {
+        out[sel] = { ...(out[sel] || {}), ...props };
+      }
+    }
+    return out;
+  }
 
-if (prefersReducedMotion) {
-  /* Nothing moves. The stage holds one readable frame — everyone present,
-   * mid-story — and the list above carries the whole explanation. */
-  apply(stateAt(5));
-  apply({ '#agent': { x: AGENT_MARK }, '#alice': { x: HOME, opacity: 1 } });
-} else {
-  run();
-}
+  if (prefersReducedMotion()) {
+    /* Nothing moves. The stage holds one readable frame — everyone present,
+     * mid-story — and the caption list carries the whole explanation. */
+    apply(stateAt(5));
+    apply({ "#agent": { x: AGENT_MARK }, "#alice": { x: HOME, opacity: 1 } });
+    return () => {};
+  }
 
-function run() {
-  const caption = $('#caption');
-  const scrub = $('#scrub');
-  const toggle = $('#toggle');
+  const scrub = $(".stage-scrub");
+  const toggle = $(".stage-toggle");
+  const replay = $(".stage-replay");
 
   let current = -1;
-  let clock = 0;          // ms into the story
-  let last = null;        // rAF timestamp of the previous frame
+  let clock = 0;        // ms into the story
+  let last = null;      // rAF timestamp of the previous frame
   let playing = true;
   let dragging = false;
+  let raf = null;
+  let alive = true;
 
-  function showScene(i, { animateIt = true } = {}) {
+  function showScene(i) {
     current = i;
     apply(stateAt(i));
-    if (animateIt) SCENES[i].play();
-    const s = SCENES[i];
-    caption.style.opacity = '0';
-    setTimeout(() => {
-      caption.innerHTML = s.text
-        ? (s.beat ? `<span class="beat">${s.beat}</span>` : '') + s.text
-        : '';
-      caption.style.opacity = '1';
-    }, 160);
+    SCENES[i].play();
+    if (onScene) onScene(i);
   }
 
   function sceneAt(ms) {
@@ -371,63 +372,78 @@ function run() {
   }
 
   function frame(now) {
-    requestAnimationFrame(frame);
+    if (!alive) return;
+    raf = requestAnimationFrame(frame);
     if (last === null) last = now;
     const dt = now - last;
     last = now;
     if (!playing || dragging) return;
 
     clock += dt;
-    if (clock >= TOTAL) clock -= TOTAL;         // and round again
+    if (clock >= TOTAL) clock -= TOTAL;    // and round again
     const want = sceneAt(clock);
     if (want !== current) showScene(want);
-    scrub.value = Math.round((clock / TOTAL) * 1000);
+    if (scrub) scrub.value = Math.round((clock / TOTAL) * 1000);
   }
-
-  showScene(0);
-  requestAnimationFrame(frame);
-
-  /* ---- controls ---------------------------------------------------------- */
 
   function setPlaying(on) {
     playing = on;
-    toggle.textContent = on ? 'Pause' : 'Play';
-    toggle.setAttribute('aria-label', on ? 'Pause' : 'Play');
+    if (!toggle) return;
+    toggle.textContent = on ? "Pause" : "Play";
+    toggle.setAttribute("aria-label", on ? "Pause" : "Play");
   }
 
-  toggle.addEventListener('click', () => setPlaying(!playing));
-
-  $('#replay').addEventListener('click', () => {
+  const onToggle = () => setPlaying(!playing);
+  const onReplay = () => {
     clock = 0;
     showScene(0);
     setPlaying(true);
-  });
-
+  };
+  const onDown = () => {
+    dragging = true;
+    setPlaying(false);
+  };
+  const onUp = () => {
+    dragging = false;
+  };
   /* Scrubbing lands on a scene, which is the unit a presenter actually wants
    * to hold — and, conveniently, the unit whose state is exactly derivable. */
-  scrub.addEventListener('pointerdown', () => { dragging = true; setPlaying(false); });
-  scrub.addEventListener('pointerup', () => { dragging = false; });
-  scrub.addEventListener('input', () => {
+  const onInput = () => {
     clock = (scrub.value / 1000) * TOTAL;
     const want = sceneAt(clock);
     if (want !== current) showScene(want);
-  });
-
+  };
   /* A presenter's convenience: space holds a beat without hunting for the
      button. Ignored while a control has focus, so the buttons still work. */
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !['BUTTON', 'INPUT'].includes(e.target.tagName)) {
+  const onKey = (e) => {
+    if (e.code === "Space" && !["BUTTON", "INPUT", "TEXTAREA"].includes(e.target.tagName)) {
       e.preventDefault();
       setPlaying(!playing);
     }
-  });
+  };
 
-  /* A handle for poking at it from the console: `u4a.scene(4)` to hold a
-     beat. Costs nothing and saves rebuilding the page to answer "what does
-     it look like at beat 2". */
-  window.u4a = {
-    scenes: SCENES,
-    scene: (i) => { setPlaying(false); clock = SCENES[i].at; showScene(i); },
-    stateAt,
+  if (toggle) toggle.addEventListener("click", onToggle);
+  if (replay) replay.addEventListener("click", onReplay);
+  if (scrub) {
+    scrub.addEventListener("pointerdown", onDown);
+    scrub.addEventListener("pointerup", onUp);
+    scrub.addEventListener("input", onInput);
+  }
+  document.addEventListener("keydown", onKey);
+
+  showScene(0);
+  raf = requestAnimationFrame(frame);
+
+  return () => {
+    alive = false;
+    if (raf) cancelAnimationFrame(raf);
+    if (toggle) toggle.removeEventListener("click", onToggle);
+    if (replay) replay.removeEventListener("click", onReplay);
+    if (scrub) {
+      scrub.removeEventListener("pointerdown", onDown);
+      scrub.removeEventListener("pointerup", onUp);
+      scrub.removeEventListener("input", onInput);
+    }
+    document.removeEventListener("keydown", onKey);
   };
 }
