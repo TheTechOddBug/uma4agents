@@ -529,3 +529,65 @@ The activity ledger is a projection: **promised** = `contract.committed`,
 | 12 | Challenge carries `error="insufficient_authorization"` + `authorization_remediation` (RFC 9396 `authorization_details` + `authorization_reference`), plus `authorization_server` and `ticket` inside it | UMA's challenge carries `as_uri` + `ticket` only | Superset of `draft-zehavi-oauth-rar-metadata` rather than a rival: the same remediation payload, plus the two parameters that let a party who is not the caller decide. The same JSON rides the JSON-RPC encoding byte for byte, which shows the payload is portable and only the envelope is binding-specific |
 
 Everything not listed here is intended to be stock UMA 2.0 / stock AAuth.
+
+## Security considerations
+
+The properties this contract depends on, and what breaks each one. Every item
+here is enforced somewhere in the code and most are covered by a test; the
+tests that prove refusals rather than permissions are `make k8s-policy-test`
+and `make store-test`.
+
+**Single-use must be indivisible.** Both the permission ticket and the
+operation-bound RPT are spent exactly once. A check-then-act implementation is
+correct in one process and wrong the moment there are two — two callers read
+`consumed = false` and both are told yes. The store interface therefore exposes
+`consume_ticket` / `consume_rpt` as *intents* that decide and record in one
+step and report who won; a `get`/`put` interface reintroduces the race over the
+network. See rec 9 in [FINDINGS.md](../FINDINGS.md).
+
+**Consumption is ordered and last.** Introspect (non-consuming) → permissions →
+PoP → operation binding → `POST /consume`. Consuming first lets an unsigned
+replay destroy an approval the owner just gave.
+
+**Authorization inputs never come from the transport.** The RFC 9421 signature
+base is reconstructed from the enforcer's configured `expected_authority`, never
+from `Host` or any forwarded header. An authority taken from a header is an
+authority the caller can choose.
+
+**A truncated body must fail closed.** When the gateway buffers a request for
+the ext-authz callout it may truncate rather than refuse. A cut-off JSON-RPC
+body does not parse and the method name disappears, which deny-by-default
+catches but misreports. The enforcement point checks
+`x-envoy-auth-partial-body` and refuses with a named reason.
+
+**The resource server must not be able to read the owner's policy.** This is
+the cross-principal property the whole profile exists for, and it is
+structural, not advisory: the Protection API is PAT-scoped, and in the
+Kubernetes reference the mesh denies the path outright. The paired assertion —
+the enforcement point is refused Alice's policy (403) and allowed her published
+keys (200) on the same port and workload — is the shortest statement of it.
+
+**Agent-token issuers are trusted by dereference.** `verify_agent_token`
+resolves `iss` via AAuth discovery over TLS and believes the published keys.
+TLS on the issuer origin is the trust root (AAuth's own precondition), and
+non-`https` issuers are rejected. There is deliberately **no issuer allowlist**
+here: which issuers may attest agents to a given authorization server is a
+deployment policy, not a wire-protocol rule, and a real deployment must supply
+one.
+
+**Liveness must not depend on a mutual dereference.** The AS pulls what the RS
+publishes; the RS authenticates that pull by fetching the AS's keys mid-request.
+Gating readiness on the pull deadlocks. `/health` is local-only; the separate
+`/health/registry` reports whether the pull has landed and is explicitly not a
+readiness probe.
+
+**Revocation is atomic and immediate.** Revoking a connection burns live RPTs in
+the same operation that flips the connection, not in a second step that can fail
+independently; introspection of a revoked token carries `connection_revoked`,
+which is terminal rather than an invitation to renegotiate.
+
+**Not addressed here.** Signing-key rotation (the key is minted once and shared
+by all replicas; `jwks_uri` makes rotation possible but nothing exercises it);
+multiple authorization servers behind one resource server (RFC 9728 makes
+`authorization_servers` an array, this profile configures one); and revocation
+propagation beyond a single shared store.

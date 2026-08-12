@@ -3,7 +3,7 @@ templateKey: blog-post
 title: "Everything You Need to Know About Deploying U4A at Scale"
 date: 2026-08-12T00:00:00.000Z
 author: Nick Gamb
-description: "A field guide to running owner-authoritative authorization for real: the mental model, the parts list, the five things that will bite you, and a complete Kubernetes reference architecture on the solo.io stack you can clone and steal from."
+description: "A field guide to running owner-authoritative authorization for real: how it differs from the policy engine you already run, the parts list, the five things that will bite you, a complete Kubernetes reference architecture on the solo.io stack — and an honest list of what it does not solve yet."
 featuredpost: true
 featuredimage: /img/blog/u4a-at-scale.svg
 category: Agentic Identity
@@ -33,11 +33,23 @@ Here is the honest framing: a single-process authorization server is a *correct*
 
 The good news is that there are about five of them, they are all fixable, and once you know what they are you will spot them in your own design in an afternoon.
 
+## How this differs from the policy engine you already run
+
+Fair question to ask early, because you probably already deploy authorization at scale and it works.
+
+If you run [OPA](https://www.openpolicyagent.org) or [Cedar](https://www.cedarpolicy.com), you have decentralized *where the decision is computed* — the policy travels to the enforcement point instead of every call travelling to a central service. If you are following [AuthZEN](https://openid.net/wg/authzen/), you are standardizing *how the decision is asked for*, so a PEP and a PDP from different vendors can talk. Both are real wins and neither is what this is.
+
+None of them change **whose policy the decision expresses**. In each, the policy is authored by whoever operates the service — which is correct, because in the workloads those tools were built for the operator *is* the party with the authority to decide.
+
+UMA's move, and it predates every tool in that list, is to break that identification. The resource server holds the assets and does the enforcing, and the policy it enforces belongs to someone else — someone who may be asleep, and who does not work there. That is not a different policy language. It is a different answer to *who is allowed to author the policy at all*, and it is why the sections below are about namespaces and mesh identity rather than about rule syntax. It is also why the thing you can't do with an engine alone is the negotiation: [GNAP](https://datatracker.ietf.org/doc/html/rfc9635) and UMA both have one, because when the deciding party isn't in the request path you need a protocol for reaching them, not just an API for asking.
+
+You will likely want a policy engine *inside* the authorization server described here. The two compose. They answer different questions.
+
 ## Start with the parties, not the pods
 
 The single most useful thing you can do before writing a manifest is stop thinking about services and start thinking about **parties**.
 
-FedAuthz — the resource-server half of UMA — divides responsibility between the resource **owner**, the resource **server**, and the **authorization server**. Not between processes. Between parties, which may be different companies with different lawyers.
+[FedAuthz](https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-federated-authz-2.0.html) §1.4 — the resource-server half of UMA — divides responsibility between the resource **owner**, the resource **server**, and the **authorization server**. Not between processes. Between parties, which may be different companies with different lawyers: the resource server's job there is a short list it performs *for* an authority it does not hold, starting with holding a PAT issued in the owner's name (§1.5).
 
 That distinction is easy to lose. In a single-process lab everything shares a network and the seam survives only as a paragraph in an architecture document. So make it structural: **one namespace per party**, one service account per workload, and a mesh that gives each of them a cryptographic identity rather than an IP address.
 
@@ -47,11 +59,13 @@ For the reference architecture that shakes out as:
 |---|---|---|
 | The owner | her authorization server, her identity provider, her portal | she decides |
 | The resource server | the gateway, the enforcement point, the actual resource | it enforces, and must never be able to read her policy |
-| The requesting party | the agent, and its operator's public metadata | it asks, and gets no shortcut |
+| The requesting party | its **requesting agent**, and its operator's public metadata | it asks, and gets no shortcut |
 | The identity authority | whatever attests the agent | neither side owns it |
 | The edge | your ingress | everything from outside arrives here |
 
 The one to look at twice is the middle row. Your resource server holds the assets and does the enforcing — and it should be structurally incapable of reading or rewriting the policy it enforces. In a mesh that is not a code review comment, it is a rule, and you can write a test that proves it.
+
+The row below it is worth a word on vocabulary, because the agent era makes an old distinction load-bearing again. The **requesting party** is the human or organization asking — Bob, the advisor. The **requesting agent** is the software doing the asking on his behalf. UMA's 2010 drafts had both terms and 2.0 collapsed them, which was reasonable when the client was a web app Bob was sitting in front of. It is not reasonable now: the terms get signed by the agent, the identity being attested is the agent's, and the party who is accountable is Bob. Keep them separate in your model even if your spec of choice does not.
 
 **Try this on your own architecture right now:** name the four parties. If two of them turn out to be the same deployment, you have found the thing to separate first.
 
@@ -77,7 +91,7 @@ Here they are, in the order they will hurt.
 
 ### 1. Single-use has to mean indivisible
 
-UMA says a permission ticket is single-use. This profile adds a single-use, operation-bound token — the thing that stops "approve this trade" from becoming "may trade."
+UMA 2.0 §3.3.1 requires the authorization server to invalidate a permission ticket when it is used, handing back a fresh one if the negotiation continues. This profile adds a second single-use artifact — an operation-bound token, the thing that stops "approve this trade" from becoming "may trade."
 
 Neither the spec nor your first implementation will say *how* "once" is enforced, because in one process the question is invisible. Read the flag, decide, write the flag; nothing can interleave.
 
@@ -207,6 +221,18 @@ make k8s-chaos         # break it while she is being asked
 ```
 
 There is a fifteen-minute walkthrough in [docs/KUBERNETES.md](https://github.com/nickgamb/uma4agents/blob/main/docs/KUBERNETES.md) — every step a command, an expected number, and what to notice in the output. Bring a coffee.
+
+## What this does not answer yet
+
+Worth being straight about, because the gaps are as informative as the fixes and you will hit them in roughly this order.
+
+**One authorization server per resource server.** RFC 9728 makes `authorization_servers` an array, and the lab configures exactly one. The resource server is genuinely multi-owner — Alice's holdings sit beside other people's — but every one of those owners is pointed at the same authorization server. The case that actually tests the model is owners who each brought their own, and that is a discovery-and-trust problem this deployment does not solve.
+
+**No key rotation.** The signing key is minted once by a Job and mounted to all three replicas. Publishing a `jwks_uri` makes rotation *possible* — serve both keys, sign with the new one, retire the old after the longest token lifetime — but nothing here exercises it, and a rotation that races a replica rollout is its own small nightmare.
+
+**Any issuer is a trusted issuer.** The authorization server resolves an agent token's issuer by dereferencing whatever `https` origin the token names and believing the keys it publishes. TLS is the trust root, which is AAuth's own precondition, and for a lab that is the honest default. A real deployment needs a policy about *which* issuers may attest agents to it. That policy is not a protocol gap; it is the deployment decision the protocol leaves you.
+
+**Revocation is correct because there is one store.** Every replica reads the same database, so a revoked connection is revoked everywhere the instant it commits. Stretch that across regions or across authorization servers and you are back to a distributed-systems problem the shape of this profile does not itself solve.
 
 ## Take this, not that
 
