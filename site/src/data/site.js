@@ -2,10 +2,6 @@
 
 export const repo = "https://github.com/nickgamb/uma4agents";
 
-export const contact = {
-  email: "hello@u4a.ai",
-};
-
 export const people = [
   { name: "Nick Gamb", linkedin: "https://www.linkedin.com/in/nickgamb/" },
   { name: "Eve Maler", linkedin: "https://www.linkedin.com/in/evemaler/" },
