@@ -300,3 +300,111 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
   .stage { max-height: 36svh; }
   #qr img { width: 68px; height: 68px; }
 }
+
+/* ── Act two: the architecture ─────────────────────────────────────────
+   Same palette and the same weights as act one; what changes is that the
+   subject is now the machine rather than the story. Kept in this file
+   because these values are animation targets, not decoration. */
+
+.ns-box {
+  fill: rgba(15, 19, 28, 0.55);
+  stroke: var(--edge);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+}
+.ns-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  fill: var(--ink-2);
+  text-anchor: middle;
+}
+.ns-sub {
+  font-size: 11.5px;
+  font-style: italic;
+  fill: #4b5468;
+  text-anchor: middle;
+}
+
+.node {
+  fill: var(--card);
+  stroke: var(--edge);
+  stroke-width: 1.6;
+}
+.node--accent { stroke: var(--accent); }
+.node--violet { stroke: var(--violet); }
+
+.node-title { font-size: 14px; font-weight: 620; fill: var(--ink); }
+.node-sub   { font-size: 11px; fill: var(--ink-3); }
+#arch-edge .node-sub, #arch-pep .node-sub, #arch-db .node-sub { text-anchor: middle; }
+
+.edge-slot {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 7 6;
+}
+.shield-sm {
+  fill: #0d1119;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+.db-glyph {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+/* The stacked cards behind uma-as: three replicas, one service. */
+.as-card-2 { opacity: 0.55; }
+.as-card-3 { opacity: 0.3; }
+
+.row-dim { fill: var(--card-2); }
+.row-own { fill: rgba(91, 140, 255, 0.35); }
+
+.mesh-line {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 4;
+}
+.mesh-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  fill: var(--ink-3);
+  text-anchor: middle;
+}
+
+.flow { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.flow--amber  { stroke: var(--amber); }
+.flow--accent { stroke: var(--accent); }
+.flow--green  { stroke: var(--green); }
+.flow--deny   { stroke: var(--amber); stroke-width: 2.4; stroke-dasharray: 6 6; opacity: 0.5; }
+
+.flow-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-anchor: middle;
+}
+.flow-label--amber  { fill: var(--amber); }
+.flow-label--accent { fill: var(--accent); }
+.flow-label--green  { fill: var(--green); }
+.flow-label--deny   { fill: var(--amber); }
+
+.deny-ring  { fill: #0f0e0d; stroke: var(--amber); stroke-width: 3; }
+.deny-cross { stroke: var(--amber); stroke-width: 3.4; stroke-linecap: round; }
+
+.scale-chip { fill: #0c1210; stroke: var(--green); stroke-width: 1.6; }
+.scale-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  fill: var(--green);
+  text-anchor: middle;
+}
+
+/* Anything act two scales needs a pivot of its own. */
+#arch-denied g, #arch-scale { transform-box: fill-box; transform-origin: 50% 50%; }

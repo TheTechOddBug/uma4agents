@@ -840,3 +840,68 @@ pre:hover .blog-code-copy,
 // -------------------------------------------------------------------
 .notfound
   padding: clamp(4rem, 14vh, 8rem) 0
+
+// -------------------------------------------------------------------
+// Author byline and archive
+// -------------------------------------------------------------------
+.author-avatar
+  width: 30px
+  height: 30px
+  border-radius: 50%
+  object-fit: cover
+  flex: 0 0 auto
+  border: 1px solid $border
+
+.author-avatar--initial
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  background: linear-gradient(135deg, $accent, $violet)
+  color: #06080d
+  font-weight: 700
+
+.author-avatar--lg
+  width: 72px
+  height: 72px
+  font-size: 1.8rem
+
+.author-byline
+  display: inline-flex
+  align-items: center
+  gap: 0.55rem
+  color: $fg-muted
+  text-decoration: none
+  &:hover
+    color: $accent
+
+.author-header
+  display: flex
+  align-items: center
+  gap: 1.25rem
+  margin-bottom: 1.25rem
+  flex-wrap: wrap
+
+.author-header__name
+  margin: 0
+
+.author-header__title
+  color: $accent
+  font-size: 0.92rem
+  margin: 0.35rem 0 0
+
+.author-header__bio
+  margin-top: 0.5rem
+
+.author-header__count
+  font-family: $font-mono
+  font-size: 0.78rem
+  color: $fg-dim
+  margin-top: 1.5rem
+
+// The tag chips are links now, so they need to look like it.
+a.blog-tag
+  text-decoration: none
+  transition: border-color 0.15s ease, color 0.15s ease
+  &:hover
+    border-color: $accent
+    color: $accent
