@@ -87,6 +87,26 @@ it that know nothing about UMA, and no gateway at all, with the MCP server
 handling the grant itself. Same ticket, same terms, same token. The one thing
 that does not survive the move is the *challenge encoding* — rec 7.
 
+*What makes an enforcement point portable, found by moving one.* Carrying the
+gateway shape from a configuration file to a Kubernetes control plane put the
+claim under load, and it held: the request body, the signature headers and the
+path rewrite all arrive unchanged, and the expression that rewrites the path
+transfers character for character. Exactly one thing does not survive — the
+`Host` header, which arrives as the *authorization service's* own address and
+cannot be configured to do otherwise.
+
+It cost nothing here, and the reason is worth stating as guidance rather than
+luck. The enforcer reconstructs the RFC 9421 signature base from its
+*configured* expected authority and never from the request, a decision made so
+that an attacker cannot set the authority it is checked against. That single
+decision is also what made the move survivable: an enforcement point that had
+recovered the authority from the transport would have broken silently, with
+signatures failing to verify for a reason nothing in the logs would name. So:
+**an enforcement point must take its authorization inputs from its
+configuration and from the credential, never from the routing layer that
+delivered them.** It is a security rule and a portability rule with one cause,
+which is usually the sign of a good one.
+
 **2. Make the owner's terms first-class — as MyTerms, extended.** The single
 most valuable transformation is claims-gathering becoming an *owner-proffered*
 terms artifact that the requesting side echoes and signs. This is the shape of
@@ -227,6 +247,18 @@ pull and its verification form a call cycle — the AS queries the RS while
 the RS authenticates the AS against the AS's own published keys. Verifiers
 must tolerate a live back-call or verify against pre-cached keys.
 
+That cycle has a second edge, found by putting the same stack behind an
+orchestrator that gates traffic on a readiness check. The obvious readiness
+signal for an AS in a pull profile is "my registry is populated" — and it
+deadlocks: the AS has no ready endpoint, so the RS's back-call to its JWKS
+fails, so the pull fails, so readiness never goes green, and what an operator
+sees is a healthy-looking process stuck at zero-of-one until it gives up
+quietly. **Readiness must depend on the grant endpoints, not on the pull.**
+Whether the pull has completed is worth exposing — the lab serves it
+separately — but it is a diagnostic, never a gate. The general form: in a
+profile where two parties authenticate each other by dereference, neither
+party's liveness may be conditioned on the exchange completing.
+
 **6. Bindings as thin, separate documents.** Ship the core with a first
 binding to a concrete agent-identity/PoP layer (this POC binds to AAuth) and
 plan a second for the OAuth+DPoP installed base. One spec, multiple bindings,
@@ -301,6 +333,44 @@ its request/response model has no natural slot for, and because "any gateway
 can enforce this" is already served by ext_authz. Most of its practical value
 — a PEP that can tell *why* a token was refused — was obtained instead by
 adding reason codes to introspection.
+
+**9. Say that single-use means indivisible, not merely once.** UMA 2.0 says a
+permission ticket is single-use, and this profile adds a single-use,
+operation-bound RPT. Neither the specification nor our own first
+implementation says *how* "once" is enforced, because in 2018 an authorization
+server was tacitly one process, and one process makes the question invisible:
+read the flag, decide, write the flag, and nothing can interleave.
+
+That is a property of the deployment, not of the design, and it does not
+survive the deployment changing. Our `/consume` endpoint was check-then-act
+and correct only because a single asyncio event loop never yielded between the
+read and the write — its own docstring said the burn "has to be the atomic
+step" while the code around it made that true by luck. At more than one
+replica the same code lets one owner-approved trade be spent twice, and the
+failure is silent: both callers are told yes.
+
+So the normative text should say the thing the 2018 text could take for
+granted. **A single-use artifact must be consumed by an operation that both
+decides and records in one indivisible step, and that reports to the caller
+whether it won.** A caller told it lost must deny. That sentence is
+implementable as one SQL statement, one Lua script, or one compare-and-swap;
+what it rules out is the shape that reads first and writes second, which is
+what everybody writes when the question never came up.
+
+Two related places the same reasoning applies, both of which bit us: the
+owner's decision (a double tap, or two portals open on the same pending
+request, must produce one decision, not two), and revocation (deactivating a
+standing relationship and burning the grants issued under it are one act — a
+revocation that flipped the connection and then failed would leave the agent
+holding exactly the authority the owner had just withdrawn). The lab races
+thirty-two callers at each of these against both of its storage backends
+(`make store-test`), which is the cheapest possible way to keep the claim
+honest.
+
+*Why this is a spec finding and not an implementation note.* Every
+implementer will meet it, none of them will be warned by the current text, and
+the symptom is a replayed transaction rather than an error. It costs one
+sentence.
 
 ---
 

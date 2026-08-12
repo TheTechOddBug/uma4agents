@@ -17,6 +17,9 @@ proof-of-possession.
 > *offline* owner actually answers. UMA worked that out a decade ago. This binds
 > the two, and shows what it looks like with agent-shaped mechanics.
 
+**[u4a.ai](https://u4a.ai)** explains the shape in about a minute, if you
+would rather watch it than read it.
+
 See **[FINDINGS.md](FINDINGS.md)** for the recommendations to spec authors,
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the system design,
 **[docs/PROTOCOL.md](docs/PROTOCOL.md)** for the wire contract, and
@@ -147,8 +150,17 @@ agreed. Full detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `make shim-test` | Drive the shim under a scripted MCP client (both approval paths, and the pend) |
 | `make embedded-check` | Run the whole grant with the resource enforcing itself — no gateway in the path |
 | `make sig-test` | Unit-test the RFC 9421 profile |
+| `make store-test` | Race 32 callers at each single-use artifact, on both storage backends |
+| `make kind-cluster` / `make kind-down` | Create / delete the local Kubernetes cluster |
+| `make k8s-verify-extauth` | Prove the ext_authz contract survives the move from a config file to CRDs |
 | `make reset` | Rewind demo state |
 | `make trust-ca` | Trust the local CA in your system store |
+
+The authorization server keeps its grant state in memory by default, which is
+what this stack runs and what `make reset` rewinds. `UMA_AS_STORE=postgres`
+selects a backend that is correct across replicas; both pass the same
+concurrency suite, because "single-use" has to mean indivisible and not merely
+once (see rec 9 in [FINDINGS.md](FINDINGS.md)).
 
 ## Demo credentials — not secrets
 
