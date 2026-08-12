@@ -5,10 +5,14 @@ import SEO from "../components/SEO";
 import { HTMLContentWithCodeCopy } from "../components/Content";
 import TableOfContents from "../components/TableOfContents";
 import { repo } from "../data/site";
+import { getAuthor } from "../data/authors";
+import slugify from "../utils/slugify";
+
 
 const BlogPost = ({ data }) => {
   const post = data.markdownRemark;
-  const { title, date, author, featuredimage, tags } = post.frontmatter;
+  const { title, date, author: authorName, featuredimage, tags } = post.frontmatter;
+  const author = getAuthor(authorName);
   const markdownPath = `${post.fields.slug.replace(/\/$/, "")}.md`;
 
   return (
@@ -18,7 +22,18 @@ const BlogPost = ({ data }) => {
           <div className="blog-hero-text">
             <h1 className="blog-hero-title">{title}</h1>
             <div className="blog-hero-meta">
-              <span className="author-name">{author}</span>
+              {author && (
+                <Link className="author-byline" to={`/authors/${slugify(author.name)}/`}>
+                  {author.image ? (
+                    <img className="author-avatar" src={author.image} alt="" />
+                  ) : (
+                    <span className="author-avatar author-avatar--initial">
+                      {author.name.charAt(0)}
+                    </span>
+                  )}
+                  <span className="author-name">{author.name}</span>
+                </Link>
+              )}
               <span className="publish-date">{date}</span>
             </div>
             <div className="blog-hero-actions">
@@ -55,9 +70,9 @@ const BlogPost = ({ data }) => {
             <h4>Tags</h4>
             <div className="blog-tags-list">
               {tags.map((tag) => (
-                <span key={tag} className="blog-tag">
+                <Link key={tag} className="blog-tag" to={`/tags/${slugify(tag)}/`}>
                   {tag}
-                </span>
+                </Link>
               ))}
             </div>
           </div>

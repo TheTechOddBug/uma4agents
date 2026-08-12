@@ -1,6 +1,8 @@
 const path = require("path");
 const { createFilePath } = require("gatsby-source-filesystem");
 
+const slugify = require("./src/utils/slugify");
+
 exports.createSchemaCustomization = ({ actions }) => {
   actions.createTypes(`
     type MarkdownRemarkFrontmatter {
@@ -32,6 +34,8 @@ exports.createPages = async ({ actions, graphql }) => {
             }
             frontmatter {
               templateKey
+              tags
+              author
             }
           }
         }
@@ -40,13 +44,41 @@ exports.createPages = async ({ actions, graphql }) => {
   `);
   if (result.errors) throw result.errors;
 
-  result.data.allMarkdownRemark.edges.forEach(({ node }) => {
+  const posts = result.data.allMarkdownRemark.edges;
+
+  posts.forEach(({ node }) => {
     const { templateKey } = node.frontmatter;
     if (!templateKey) return;
     actions.createPage({
       path: node.fields.slug,
       component: path.resolve(`src/templates/${templateKey}.js`),
       context: { id: node.id },
+    });
+  });
+
+  // A page per tag. The query filters on the tag's own text, so the slug is
+  // only ever the URL — which is why the templates and this share slugify()
+  // rather than each having their own idea of what a tag looks like.
+  const tags = [
+    ...new Set(posts.flatMap(({ node }) => node.frontmatter.tags || [])),
+  ];
+  tags.forEach((tag) => {
+    actions.createPage({
+      path: `/tags/${slugify(tag)}/`,
+      component: path.resolve("src/templates/tags.js"),
+      context: { tag },
+    });
+  });
+
+  // And a page per author, which is where the bio lives.
+  const authors = [
+    ...new Set(posts.map(({ node }) => node.frontmatter.author).filter(Boolean)),
+  ];
+  authors.forEach((author) => {
+    actions.createPage({
+      path: `/authors/${slugify(author)}/`,
+      component: path.resolve("src/templates/author.js"),
+      context: { author },
     });
   });
 };
