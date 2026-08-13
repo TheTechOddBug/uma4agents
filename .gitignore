@@ -11,6 +11,9 @@ certs/
 # `version+1.pem` for DNS:version, DNS:--short, and `git add -A` swept it in.
 *.pem
 
+# Local editor and agent configuration — machine-specific, not part of the lab
+.claude/
+
 # Working material: research notes, spikes, progress (kept local, not published)
 research/
 
