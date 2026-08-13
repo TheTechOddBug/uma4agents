@@ -23,13 +23,13 @@ img
   max-width: 100%
 
 a
-  color: $accent
+  color: $primary
 
 ::selection
-  background: rgba(91, 140, 255, 0.3)
+  background: $tint-select
 
 :focus-visible
-  outline: 2px solid $accent
+  outline: 2px solid $primary
   outline-offset: 3px
 
 .skip-link
@@ -40,7 +40,7 @@ a
   padding: 0.75rem 1.25rem
   background: $bg-card
   color: $fg
-  border: 1px solid $accent
+  border: 1px solid $primary
   border-radius: 0 0 $radius-sm 0
   &:focus
     left: 0
@@ -78,7 +78,7 @@ a
   font-size: 0.72rem
   letter-spacing: 0.18em
   text-transform: uppercase
-  color: $accent
+  color: $primary
   margin: 0 0 1rem
 
 .eyebrow--plain
@@ -124,18 +124,18 @@ a
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease
 
 .btn--primary
-  background: $accent
-  color: #06080d
+  background: $primary
+  color: $on-primary
   &:hover
-    background: $accent-hi
+    background: $primary-hi
 
 .btn--outline
   background: transparent
   color: $fg
   border-color: $border
   &:hover
-    border-color: $accent
-    color: $accent
+    border-color: $primary
+    color: $primary
 
 .btn--ghost
   background: $bg-card
@@ -143,7 +143,7 @@ a
   border-color: $border
   &:hover
     color: $fg
-    border-color: $accent
+    border-color: $primary
 
 .btn--pill
   border-radius: $radius-pill
@@ -159,7 +159,7 @@ a
   margin-top: 1.5rem
 
 .link-arrow
-  color: $accent
+  color: $primary
   text-decoration: none
   font-size: 0.85rem
   &:hover
@@ -182,7 +182,7 @@ a
   position: sticky
   top: 0
   z-index: 50
-  background: rgba(8, 10, 15, 0.86)
+  background: $bg-blur
   backdrop-filter: blur(10px)
   border-bottom: 1px solid $border
 
@@ -197,21 +197,21 @@ a
 
 .site-nav__brand
   display: flex
-  align-items: baseline
-  gap: 0.7rem
+  align-items: center
+  gap: 0.6rem
   text-decoration: none
   margin-right: auto
 
+// The U4A monogram, from src/components/BrandMark.js.
 .site-nav__mark
-  font-family: $font-mono
-  font-weight: 700
-  font-size: 1.05rem
-  letter-spacing: 0.06em
-  color: $fg
-  background: linear-gradient(135deg, $accent, $violet)
-  -webkit-background-clip: text
-  background-clip: text
-  -webkit-text-fill-color: transparent
+  display: block
+  flex: 0 0 auto
+  width: 30px
+  height: 30px
+  transition: opacity 0.18s ease
+
+.site-nav__brand:hover .site-nav__mark
+  opacity: 0.82
 
 .site-nav__tagline
   font-size: 0.85rem
@@ -289,7 +289,7 @@ a
       color: $fg
   .btn
     margin-top: 0.5rem
-    color: #06080d
+    color: $on-primary
 
 // -------------------------------------------------------------------
 // Footer
@@ -312,7 +312,7 @@ a
   font-weight: 700
   font-size: 1.3rem
   letter-spacing: 0.06em
-  background: linear-gradient(135deg, $accent, $violet)
+  background: linear-gradient(135deg, $primary, $accent)
   -webkit-background-clip: text
   background-clip: text
   -webkit-text-fill-color: transparent
@@ -365,7 +365,7 @@ a
     display: block
     padding: 8px
     border-radius: $radius-sm
-    background: #fff
+    background: $surface-invert
   p
     font-family: $font-mono
     font-size: 0.7rem
@@ -403,7 +403,7 @@ a
   display: inline-block
   font-family: $font-mono
   font-size: 1.05rem
-  color: $accent
+  color: $primary
   text-decoration: none
   margin-bottom: 1.25rem
   &:hover
@@ -442,7 +442,7 @@ a
       width: 8px
       height: 8px
       border-radius: 50%
-      background: $accent
+      background: $primary
 
 .form-panel
   padding: 2rem
@@ -475,19 +475,19 @@ a
     font: inherit
     font-size: 0.92rem
     &:focus
-      border-color: $accent
+      border-color: $primary
       outline: none
   textarea
     min-height: 150px
     resize: vertical
 
 .field__req
-  color: $accent
+  color: $primary
 
 .form-success
   padding: 1.5rem
-  background: rgba(46, 208, 121, 0.08)
-  border: 1px solid rgba(46, 208, 121, 0.4)
+  background: $tint-granted
+  border: 1px solid $tint-granted-edge
   border-radius: $radius-lg
   margin-bottom: 1.5rem
   p
@@ -517,7 +517,7 @@ a
   color: inherit
   transition: border-color 0.15s ease, transform 0.15s ease
   &:hover
-    border-color: $accent
+    border-color: $primary
     transform: translateY(-2px)
 
 .blog-card-image
@@ -541,13 +541,13 @@ a
   bottom: 0.85rem
   padding: 0.3rem 0.65rem
   border-radius: $radius-pill
-  background: rgba(8, 10, 15, 0.82)
+  background: $bg-blur-soft
   border: 1px solid $border
   font-family: $font-mono
   font-size: 0.68rem
   letter-spacing: 0.1em
   text-transform: uppercase
-  color: $accent
+  color: $primary
 
 .blog-card-content
   padding: 1.35rem
@@ -674,12 +674,12 @@ a
     font-size: 0.85rem
     line-height: 1.4
     &:hover
-      color: $accent
+      color: $primary
 
 .blog-body
   min-width: 0
   font-size: 1.02rem
-  color: #cfd6e4
+  color: $fg-body
 
   h2
     font-size: clamp(1.4rem, 3vw, 1.8rem)
@@ -711,12 +711,12 @@ a
   blockquote
     margin: 1.75rem 0
     padding: 0.25rem 0 0.25rem 1.25rem
-    border-left: 3px solid $accent
+    border-left: 3px solid $primary
     color: $fg-muted
     font-style: italic
 
   a
-    color: $accent
+    color: $primary
     text-decoration: underline
     text-underline-offset: 2px
 
@@ -752,7 +752,7 @@ a
     border: 1px solid $border
     border-radius: 5px
     padding: 0.12em 0.4em
-    color: #d9e0f0
+    color: $fg-code
 
   pre
     position: relative
@@ -859,8 +859,8 @@ pre:hover .blog-code-copy,
   display: inline-flex
   align-items: center
   justify-content: center
-  background: linear-gradient(135deg, $accent, $violet)
-  color: #06080d
+  background: linear-gradient(135deg, $primary, $accent)
+  color: $on-primary
   font-weight: 700
 
 .author-avatar--lg
@@ -875,7 +875,7 @@ pre:hover .blog-code-copy,
   color: $fg-muted
   text-decoration: none
   &:hover
-    color: $accent
+    color: $primary
 
 .author-header
   display: flex
@@ -888,7 +888,7 @@ pre:hover .blog-code-copy,
   margin: 0
 
 .author-header__title
-  color: $accent
+  color: $primary
   font-size: 0.92rem
   margin: 0.35rem 0 0
 
@@ -906,5 +906,5 @@ a.blog-tag
   text-decoration: none
   transition: border-color 0.15s ease, color 0.15s ease
   &:hover
-    border-color: $accent
-    color: $accent
+    border-color: $primary
+    color: $primary

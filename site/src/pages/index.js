@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import SEO from "../components/SEO";
 import { SCENES, mount, prefersReducedMotion } from "../animation/story";
 import ArchitectureStage from "../animation/ArchitectureStage";
+import { role } from "../style/theme";
 import "../style/stage.css";
 
 /**
@@ -42,30 +43,30 @@ const IndexPage = () => {
 
               <defs>
                 <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#5b8cff"/>
-                  <stop offset="1" stopColor="#8f6bff"/>
+                  <stop offset="0" stopColor={role.accent}/>
+                  <stop offset="1" stopColor={role.agent}/>
                 </linearGradient>
                 <radialGradient id="glow1" cx="0.5" cy="0.5" r="0.5">
-                  <stop offset="0" stopColor="#5b8cff" stopOpacity="0.10"/>
-                  <stop offset="1" stopColor="#5b8cff" stopOpacity="0"/>
+                  <stop offset="0" stopColor={role.accent} stopOpacity="0.10"/>
+                  <stop offset="1" stopColor={role.accent} stopOpacity="0"/>
                 </radialGradient>
                 <radialGradient id="glow2" cx="0.5" cy="0.5" r="0.5">
-                  <stop offset="0" stopColor="#8f6bff" stopOpacity="0.08"/>
-                  <stop offset="1" stopColor="#8f6bff" stopOpacity="0"/>
+                  <stop offset="0" stopColor={role.agent} stopOpacity="0.08"/>
+                  <stop offset="1" stopColor={role.agent} stopOpacity="0"/>
                 </radialGradient>
 
                 {/* Arrowheads for act two's flows. */}
         <marker id="mAccent" viewBox="0 0 10 10" refX="8" refY="5"
                 markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0 0 L10 5 L0 10 z" fill="#5b8cff"/>
+          <path d="M0 0 L10 5 L0 10 z" fill={role.accent}/>
         </marker>
         <marker id="mGreen" viewBox="0 0 10 10" refX="8" refY="5"
                 markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0 0 L10 5 L0 10 z" fill="#2ed079"/>
+          <path d="M0 0 L10 5 L0 10 z" fill={role.granted}/>
         </marker>
         <marker id="mWarn" viewBox="0 0 10 10" refX="8" refY="5"
                 markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0 0 L10 5 L0 10 z" fill="#f2b955"/>
+          <path d="M0 0 L10 5 L0 10 z" fill={role.pending}/>
         </marker>
 
         {/* Actors wait offstage at x=-140, which is outside the viewBox but

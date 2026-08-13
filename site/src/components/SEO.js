@@ -1,5 +1,6 @@
 import React from "react";
 import siteMetadata from "../../site-meta";
+import { role } from "../style/theme";
 
 /**
  * Meta tags for Gatsby's Head API.
@@ -21,7 +22,7 @@ const SEO = ({ title, description, pathname, image, article, children }) => {
       <title>{seo.title}</title>
       <meta name="description" content={seo.description} />
       <meta name="keywords" content={(siteMetadata.keywords || []).join(", ")} />
-      <meta name="theme-color" content="#080a0f" />
+      <meta name="theme-color" content={role.bg} />
       <link rel="canonical" href={seo.url} />
 
       <meta property="og:title" content={seo.title} />

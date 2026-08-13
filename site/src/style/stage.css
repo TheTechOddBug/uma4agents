@@ -1,31 +1,12 @@
 /* The animation stage.
  *
- * Kept as plain CSS rather than converted to the indented sass the rest of
- * the site uses: these rules and the hex values inside them are the same
- * ones src/animation/story.js animates towards, and a silent transcription
- * error here would show up as a colour that never quite lands rather than as
- * a build failure. One file, one syntax, easy to diff against the module.
+ * Plain CSS rather than the indented sass the rest of the site uses: these
+ * rules and the values in them are the same ones src/animation/story.js
+ * animates towards, and one syntax makes the two easy to diff.
  *
- * The design tokens are duplicated from src/style/variables.sass on purpose,
- * for the same reason.
+ * Every colour here is a custom property from src/style/theme.js, which is
+ * the single place the palette is chosen. Nothing in this file defines one.
  */
-
-:root {
-  --bg: #080a0f;
-  --card: #0f131c;
-  --card-2: #151b26;
-  --sunken: #0d1119;
-  --edge: #232c3d;
-  --ink: #eef1f7;
-  --ink-2: #9aa4ba;
-  --ink-3: #616c85;
-  --accent: #5b8cff;
-  --violet: #8f6bff;
-  --green: #2ed079;
-  --amber: #f2b955;
-  --ui: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
-}
 
 /* The band the animation occupies: tall enough to be the page, never so tall
    that the caption under it needs scrolling to. */
@@ -83,17 +64,17 @@ circle.head { fill: var(--card); }
 #laptop-lid { transform-origin: 0 100%; }
 .tie { fill: var(--accent); stroke: none; }
 
-.bot-head, .bot-body { fill: var(--card-2); stroke: var(--violet); stroke-width: 2.6; }
-.bot-dot { fill: var(--violet); }
+.bot-head, .bot-body { fill: var(--card-2); stroke: var(--agent); stroke-width: 2.6; }
+.bot-dot { fill: var(--agent); }
 .eye { fill: var(--accent); }
 
 .panel   { fill: var(--card);   stroke: var(--edge); stroke-width: 2; }
 .panel-2 { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
 .desk    { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
 .roof    { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; stroke-linejoin: round; }
-.screen  { fill: #0d1119; stroke: var(--accent); stroke-width: 2.4; }
+.screen  { fill: var(--sunken); stroke: var(--accent); stroke-width: 2.4; }
 
-.shield { fill: #0d1119; stroke: var(--accent); stroke-width: 2.6; stroke-linejoin: round; }
+.shield { fill: var(--sunken); stroke: var(--accent); stroke-width: 2.6; stroke-linejoin: round; }
 .tick   { fill: none; stroke: var(--accent); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
 
 .vault-dial   { fill: var(--card-2); stroke: var(--ink-3); stroke-width: 2.4; }
@@ -108,7 +89,7 @@ circle.head { fill: var(--card); }
 .tenant-line { stroke: var(--ink-3); stroke-width: 2.6; stroke-linecap: round; opacity: 0.4; }
 
 /* Alice's row. */
-.own-row   { fill: #0d1119; stroke: var(--accent); stroke-width: 2; }
+.own-row   { fill: var(--sunken); stroke: var(--accent); stroke-width: 2; }
 .own-dot   { fill: var(--accent); }
 .own-line  { stroke: var(--ink-2); stroke-width: 2.6; stroke-linecap: round; }
 .own-label {
@@ -122,22 +103,22 @@ circle.head { fill: var(--card); }
 .check-yes{ fill: none; stroke: var(--green); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 
 .phone-body   { fill: var(--card-2); stroke: var(--edge); stroke-width: 2; }
-.phone-screen { fill: #0d1119; }
+.phone-screen { fill: var(--sunken); }
 .buzz-line    { fill: none; stroke: var(--amber); stroke-width: 3; stroke-linecap: round; }
 
-.paper      { fill: #f4f1e8; }
-.paper-line { stroke: #8a8477; stroke-width: 3; stroke-linecap: round; }
-.sign-line  { fill: none; stroke: var(--violet); stroke-width: 3.4; stroke-linecap: round; }
+.paper      { fill: var(--paper); }
+.paper-line { stroke: var(--paper-line); stroke-width: 3; stroke-linecap: round; }
+.sign-line  { fill: none; stroke: var(--agent); stroke-width: 3.4; stroke-linecap: round; }
 
 .ticket      { fill: var(--amber); }
-.ticket-line { stroke: #6b5320; stroke-width: 2.6; stroke-linecap: round; }
+.ticket-line { stroke: var(--on-amber); stroke-width: 2.6; stroke-linecap: round; }
 
 .key-ring  { fill: none; stroke: var(--amber); stroke-width: 6; }
 .key-blade { fill: none; stroke: var(--amber); stroke-width: 6; stroke-linecap: round; }
 
 .ground { stroke: var(--edge); stroke-width: 2; }
 
-.q-ring { fill: #0d1119; stroke: var(--amber); stroke-width: 3; }
+.q-ring { fill: var(--sunken); stroke: var(--amber); stroke-width: 3; }
 .q-mark {
   font-size: 38px; font-weight: 700; fill: var(--amber); text-anchor: middle;
   font-family: var(--ui);
@@ -153,7 +134,7 @@ circle.head { fill: var(--card); }
 }
 .place-sublabel {
   font-size: 11.5px;
-  fill: #4b5468;
+  fill: var(--ink-3);
   text-anchor: middle;
   font-style: italic;
 }
@@ -165,7 +146,7 @@ circle.head { fill: var(--card); }
 .ledger-row .ledger-v { fill: var(--ink); font-family: var(--mono); font-size: 16px; }
 
 .curtain { fill: var(--bg); }
-.mark-glyph { font-size: 26px; font-weight: 800; fill: #fff; text-anchor: middle; }
+.mark-glyph { font-size: 26px; font-weight: 800; fill: var(--ink); text-anchor: middle; }
 .title    { font-size: 54px; font-weight: 650; fill: var(--ink);  text-anchor: middle; }
 .subtitle { font-size: 23px; fill: var(--ink-2); text-anchor: middle; }
 
@@ -307,7 +288,7 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
    because these values are animation targets, not decoration. */
 
 .ns-box {
-  fill: rgba(15, 19, 28, 0.55);
+  fill: var(--tint-card);
   stroke: var(--edge);
   stroke-width: 1.6;
   stroke-dasharray: 5 4;
@@ -322,7 +303,7 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
 .ns-sub {
   font-size: 11.5px;
   font-style: italic;
-  fill: #4b5468;
+  fill: var(--ink-3);
   text-anchor: middle;
 }
 
@@ -332,7 +313,7 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
   stroke-width: 1.6;
 }
 .node--accent { stroke: var(--accent); }
-.node--violet { stroke: var(--violet); }
+.node--agent { stroke: var(--agent); }
 
 .node-title { font-size: 14px; font-weight: 620; fill: var(--ink); }
 .node-sub   { font-size: 11px; fill: var(--ink-3); }
@@ -345,7 +326,7 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
   stroke-dasharray: 7 6;
 }
 .shield-sm {
-  fill: #0d1119;
+  fill: var(--sunken);
   stroke: var(--accent);
   stroke-width: 2.2;
   stroke-linejoin: round;
@@ -361,7 +342,7 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
 .as-card-3 { opacity: 0.3; }
 
 .row-dim { fill: var(--card-2); }
-.row-own { fill: rgba(91, 140, 255, 0.35); }
+.row-own { fill: var(--tint-accent); }
 
 .mesh-line {
   fill: none;
@@ -394,10 +375,10 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
 .flow-label--green  { fill: var(--green); }
 .flow-label--deny   { fill: var(--amber); }
 
-.deny-ring  { fill: #0f0e0d; stroke: var(--amber); stroke-width: 3; }
+.deny-ring  { fill: var(--sunken); stroke: var(--amber); stroke-width: 3; }
 .deny-cross { stroke: var(--amber); stroke-width: 3.4; stroke-linecap: round; }
 
-.scale-chip { fill: #0c1210; stroke: var(--green); stroke-width: 1.6; }
+.scale-chip { fill: var(--sunken); stroke: var(--green); stroke-width: 1.6; }
 .scale-text {
   font-family: var(--mono);
   font-size: 11px;

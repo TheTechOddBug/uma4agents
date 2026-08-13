@@ -31,6 +31,19 @@
  */
 
 import { animate, utils } from "animejs";
+import { role } from "../style/theme";
+
+/* The animation targets, from the one place the palette is chosen.
+   anime interpolates between concrete values, so these are resolved here
+   rather than left as var() references the tween could not read. */
+const C = {
+  rest:    role.accent,   // the resting / identity colour
+  granted: role.granted,
+  pending: role.pending,
+  agent:   role.agent,
+  sunken:  role.sunken,
+  edge:    role.edge,
+};
 
 /* Where everyone stands. Named so the scenes read as blocking notes. */
 const HOME = 240;
@@ -55,7 +68,7 @@ const BASE = {
   '#alice-arm-l':      { rotate: 0 },
   '#bob':              { x: OFFSTAGE_L, y: GROUND, opacity: 0 },
   '#agent':            { x: OFFSTAGE_L - 90, y: GROUND, opacity: 0 },
-  '#agent .eye':       { fill: '#5b8cff', opacity: 1 },
+  '#agent .eye':       { fill: C.rest, opacity: 1 },
   '#ticket':           { x: VAULT_MARK, y: GROUND - 128, opacity: 0 },
   '#scroll':           { x: AS_MARK, y: GROUND - 250, opacity: 0, scaleY: 1 },
   '#signature':        { x: AS_CENTRE, y: GROUND - 236, opacity: 0 },
@@ -63,16 +76,16 @@ const BASE = {
   '#ledger':           { x: 600, y: 400, opacity: 0 },
   '#titlecard':        { opacity: 0 },
   '#laptop-lid':       { rotate: 0 },
-  '#laptop-screen':    { stroke: '#5b8cff' },
+  '#laptop-screen':    { stroke: C.rest },
   '#place-nightstand': { opacity: 0 },
-  '#phone-screen':     { fill: '#0d1119' },
+  '#phone-screen':     { fill: C.sunken },
   '#buzz':             { opacity: 0 },
-  '#as-shield':        { stroke: '#5b8cff' },
+  '#as-shield':        { stroke: C.rest },
   '#vault-spokes':     { rotate: 0 },
   '#vault-no':         { opacity: 0, scale: 1 },
   '#vault-yes':        { opacity: 0, scale: 1 },
   '#alice-row':        { opacity: 0.25 },
-  '#alice-row .own-row': { stroke: '#232c3d' },
+  '#alice-row .own-row': { stroke: C.edge },
   '#question':         { x: VAULT_CENTRE, y: GROUND - 300, opacity: 0, scale: 1 },
 
   // Act two. The story's cast and the machine share one stage, so each act
@@ -118,10 +131,10 @@ export const SCENES = [
   {
     at: 0,
     text: 'Alice\u2019s money sits at her brokerage \u2014 in a system that holds a thousand other clients\u2019 holdings too.',
-    end: { '#alice-row': { opacity: 1 }, '#alice-row .own-row': { stroke: '#5b8cff' } },
+    end: { '#alice-row': { opacity: 1 }, '#alice-row .own-row': { stroke: C.rest } },
     play() {
       animate('#alice-row', { opacity: [0.25, 1], duration: 900, ease: 'outQuad' });
-      animate('#alice-row .own-row', { stroke: ['#232c3d', '#5b8cff'], duration: 900, ease: 'outQuad' });
+      animate('#alice-row .own-row', { stroke: [C.edge, C.rest], duration: 900, ease: 'outQuad' });
     },
   },
   {
@@ -141,7 +154,7 @@ export const SCENES = [
     play() {
       // her hand at the keys
       animate('#alice-arm-l', { rotate: [0, 15, 0], duration: 640, loop: 3, ease: 'inOutSine' });
-      animate('#laptop-screen', { stroke: ['#5b8cff', '#8f6bff', '#5b8cff'], duration: 1700, loop: 2 });
+      animate('#laptop-screen', { stroke: [C.rest, C.agent, C.rest], duration: 1700, loop: 2 });
     },
   },
   {
@@ -194,7 +207,7 @@ export const SCENES = [
         opacity: [0, 1], scaleY: [0.06, 1], y: [GROUND - 190, GROUND - 250],
         duration: 800, delay: 2500, ease: 'outBack',
       });
-      animate('#as-shield', { stroke: ['#5b8cff', '#2ed079', '#5b8cff'], duration: 1500, delay: 2800 });
+      animate('#as-shield', { stroke: [C.rest, C.granted, C.rest], duration: 1500, delay: 2800 });
     },
   },
   {
@@ -202,11 +215,11 @@ export const SCENES = [
     beat: 'Beat 3 \u00b7 commit',
     text: 'The agent signs them, or it walks away. There is no third option and no haggling.',
     end: { '#scroll': { opacity: 0 }, '#signature': { opacity: 0 },
-           '#agent .eye': { fill: '#2ed079' } },
+           '#agent .eye': { fill: C.granted } },
     play() {
       animate('#signature', { opacity: [0, 1], duration: 200 });
       animate('#sign-line', { strokeDasharray: ['0 200', '200 0'], duration: 1100, ease: 'outQuad' });
-      animate('#agent .eye', { fill: ['#5b8cff', '#2ed079'], duration: 600, delay: 1200 });
+      animate('#agent .eye', { fill: [C.rest, C.granted], duration: 600, delay: 1200 });
       animate(['#scroll', '#signature'], { opacity: [1, 0], duration: 600, delay: 3400 });
     },
   },
@@ -227,25 +240,25 @@ export const SCENES = [
   {
     at: 47200,
     text: 'Then it asks to sell something. Her policy says: not this one. Ask me.',
-    end: { '#vault-no': { opacity: 1 }, '#as-shield': { stroke: '#f2b955' },
-           '#agent .eye': { fill: '#f2b955' } },
+    end: { '#vault-no': { opacity: 1 }, '#as-shield': { stroke: C.pending },
+           '#agent .eye': { fill: C.pending } },
     play() {
       animate('#agent', { y: [GROUND, GROUND - 14, GROUND], duration: 340, loop: 2 });
       animate('#vault-no', { opacity: [0, 1], scale: [0.6, 1], duration: 500, delay: 700, ease: 'outBack' });
-      animate('#as-shield', { stroke: ['#5b8cff', '#f2b955'], duration: 700, delay: 1300 });
-      animate('#agent .eye', { fill: ['#2ed079', '#f2b955'], duration: 500, delay: 1500 });
+      animate('#as-shield', { stroke: [C.rest, C.pending], duration: 700, delay: 1300 });
+      animate('#agent .eye', { fill: [C.granted, C.pending], duration: 500, delay: 1500 });
     },
   },
   {
     at: 52400,
     text: 'Her phone buzzes. She approves that one order, from the couch.',
-    end: { '#phone-screen': { fill: '#2ed079' } },
+    end: { '#phone-screen': { fill: C.granted } },
     play() {
-      animate('#phone-screen', { fill: ['#0d1119', '#f2b955', '#0d1119'], duration: 900, loop: 3 });
+      animate('#phone-screen', { fill: [C.sunken, C.pending, C.sunken], duration: 900, loop: 3 });
       animate('#buzz', { opacity: [0, 1, 0], duration: 900, loop: 3 });
       animate('#alice', { x: [OFFSTAGE_L, PHONE_MARK], duration: 1700, delay: 500, ease: 'outSine' });
       animate('#alice-arm-l', { rotate: [0, -32, 0], duration: 700, delay: 2400 });
-      animate('#phone-screen', { fill: ['#0d1119', '#2ed079'], duration: 400, delay: 2900 });
+      animate('#phone-screen', { fill: [C.sunken, C.granted], duration: 400, delay: 2900 });
       animate('#alice', { x: [PHONE_MARK, OFFSTAGE_L], duration: 2100, delay: 3500, ease: 'inSine' });
     },
   },
@@ -253,8 +266,8 @@ export const SCENES = [
     at: 58000,
     text: 'The key she grants opens the door once, for that trade, and then it is spent.',
     end: { '#vault-no': { opacity: 0 }, '#vault-spokes': { rotate: 380 },
-           '#agent .eye': { fill: '#5b8cff' }, '#as-shield': { stroke: '#5b8cff' },
-           '#phone-screen': { fill: '#0d1119' } },
+           '#agent .eye': { fill: C.rest }, '#as-shield': { stroke: C.rest },
+           '#phone-screen': { fill: C.sunken } },
     play() {
       animate('#key', {
         opacity: [0, 1], x: [AS_CENTRE, VAULT_CENTRE - 60],
@@ -267,9 +280,9 @@ export const SCENES = [
       // and then it is spent
       animate('#key', { scale: [1, 1.3, 0], opacity: [1, 1, 0], duration: 1000, delay: 2800, ease: 'inBack' });
       animate('#vault-yes', { opacity: [1, 0], duration: 400, delay: 4200 });
-      animate('#agent .eye', { fill: ['#f2b955', '#5b8cff'], duration: 400, delay: 4200 });
-      animate('#as-shield', { stroke: ['#f2b955', '#5b8cff'], duration: 400, delay: 4200 });
-      animate('#phone-screen', { fill: ['#2ed079', '#0d1119'], duration: 400, delay: 4200 });
+      animate('#agent .eye', { fill: [C.pending, C.rest], duration: 400, delay: 4200 });
+      animate('#as-shield', { stroke: [C.pending, C.rest], duration: 400, delay: 4200 });
+      animate('#phone-screen', { fill: [C.granted, C.sunken], duration: 400, delay: 4200 });
     },
   },
   {
@@ -355,7 +368,7 @@ export const SCENES = [
       animate('#beat-1', { opacity: [0, 1], duration: 500 });
       animate('#beat-1 .flow', { strokeDashoffset: [180, 0], duration: 900, ease: 'outQuad' });
       animate('#arch-pep .shield-sm', {
-        stroke: ['#5b8cff', '#f2b955', '#5b8cff'], duration: 1400, delay: 700,
+        stroke: [C.rest, C.pending, C.rest], duration: 1400, delay: 700,
       });
     },
   },
@@ -386,7 +399,7 @@ export const SCENES = [
         duration: 700, delay: 900,
       });
       animate('#arch-pep .shield-sm', {
-        stroke: ['#5b8cff', '#2ed079', '#5b8cff'], duration: 1400, delay: 900,
+        stroke: [C.rest, C.granted, C.rest], duration: 1400, delay: 900,
       });
     },
   },
@@ -414,7 +427,7 @@ export const SCENES = [
       '#ticket': { x: VAULT_MARK, opacity: 0 },
       '#laptop-lid': { rotate: 0 }, '#place-nightstand': { opacity: 0 },
       '#vault-spokes': { rotate: 0 },
-      '#alice-row': { opacity: 0.25 }, '#alice-row .own-row': { stroke: '#232c3d' },
+      '#alice-row': { opacity: 0.25 }, '#alice-row .own-row': { stroke: C.edge },
       '#arch': { opacity: 0 }, '#story': { opacity: 1 },
     },
     play() {
@@ -427,7 +440,7 @@ export const SCENES = [
       animate('#place-nightstand', { opacity: [1, 0], duration: 400, delay: 1800 });
       animate('#vault-spokes', { rotate: [380, 0], duration: 10, delay: 1800 });
       animate('#alice-row', { opacity: [1, 0.25], duration: 400, delay: 1800 });
-      animate('#alice-row .own-row', { stroke: ['#5b8cff', '#232c3d'], duration: 400, delay: 1800 });
+      animate('#alice-row .own-row', { stroke: [C.rest, C.edge], duration: 400, delay: 1800 });
       animate('#titlecard', { opacity: [1, 0], duration: 900, delay: 3400 });
     },
   },

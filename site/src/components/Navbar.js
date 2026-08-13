@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "gatsby";
 import { navLinks, repo, ctaLabel } from "../data/site";
 import { GitHubIcon } from "./Icons";
+import { U4AMark } from "./BrandMark";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -10,7 +11,7 @@ const Navbar = () => {
     <header className="site-nav">
       <nav className="site-nav__inner" aria-label="Main navigation">
         <Link to="/" className="site-nav__brand" aria-label="UMA for Agents home">
-          <span className="site-nav__mark">U4A</span>
+          <U4AMark className="site-nav__mark" size={30} title="" />
           <span className="site-nav__tagline">UMA for Agents</span>
         </Link>
 

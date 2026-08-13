@@ -1,33 +1,56 @@
 // ===================================================================
 // u4a.ai design tokens
 //
-// The same visual language as the diagrams in the repo's docs/: a very dark
-// ground, one blue-to-violet accent, green for granted, amber for waiting.
-// The animation on the home page is drawn from exactly these values, so a
-// change here has to be made in src/animation/story.js too — those hex codes
-// are animation targets, not decoration.
+// These are *aliases*, not definitions. Every colour resolves to a CSS
+// custom property emitted from src/style/theme.js — that file is the one
+// place a colour is chosen, and `npm run theme` regenerates
+// theme.generated.css from it.
+//
+// Keeping the sass names means the rest of the stylesheet reads the same as
+// it always did while there is now exactly one place to retheme the site.
+// Note that these carry `var(...)` rather than a colour value, so they
+// cannot be passed to sass colour functions (darken, rgba, mix). Use a
+// second custom property, or an rgba() in theme.js, instead.
 // ===================================================================
 
-// Core palette
-$bg:             #080a0f
-$bg-card:        #0f131c
-$bg-elevated:    #151b26
-$bg-sunken:      #0d1119
-$fg:             #eef1f7
-$fg-muted:       #9aa4ba
-$fg-dim:         #616c85
+// Ground
+$bg:             var(--bg)
+$bg-card:        var(--card)
+$bg-elevated:    var(--card-2)
+$bg-sunken:      var(--sunken)
 
-// Accents
-$accent:         #5b8cff
-$accent-hi:      #7aa2ff   // hover tint
-$violet:         #8f6bff
-$green:          #2ed079
-$amber:          #f2b955
-$red:            #e8836b
+// Ink
+$fg:             var(--ink)
+$fg-muted:       var(--ink-2)
+$fg-dim:         var(--ink-3)
+$fg-body:        var(--ink-body)   // long-form paragraphs
+$fg-code:        var(--ink-code)
 
-$primary:        $accent
-$border:         #232c3d
-$border-strong:  rgba(255, 255, 255, 0.16)
+// Brand. Teal is structure and the resting state; lime is the payoff —
+// links, calls to action, and anything granted.
+$accent:         var(--accent)
+$accent-hi:      var(--accent-hi)
+$agent:          var(--agent)
+$primary:        var(--primary)
+$primary-hi:     var(--primary-hi)
+$on-primary:     var(--on-primary)
+
+// Retained so existing rules keep their meaning.
+$violet:         var(--accent-hi)
+$green:          var(--green)
+$amber:          var(--amber)
+$red:            var(--red)
+
+$border:         var(--edge)
+$border-strong:  var(--edge-strong)
+
+// Surfaces and tints
+$surface-invert:     var(--surface-invert)   // the QR quiet zone
+$bg-blur:            var(--bg-blur)          // sticky nav over content
+$bg-blur-soft:       var(--bg-blur-soft)
+$tint-select:        var(--tint-select)
+$tint-granted:       var(--tint-granted)
+$tint-granted-edge:  var(--tint-granted-edge)
 
 // Radii
 $radius:         0.625rem

@@ -42,7 +42,7 @@ const ArchitectureStage = () => (
 
     {/* Bob's side */}
     <g id="arch-agent" opacity="0">
-      <rect x="80" y="330" width="190" height="72" rx="9" className="node node--violet" />
+      <rect x="80" y="330" width="190" height="72" rx="9" className="node node--agent" />
       <circle className="eye" cx="112" cy="358" r="4" />
       <circle className="eye" cx="126" cy="358" r="4" />
       <rect x="100" y="342" width="38" height="30" rx="8" className="bot-head" />
@@ -65,7 +65,7 @@ const ArchitectureStage = () => (
 
     {/* Meridian */}
     <g id="arch-agw" opacity="0">
-      <rect x="478" y="330" width="132" height="72" rx="9" className="node node--violet" />
+      <rect x="478" y="330" width="132" height="72" rx="9" className="node node--agent" />
       <text x="494" y="356" className="node-title">agentgateway</text>
       <text x="494" y="374" className="node-sub">hosts the PEP</text>
       <text x="494" y="391" className="node-sub">MCP · A2A</text>

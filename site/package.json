@@ -1,6 +1,6 @@
 {
   "name": "u4a-site",
-  "description": "u4a.ai \u2014 UMA for Agents",
+  "description": "u4a.ai — UMA for Agents",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -13,7 +13,11 @@
     "develop": "npm run clean && mkdir -p .cache && gatsby develop",
     "develop:fast": "gatsby develop",
     "serve": "gatsby serve",
-    "format": "prettier --write \"**/*.{js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
+    "theme": "node scripts/gen-theme.js",
+    "prebuild": "npm run theme",
+    "predevelop": "npm run theme",
+    "predevelop:fast": "npm run theme"
   },
   "dependencies": {
     "animejs": "^4.5.0",
