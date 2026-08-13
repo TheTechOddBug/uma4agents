@@ -5,6 +5,12 @@
 # Generated TLS material and signing keys
 certs/
 
+# Key material never belongs in the tree. certs/ above covers what `make init`
+# generates, but a stray pair at the repo root escaped it once: a mkcert run
+# whose hostname argument came from an unquoted command substitution produced
+# `version+1.pem` for DNS:version, DNS:--short, and `git add -A` swept it in.
+*.pem
+
 # Working material: research notes, spikes, progress (kept local, not published)
 research/
 
