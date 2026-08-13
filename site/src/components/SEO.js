@@ -100,6 +100,10 @@ const SEO = ({
       <title>{seo.title}</title>
       <meta name="description" content={seo.description} />
       <meta name="keywords" content={(siteMetadata.keywords || []).join(", ")} />
+      {/* The plain author tag, separate from `article:author` below. This is
+          the one LinkedIn's Post Inspector reads — without it, it reports the
+          author as not found even though the Open Graph property is present. */}
+      <meta name="author" content={author ? author.name : "UMA for Agents"} />
       <meta name="theme-color" content={role.bg} />
       <link rel="canonical" href={seo.url} />
       {/* Crawlers are welcome, including the ones reading on behalf of an
@@ -112,7 +116,11 @@ const SEO = ({
       <meta property="og:title" content={seo.title} />
       <meta property="og:description" content={seo.description} />
       <meta property="og:url" content={seo.url} />
-      <meta property="og:image" content={seo.image} />
+      {/* One tag carrying both attributes, which is the form LinkedIn's Post
+          Inspector asks for. Emitting a second `name="image"` tag instead
+          would give scrapers two sources for the same field, and LinkedIn
+          picks the wrong one when they disagree. */}
+      <meta name="image" property="og:image" content={seo.image} />
       <meta property="og:image:type" content={mimeFor(imagePath)} />
       <meta property="og:image:alt" content={seo.title} />
       <meta property="og:type" content={article ? "article" : "website"} />
@@ -122,8 +130,13 @@ const SEO = ({
       {article && datePublished && (
         <meta property="article:published_time" content={datePublished} />
       )}
+      {/* Open Graph wants a profile URL here, not a name — the human-readable
+          form is the `author` tag above. */}
       {article && author && (
-        <meta property="article:author" content={author.name} />
+        <meta
+          property="article:author"
+          content={author.linkedin || author.name}
+        />
       )}
       {article &&
         (tags || []).map((t) => (
