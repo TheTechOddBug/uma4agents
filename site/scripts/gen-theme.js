@@ -94,4 +94,33 @@ write(
 `
 );
 
+// --- the social card ------------------------------------------------------
+// The image link previews use. Generated here so it carries the current
+// palette, but note that og:image points at the *PNG* twin, not this file:
+// LinkedIn, Slack and X will not render an SVG and fall back to scraping the
+// page, which is how the author avatar ended up as the thumbnail. Re-render
+// the twin with `npm run social` after changing the palette.
+write(
+  path.join(root, "static", "img", "og.svg"),
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" fill="none">
+  ${note("Social card", "og:image uses the PNG twin — scrapers do not render SVG. Regenerate it with `npm run social`.")}
+  <title>UMA for Agents</title>
+  <rect width="1200" height="630" fill="${role.bg}"/>
+  <g transform="translate(96 168) scale(2.1875)">
+    <rect x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="${f.rx}" fill="${role.bg}" stroke="${role.accent}" stroke-width="${monogram.frameWidth}"/>
+    <g fill="none" stroke-width="${monogram.strokeWidth}" stroke-linecap="round" stroke-linejoin="round">
+      <path d="${monogram.u}" stroke="${role.ink}"/>
+      <path d="${monogram.four}" stroke="${role.primary}"/>
+      <path d="${monogram.a}" stroke="${role.ink}"/>
+    </g>
+    <path d="${monogram.bar}" stroke="${role.accent}" stroke-width="${monogram.barWidth}" stroke-linecap="round"/>
+  </g>
+  <text x="96" y="382" fill="${role.ink}" font-size="84" font-weight="700" font-family="Helvetica, Arial, sans-serif">UMA for Agents</text>
+  <text x="100" y="446" fill="${role.accent}" font-size="36" font-family="Helvetica, Arial, sans-serif">May your agent touch my stuff?</text>
+  <text x="100" y="524" fill="${role.inkDim}" font-size="25" font-family="ui-monospace, Menlo, monospace" letter-spacing="1.5">u4a.ai  ·  User-Managed Access, carried into the agent era</text>
+  <rect x="96" y="560" width="132" height="6" rx="3" fill="${role.primary}"/>
+</svg>
+`
+);
+
 console.log("generated:\n  " + written.join("\n  "));

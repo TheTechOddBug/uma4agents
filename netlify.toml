@@ -15,6 +15,16 @@
 [build.environment]
   NODE_VERSION = "20.15.0"
 
+# The site answers MCP at /mcp, so an agent can read the posts without
+# scraping the pages. The function serves a generated index rather than the
+# Markdown tree, which is not deployed beside it — `included_files` is what
+# gets that index into the bundle, and its path is relative to `base`.
+[functions]
+  # nft traces the real module graph. esbuild would have to be told about the
+  # SDK's dynamic imports, and the JSON is loaded through createRequire.
+  node_bundler = "nft"
+  included_files = ["netlify/functions/blog-data.json"]
+
 [[plugins]]
   package = "@netlify/plugin-gatsby"
 

@@ -2,6 +2,7 @@ import React from "react";
 import Layout from "../../components/Layout";
 import SEO from "../../components/SEO";
 import BlogRoll from "../../components/BlogRoll";
+import PageActions from "../../components/PageActions";
 
 const BlogIndexPage = () => (
   <Layout>
@@ -14,6 +15,11 @@ const BlogIndexPage = () => (
           what translated cleanly, what needed reshaping, and what the agent
           era demands that the 2018 specification has no slot for.
         </p>
+        {/* No single document to copy here, so this renders the menu alone:
+            connect to the MCP server and read the whole blog from it. */}
+        <div className="page-hero__actions">
+          <PageActions pagePath="/blog/" />
+        </div>
       </div>
     </section>
 

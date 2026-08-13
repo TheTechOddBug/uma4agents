@@ -15,11 +15,14 @@
     "serve": "gatsby serve",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "theme": "node scripts/gen-theme.js",
-    "prebuild": "npm run theme",
-    "predevelop": "npm run theme",
-    "predevelop:fast": "npm run theme"
+    "prebuild": "npm run theme && npm run blog-data",
+    "predevelop": "npm run theme && npm run blog-data",
+    "predevelop:fast": "npm run theme && npm run blog-data",
+    "social": "node scripts/gen-social.js",
+    "blog-data": "node scripts/build-blog-data.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "animejs": "^4.5.0",
     "gatsby": "^5.16.1",
     "gatsby-plugin-sass": "^6.16.0",
@@ -31,7 +34,8 @@
     "prop-types": "^15.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "sass": "^1.69.0"
+    "sass": "^1.69.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "prettier": "^3.0.0"

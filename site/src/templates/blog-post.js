@@ -4,6 +4,7 @@ import Layout from "../components/Layout";
 import SEO from "../components/SEO";
 import { HTMLContentWithCodeCopy } from "../components/Content";
 import TableOfContents from "../components/TableOfContents";
+import PageActions from "../components/PageActions";
 import { repo } from "../data/site";
 import { getAuthor } from "../data/authors";
 import slugify from "../utils/slugify";
@@ -39,9 +40,7 @@ const BlogPost = ({ data }) => {
             <div className="blog-hero-actions">
               {/* The same words, without the page around them — for anyone
                   reading this with a language model rather than with eyes. */}
-              <a className="btn btn--ghost btn--sm" href={markdownPath}>
-                View as Markdown
-              </a>
+              <PageActions markdownPath={markdownPath} />
             </div>
           </div>
           {featuredimage && (
@@ -112,6 +111,9 @@ export const Head = ({ data, location }) => {
       description={post.frontmatter.description}
       image={post.frontmatter.featuredimage}
       pathname={location.pathname}
+      author={getAuthor(post.frontmatter.author)}
+      datePublished={post.frontmatter.isoDate}
+      tags={post.frontmatter.tags}
       article
     />
   );
@@ -129,6 +131,9 @@ export const pageQuery = graphql`
       }
       frontmatter {
         date(formatString: "MMMM DD, YYYY")
+        # Structured data and article:published_time need ISO 8601, not the
+        # human form rendered in the byline.
+        isoDate: date
         title
         author
         description

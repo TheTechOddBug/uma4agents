@@ -1,0 +1,30 @@
+# UMA for Agents
+
+> Alice sets her terms once. Other people's agents negotiate against them — while she is offline. A working proof-of-concept carrying User-Managed Access into the agent era.
+
+A working proof-of-concept, with Eve Maler, carrying User-Managed Access
+(UMA) 2.0 into the agent era: the resource owner sets policy once, and other
+people's AI agents negotiate access against it while she is offline. The lab
+runs locally with one command and also deploys to Kubernetes.
+
+Every post below is available as plain Markdown by appending `.md` to its
+URL. The site also speaks MCP at https://u4a.ai/mcp with two tools,
+`listBlogs` and `getBlog`, if you would rather read it that way.
+
+## Posts
+
+- [Everything You Need to Know About Deploying U4A at Scale](https://u4a.ai/blog/2026-08-12-deploying-u4a-at-scale.md): A field guide to running owner-authoritative authorization for real: how it differs from the policy engine you already run, the parts list, the five things that will bite you, a complete Kubernetes reference architecture on the solo.io stack — and an honest list of what it does not solve yet.
+- [Let Them: A Developer's Guide to UMA for Agents](https://u4a.ai/blog/2026-08-06-let-them-a-developers-guide-to-u4a.md): The industry is fighting over how agents prove who they are. That is the wrong fight. The question that decides whether an agent economy works is whether the owner of a resource can set the terms — and U4A is what that looks like in running code.
+
+## Pages
+
+- [Home](https://u4a.ai/): The four-beat grant as an animated walkthrough — challenge, terms, commit, grant.
+- [Blog](https://u4a.ai/blog/): Working notes on carrying UMA into the agent era.
+- [Contact](https://u4a.ai/contact/): Use cases, problems and ideas are what shape where this goes next.
+
+## Source
+
+- [Repository](https://github.com/nickgamb/uma4agents): Apache-2.0. The lab, the reference architecture, and the specs it profiles.
+- [FINDINGS.md](https://github.com/nickgamb/uma4agents/blob/main/FINDINGS.md): Recommendations to the spec authors, each backed by running code.
+- [docs/PROTOCOL.md](https://github.com/nickgamb/uma4agents/blob/main/docs/PROTOCOL.md): The wire contract, including where this profile deviates from UMA 2.0 and why.
+- [docs/KUBERNETES.md](https://github.com/nickgamb/uma4agents/blob/main/docs/KUBERNETES.md): The deployed reference architecture and a fifteen-minute demo guide.
