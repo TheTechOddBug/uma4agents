@@ -19,30 +19,30 @@
   -->
 
   <style>
-    .ink   { fill: none; stroke: #eef1f7; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-    .head  { fill: #0f131c; stroke: #eef1f7; stroke-width: 3; }
-    .panel { fill: #0f131c; stroke: #232c3d; stroke-width: 2; }
-    .panel2{ fill: #151b26; stroke: #232c3d; stroke-width: 2; }
-    .roof  { fill: #151b26; stroke: #232c3d; stroke-width: 2; stroke-linejoin: round; }
-    .screen{ fill: #0d1119; stroke: #5b8cff; stroke-width: 2.4; }
-    .bot   { fill: #151b26; stroke: #8f6bff; stroke-width: 2.6; }
-    .eye   { fill: #5b8cff; }
-    .shield{ fill: #0d1119; stroke: #5b8cff; stroke-width: 2.6; stroke-linejoin: round; }
-    .tick  { fill: none; stroke: #5b8cff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
-    .dial  { fill: #151b26; stroke: #616c85; stroke-width: 2.4; }
-    .spoke { stroke: #616c85; stroke-width: 2; stroke-linecap: round; }
-    .ground{ stroke: #232c3d; stroke-width: 2; }
-    .rowdim{ fill: #151b26; }
-    .paper { fill: #f4f1e8; }
+    .ink   { fill: none; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .head  { fill: #121317; stroke: #ffffff; stroke-width: 3; }
+    .panel { fill: #121317; stroke: #24262c; stroke-width: 2; }
+    .panel2{ fill: #1a1c21; stroke: #24262c; stroke-width: 2; }
+    .roof  { fill: #1a1c21; stroke: #24262c; stroke-width: 2; stroke-linejoin: round; }
+    .screen{ fill: #0e0f12; stroke: #8cc2d4; stroke-width: 2.4; }
+    .bot   { fill: #1a1c21; stroke: #5e8fa3; stroke-width: 2.6; }
+    .eye   { fill: #8cc2d4; }
+    .shield{ fill: #0e0f12; stroke: #8cc2d4; stroke-width: 2.6; stroke-linejoin: round; }
+    .tick  { fill: none; stroke: #8cc2d4; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+    .dial  { fill: #1a1c21; stroke: #6c727a; stroke-width: 2.4; }
+    .spoke { stroke: #6c727a; stroke-width: 2; stroke-linecap: round; }
+    .ground{ stroke: #24262c; stroke-width: 2; }
+    .rowdim{ fill: #1a1c21; }
+    .paper { fill: #f0f0ea; }
     .pline { stroke: #8a8477; stroke-width: 2.6; stroke-linecap: round; }
     .ticket{ fill: #f2b955; }
-    .tline { stroke: #6b5320; stroke-width: 2.2; stroke-linecap: round; }
+    .tline { stroke: #5a4318; stroke-width: 2.2; stroke-linecap: round; }
     .no    { fill: none; stroke: #f2b955; stroke-width: 3.4; stroke-linecap: round; }
-    .yes   { fill: none; stroke: #2ed079; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
-    .lbl   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 1.4px; fill: #616c85; text-anchor: middle; }
-    .sub   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; letter-spacing: 0.6px; fill: #454e63; text-anchor: middle; }
-    .cap   { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 18px; fill: #eef1f7; text-anchor: middle; opacity: 0; }
-    .beat  { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 2.2px; fill: #5b8cff; text-anchor: middle; opacity: 0; }
+    .yes   { fill: none; stroke: #bcdb2c; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+    .lbl   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 1.4px; fill: #6c727a; text-anchor: middle; }
+    .sub   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; letter-spacing: 0.6px; fill: #6c727a; text-anchor: middle; }
+    .cap   { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 18px; fill: #ffffff; text-anchor: middle; opacity: 0; }
+    .beat  { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; letter-spacing: 2.2px; fill: #8cc2d4; text-anchor: middle; opacity: 0; }
 
     /* One 18s cycle. Every animation below is a slice of it, so the whole
        thing stays in step without a timeline to co-ordinate them. */
@@ -92,9 +92,9 @@
       98%, 100% { opacity: 0; transform: scale(1); }
     }
     @keyframes granted {
-      0%, 72%   { fill: rgba(91,140,255,0.35); }
+      0%, 72%   { fill: rgba(140,194,212,0.35); }
       78%, 95%  { fill: rgba(46,208,121,0.5); }
-      99%, 100% { fill: rgba(91,140,255,0.35); }
+      99%, 100% { fill: rgba(140,194,212,0.35); }
     }
     @keyframes blink {
       0%, 5%, 7%, 47%, 49%, 100% { opacity: 1; }
@@ -126,7 +126,7 @@
     }
   </style>
 
-  <rect width="1000" height="360" fill="#080a0f"/>
+  <rect width="1000" height="360" fill="#0a0b0d"/>
   <path class="ground" d="M40 244 H960"/>
 
   <!-- Alice's desk -->
@@ -163,7 +163,7 @@
   <g transform="translate(830 244)">
     <rect class="panel" x="-78" y="-176" width="156" height="176" rx="10"/>
     <rect class="rowdim" x="-64" y="-162" width="128" height="30" rx="5"/>
-    <rect id="ownrow" x="-64" y="-124" width="128" height="30" rx="5" fill="rgba(91,140,255,0.35)"/>
+    <rect id="ownrow" x="-64" y="-124" width="128" height="30" rx="5" fill="rgba(140,194,212,0.35)"/>
     <rect class="rowdim" x="-64" y="-86" width="128" height="30" rx="5"/>
     <rect class="rowdim" x="-64" y="-48" width="128" height="30" rx="5"/>
     <g transform="translate(46 -109)">
@@ -186,7 +186,7 @@
   <!-- The agent -->
   <g transform="translate(720 244)"><g id="agentMove">
     <path class="ink" d="M0 -86 V-78"/>
-    <circle cx="0" cy="-89" r="3.4" fill="#8f6bff"/>
+    <circle cx="0" cy="-89" r="3.4" fill="#5e8fa3"/>
     <rect class="bot" x="-17" y="-78" width="34" height="27" rx="8"/>
     <circle class="eye" cx="-6.5" cy="-64" r="3.2"/>
     <circle class="eye" cx="6.5" cy="-64" r="3.2"/>

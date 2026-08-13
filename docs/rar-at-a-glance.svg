@@ -1,112 +1,120 @@
 <svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
   <defs>
     <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8f6bff"/>
+      <stop offset="0" stop-color="#8cc2d4"/><stop offset="1" stop-color="#5e8fa3"/>
     </linearGradient>
     <radialGradient id="glow1" cx="0.75" cy="0" r="0.8">
-      <stop offset="0" stop-color="#5b8cff" stop-opacity="0.10"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#8cc2d4" stop-opacity="0.10"/><stop offset="1" stop-color="#8cc2d4" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="glow2" cx="0.05" cy="1" r="0.7">
-      <stop offset="0" stop-color="#8f6bff" stop-opacity="0.08"/><stop offset="1" stop-color="#8f6bff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#5e8fa3" stop-opacity="0.08"/><stop offset="1" stop-color="#5e8fa3" stop-opacity="0"/>
     </radialGradient>
     <marker id="mAccent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/>
+      <path d="M0,0 L10,5 L0,10 z" fill="#8cc2d4"/>
     </marker>
     <marker id="mGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#2ed079"/>
+      <path d="M0,0 L10,5 L0,10 z" fill="#bcdb2c"/>
     </marker>
     <marker id="mWarn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#f2b955"/>
     </marker>
   </defs>
 
-  <rect width="1200" height="760" fill="#080a0f"/>
+  <rect width="1200" height="760" fill="#0a0b0d"/>
   <rect width="1200" height="760" fill="url(#glow1)"/>
   <rect width="1200" height="760" fill="url(#glow2)"/>
 
   <!-- header -->
-  <rect x="40" y="26" width="34" height="34" rx="9" fill="url(#mark)"/>
-  <text x="57" y="49" text-anchor="middle" fill="#ffffff" font-size="17" font-weight="800">M</text>
-  <text x="88" y="42" fill="#eef1f7" font-size="17" font-weight="650">Step-up remediation, and what changes when the owner isn't the caller</text>
-  <text x="88" y="60" fill="#9aa4ba" font-size="12">The same remediation object, and the one step that has nowhere to go under RqP ≠ RO</text>
-  <text x="1160" y="42" text-anchor="end" fill="#616c85" font-size="11" font-family="ui-monospace, 'SF Mono', Menlo, monospace">RFC 9396 RAR · draft-zehavi-oauth-rar-metadata · SEP-2643</text>
+  <!-- U4A monogram. Geometry: site/src/style/marks.js · colour: site/src/style/theme.js -->
+  <g transform="translate(40 26) scale(0.53125)">
+    <rect x="2.6" y="2.6" width="58.8" height="58.8" rx="15" fill="#0a0b0d" stroke="#8cc2d4" stroke-width="2.8"/>
+    <g fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 17 L11 33 A5.75 5.75 0 0 0 22.5 33 L22.5 17" stroke="#ffffff"/>
+      <path d="M34.5 17 L26.25 31 L37.75 31 M34.5 17 L34.5 39" stroke="#bcdb2c"/>
+      <path d="M41.5 39 L47.25 17 L53 39 M43.5 31.5 L51 31.5" stroke="#ffffff"/>
+    </g>
+    <path d="M20 46.5 L44 46.5" fill="none" stroke="#8cc2d4" stroke-width="3.2" stroke-linecap="round"/>
+  </g>
+  <text x="88" y="42" fill="#ffffff" font-size="17" font-weight="650">Step-up remediation, and what changes when the owner isn't the caller</text>
+  <text x="88" y="60" fill="#a9aeb6" font-size="12">The same remediation object, and the one step that has nowhere to go under RqP ≠ RO</text>
+  <text x="1160" y="42" text-anchor="end" fill="#6c727a" font-size="11" font-family="ui-monospace, 'SF Mono', Menlo, monospace">RFC 9396 RAR · draft-zehavi-oauth-rar-metadata · SEP-2643</text>
 
-  <line x1="600" y1="96" x2="600" y2="580" stroke="#232c3d" stroke-dasharray="3 5"/>
+  <line x1="600" y1="96" x2="600" y2="580" stroke="#24262c" stroke-dasharray="3 5"/>
 
   <!-- ================= LEFT: RAR metadata alone ================= -->
-  <text x="40" y="104" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">RAR METADATA ALONE — STEP-UP</text>
-  <text x="560" y="104" text-anchor="end" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">draft-zehavi-oauth-rar-metadata</text>
+  <text x="40" y="104" fill="#6c727a" font-size="10" letter-spacing="2" font-weight="600">RAR METADATA ALONE — STEP-UP</text>
+  <text x="560" y="104" text-anchor="end" fill="#6c727a" font-size="10" font-family="ui-monospace, Menlo, monospace">draft-zehavi-oauth-rar-metadata</text>
 
-  <rect x="40" y="118" width="520" height="60" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="58" y="140" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">REQUESTING SIDE</text>
-  <text x="58" y="160" fill="#eef1f7" font-size="13" font-weight="650">Client + its own user</text>
-  <text x="250" y="160" fill="#2ed079" font-size="10.5">the person who can consent is on this connection</text>
+  <rect x="40" y="118" width="520" height="60" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="58" y="140" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">REQUESTING SIDE</text>
+  <text x="58" y="160" fill="#ffffff" font-size="13" font-weight="650">Client + its own user</text>
+  <text x="250" y="160" fill="#bcdb2c" font-size="10.5">the person who can consent is on this connection</text>
 
-  <line x1="120" y1="178" x2="120" y2="238" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
-  <text x="136" y="198" fill="#5b8cff" font-size="10.5" font-weight="600">① call fails for want of authority</text>
-  <text x="136" y="214" fill="#7f9bd8" font-size="10.5">401 · error="insufficient_authorization"</text>
-  <text x="136" y="230" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">WWW-Authenticate: authorization_remediation</text>
+  <line x1="120" y1="178" x2="120" y2="238" stroke="#8cc2d4" stroke-width="1.6" marker-end="url(#mAccent)"/>
+  <text x="136" y="198" fill="#8cc2d4" font-size="10.5" font-weight="600">① call fails for want of authority</text>
+  <text x="136" y="214" fill="#5e8fa3" font-size="10.5">401 · error="insufficient_authorization"</text>
+  <text x="136" y="230" fill="#6c727a" font-size="9.5" font-family="ui-monospace, Menlo, monospace">WWW-Authenticate: authorization_remediation</text>
 
-  <rect x="40" y="244" width="520" height="118" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="58" y="266" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">THE API THAT REFUSED</text>
-  <text x="58" y="285" fill="#eef1f7" font-size="12.5" font-weight="650">returns machine-readable guidance</text>
-  <rect x="56" y="296" width="488" height="54" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="70" y="314" fill="#9aa4ba" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_details[]  — RFC 9396, built from the failed request</text>
-  <text x="70" y="330" fill="#9aa4ba" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_reference  — hash, so a client can match a token it holds</text>
-  <text x="70" y="344" fill="#616c85" font-size="9.5">a template. no server-side state was created.</text>
+  <rect x="40" y="244" width="520" height="118" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="58" y="266" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">THE API THAT REFUSED</text>
+  <text x="58" y="285" fill="#ffffff" font-size="12.5" font-weight="650">returns machine-readable guidance</text>
+  <rect x="56" y="296" width="488" height="54" rx="8" fill="#1a1c21" stroke="#24262c"/>
+  <text x="70" y="314" fill="#a9aeb6" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_details[]  — RFC 9396, built from the failed request</text>
+  <text x="70" y="330" fill="#a9aeb6" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_reference  — hash, so a client can match a token it holds</text>
+  <text x="70" y="344" fill="#6c727a" font-size="9.5">a template. no server-side state was created.</text>
 
-  <line x1="150" y1="362" x2="150" y2="454" stroke="#5b8cff" stroke-width="2.4" marker-end="url(#mAccent)"/>
-  <text x="166" y="384" fill="#5b8cff" font-size="11.5" font-weight="650">② the CLIENT builds the request</text>
-  <text x="166" y="400" fill="#7f9bd8" font-size="10.5">fills the template, submits it as a RAR authorization request</text>
-  <text x="166" y="416" fill="#616c85" font-size="10">no ticket, no handle — nothing to come back to</text>
+  <line x1="150" y1="362" x2="150" y2="454" stroke="#8cc2d4" stroke-width="2.4" marker-end="url(#mAccent)"/>
+  <text x="166" y="384" fill="#8cc2d4" font-size="11.5" font-weight="650">② the CLIENT builds the request</text>
+  <text x="166" y="400" fill="#5e8fa3" font-size="10.5">fills the template, submits it as a RAR authorization request</text>
+  <text x="166" y="416" fill="#6c727a" font-size="10">no ticket, no handle — nothing to come back to</text>
   <text x="166" y="436" fill="#f2b955" font-size="10.5">and it goes to the client's <tspan font-weight="650">own</tspan> authorization server</text>
 
-  <rect x="40" y="460" width="520" height="96" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="58" y="482" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">THE CLIENT'S OWN AUTHORIZATION SERVER</text>
-  <text x="58" y="502" fill="#eef1f7" font-size="13" font-weight="650">steps its user up, issues a new token</text>
-  <rect x="56" y="514" width="488" height="30" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="70" y="533" fill="#9aa4ba" font-size="10.5">works because the party who can authorize is the party operating the client</text>
+  <rect x="40" y="460" width="520" height="96" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="58" y="482" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">THE CLIENT'S OWN AUTHORIZATION SERVER</text>
+  <text x="58" y="502" fill="#ffffff" font-size="13" font-weight="650">steps its user up, issues a new token</text>
+  <rect x="56" y="514" width="488" height="30" rx="8" fill="#1a1c21" stroke="#24262c"/>
+  <text x="70" y="533" fill="#a9aeb6" font-size="10.5">works because the party who can authorize is the party operating the client</text>
 
   <!-- ================= RIGHT: U4A ================= -->
-  <text x="640" y="104" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">U4A — SAME OBJECT, TWO MORE MEMBERS</text>
-  <text x="1160" y="104" text-anchor="end" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">branch: mcp-alignment</text>
+  <text x="640" y="104" fill="#6c727a" font-size="10" letter-spacing="2" font-weight="600">U4A — SAME OBJECT, TWO MORE MEMBERS</text>
+  <text x="1160" y="104" text-anchor="end" fill="#6c727a" font-size="10" font-family="ui-monospace, Menlo, monospace">branch: mcp-alignment</text>
 
-  <rect x="640" y="118" width="520" height="60" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="658" y="140" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">REQUESTING SIDE</text>
-  <text x="658" y="160" fill="#eef1f7" font-size="13" font-weight="650">Bob's agent + shim</text>
+  <rect x="640" y="118" width="520" height="60" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="658" y="140" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">REQUESTING SIDE</text>
+  <text x="658" y="160" fill="#ffffff" font-size="13" font-weight="650">Bob's agent + shim</text>
   <text x="830" y="160" fill="#f2b955" font-size="10.5">the person who can consent is <tspan font-weight="650">not</tspan> on this connection</text>
 
-  <line x1="720" y1="178" x2="720" y2="238" stroke="#5b8cff" stroke-width="1.6" marker-end="url(#mAccent)"/>
-  <text x="736" y="198" fill="#5b8cff" font-size="10.5" font-weight="600">① call fails for want of authority</text>
-  <text x="736" y="214" fill="#7f9bd8" font-size="10.5">401 · error="insufficient_authorization" — identical</text>
-  <text x="736" y="230" fill="#616c85" font-size="9.5" font-family="ui-monospace, Menlo, monospace">or JSON-RPC −32001 where there is no status line</text>
+  <line x1="720" y1="178" x2="720" y2="238" stroke="#8cc2d4" stroke-width="1.6" marker-end="url(#mAccent)"/>
+  <text x="736" y="198" fill="#8cc2d4" font-size="10.5" font-weight="600">① call fails for want of authority</text>
+  <text x="736" y="214" fill="#5e8fa3" font-size="10.5">401 · error="insufficient_authorization" — identical</text>
+  <text x="736" y="230" fill="#6c727a" font-size="9.5" font-family="ui-monospace, Menlo, monospace">or JSON-RPC −32001 where there is no status line</text>
 
-  <rect x="640" y="244" width="520" height="118" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="658" y="266" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">THE RESOURCE THAT REFUSED</text>
-  <text x="658" y="285" fill="#eef1f7" font-size="12.5" font-weight="650">the same guidance, plus who decides</text>
-  <rect x="656" y="296" width="488" height="54" rx="8" fill="#151b26" stroke="#2ed079" stroke-opacity="0.45"/>
-  <text x="670" y="313" fill="#616c85" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_details[] · authorization_reference   <tspan fill="#8a8f9c">unchanged</tspan></text>
-  <text x="670" y="329" fill="#2ed079" font-size="10" font-family="ui-monospace, Menlo, monospace">+ authorization_server  — whose policy governs this</text>
-  <text x="670" y="344" fill="#2ed079" font-size="10" font-family="ui-monospace, Menlo, monospace">+ ticket                — a negotiation is already open</text>
+  <rect x="640" y="244" width="520" height="118" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="658" y="266" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">THE RESOURCE THAT REFUSED</text>
+  <text x="658" y="285" fill="#ffffff" font-size="12.5" font-weight="650">the same guidance, plus who decides</text>
+  <rect x="656" y="296" width="488" height="54" rx="8" fill="#1a1c21" stroke="#bcdb2c" stroke-opacity="0.45"/>
+  <text x="670" y="313" fill="#6c727a" font-size="10" font-family="ui-monospace, Menlo, monospace">authorization_details[] · authorization_reference   <tspan fill="#a9aeb6">unchanged</tspan></text>
+  <text x="670" y="329" fill="#bcdb2c" font-size="10" font-family="ui-monospace, Menlo, monospace">+ authorization_server  — whose policy governs this</text>
+  <text x="670" y="344" fill="#bcdb2c" font-size="10" font-family="ui-monospace, Menlo, monospace">+ ticket                — a negotiation is already open</text>
 
-  <line x1="750" y1="362" x2="750" y2="454" stroke="#2ed079" stroke-width="2.4" marker-end="url(#mGreen)"/>
-  <text x="766" y="384" fill="#2ed079" font-size="11.5" font-weight="650">② the agent PRESENTS the ticket</text>
-  <text x="766" y="400" fill="#67c795" font-size="10.5">it authors nothing, and cannot widen what it was handed</text>
-  <text x="766" y="416" fill="#616c85" font-size="10">the handle points at state the owner's AS already holds</text>
-  <text x="766" y="436" fill="#2ed079" font-size="10.5">and it goes to the <tspan font-weight="650">resource owner's</tspan> authorization server</text>
+  <line x1="750" y1="362" x2="750" y2="454" stroke="#bcdb2c" stroke-width="2.4" marker-end="url(#mGreen)"/>
+  <text x="766" y="384" fill="#bcdb2c" font-size="11.5" font-weight="650">② the agent PRESENTS the ticket</text>
+  <text x="766" y="400" fill="#cde84f" font-size="10.5">it authors nothing, and cannot widen what it was handed</text>
+  <text x="766" y="416" fill="#6c727a" font-size="10">the handle points at state the owner's AS already holds</text>
+  <text x="766" y="436" fill="#bcdb2c" font-size="10.5">and it goes to the <tspan font-weight="650">resource owner's</tspan> authorization server</text>
 
-  <rect x="640" y="460" width="520" height="96" rx="12" fill="#0f131c" stroke="#232c3d"/>
-  <text x="658" y="482" fill="#616c85" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S AUTHORIZATION SERVER — A DIFFERENT PARTY</text>
-  <text x="658" y="502" fill="#eef1f7" font-size="13" font-weight="650">dictates terms · may hold until she answers</text>
-  <rect x="656" y="514" width="488" height="30" rx="8" fill="#151b26" stroke="#232c3d"/>
-  <text x="670" y="533" fill="#9aa4ba" font-size="10.5">Bob's AS has no standing here — only Alice's can grant access to Alice's vault</text>
+  <rect x="640" y="460" width="520" height="96" rx="12" fill="#121317" stroke="#24262c"/>
+  <text x="658" y="482" fill="#6c727a" font-size="10" letter-spacing="1.6" font-weight="600">ALICE'S AUTHORIZATION SERVER — A DIFFERENT PARTY</text>
+  <text x="658" y="502" fill="#ffffff" font-size="13" font-weight="650">dictates terms · may hold until she answers</text>
+  <rect x="656" y="514" width="488" height="30" rx="8" fill="#1a1c21" stroke="#24262c"/>
+  <text x="670" y="533" fill="#a9aeb6" font-size="10.5">Bob's AS has no standing here — only Alice's can grant access to Alice's vault</text>
 
   <!-- ================= shared strip ================= -->
-  <rect x="40" y="584" width="1120" height="94" rx="12" fill="#0d1119" stroke="#232c3d"/>
-  <text x="58" y="608" fill="#616c85" font-size="10" letter-spacing="2" font-weight="600">WHAT IS THE SAME, AND THE ONE STEP THAT ISN'T</text>
-  <text x="58" y="630" fill="#9aa4ba" font-size="11">Identical: the error code, the <tspan font-family="ui-monospace, Menlo, monospace" font-size="10.5">authorization_details</tspan> array, the <tspan font-family="ui-monospace, Menlo, monospace" font-size="10.5">authorization_reference</tspan> digest. U4A emits that object byte for byte,</text>
-  <text x="58" y="646" fill="#9aa4ba" font-size="11">over a header where there is a status line and over a JSON-RPC error where there is not — so the payload is portable and only the envelope binds.</text>
-  <text x="58" y="668" fill="#eef1f7" font-size="11" font-weight="600">The step that doesn't survive: <tspan fill="#f2b955">"the client takes the template to its own AS."</tspan> A stranger's AS cannot grant, and a template has nowhere to hold a pending decision.</text>
+  <rect x="40" y="584" width="1120" height="94" rx="12" fill="#0e0f12" stroke="#24262c"/>
+  <text x="58" y="608" fill="#6c727a" font-size="10" letter-spacing="2" font-weight="600">WHAT IS THE SAME, AND THE ONE STEP THAT ISN'T</text>
+  <text x="58" y="630" fill="#a9aeb6" font-size="11">Identical: the error code, the <tspan font-family="ui-monospace, Menlo, monospace" font-size="10.5">authorization_details</tspan> array, the <tspan font-family="ui-monospace, Menlo, monospace" font-size="10.5">authorization_reference</tspan> digest. U4A emits that object byte for byte,</text>
+  <text x="58" y="646" fill="#a9aeb6" font-size="11">over a header where there is a status line and over a JSON-RPC error where there is not — so the payload is portable and only the envelope binds.</text>
+  <text x="58" y="668" fill="#ffffff" font-size="11" font-weight="600">The step that doesn't survive: <tspan fill="#f2b955">"the client takes the template to its own AS."</tspan> A stranger's AS cannot grant, and a template has nowhere to hold a pending decision.</text>
 
-  <text x="600" y="712" text-anchor="middle" fill="#616c85" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">proposed as two optional members on that draft, not a rival to it    ·    docs/ext-auth-third-party-authorization.md</text>
+  <text x="600" y="712" text-anchor="middle" fill="#6c727a" font-size="10.5" font-family="ui-monospace, 'SF Mono', Menlo, monospace">proposed as two optional members on that draft, not a rival to it    ·    docs/ext-auth-third-party-authorization.md</text>
 </svg>
