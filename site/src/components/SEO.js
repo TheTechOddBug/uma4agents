@@ -116,11 +116,13 @@ const SEO = ({
       <meta property="og:title" content={seo.title} />
       <meta property="og:description" content={seo.description} />
       <meta property="og:url" content={seo.url} />
-      {/* One tag carrying both attributes, which is the form LinkedIn's Post
-          Inspector asks for. Emitting a second `name="image"` tag instead
-          would give scrapers two sources for the same field, and LinkedIn
-          picks the wrong one when they disagree. */}
-      <meta name="image" property="og:image" content={seo.image} />
+      {/* `property=` alone, which is the form LinkedIn documents.
+          A `name="image"` attribute was tried here alongside it, following the
+          Post Inspector's generic suggestion text, and LinkedIn went back to
+          scraping the page body for a thumbnail — parsers that bucket meta
+          tags by `name` when it is present stop seeing the og: property at
+          all. The suggestion is boilerplate; the spec is the spec. */}
+      <meta property="og:image" content={seo.image} />
       <meta property="og:image:type" content={mimeFor(imagePath)} />
       <meta property="og:image:alt" content={seo.title} />
       <meta property="og:type" content={article ? "article" : "website"} />
