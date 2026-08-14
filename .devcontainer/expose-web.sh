@@ -68,9 +68,14 @@ kubectl -n alice set env deploy/keycloak \
 
 # The portal expects the public issuer — that is what the ID token will
 # carry — but reads the discovery document over the cluster network.
+# PORTAL_PUBLIC_URL is what the browser knows this portal by. Without it the
+# portal builds its redirect URI from the incoming request, which through a
+# forwarded port says localhost:9010 — a host the browser cannot return to,
+# and one the realm has no reason to have registered.
 kubectl -n alice set env deploy/alice-portal \
   "OIDC_ISSUER=${KEYCLOAK_URL}/realms/alice" \
   "OIDC_METADATA_URL=http://keycloak.alice.svc.cluster.local:8080/realms/alice/.well-known/openid-configuration" \
+  "PORTAL_PUBLIC_URL=${PORTAL_URL}" \
   >/dev/null
 
 kubectl -n alice rollout status deploy/keycloak --timeout=180s

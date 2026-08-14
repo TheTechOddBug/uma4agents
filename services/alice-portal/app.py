@@ -42,6 +42,16 @@ OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "https://keycloak.uma.lab/realms/ali
 # request-derived URLs for the endpoints a server calls.
 OIDC_METADATA_URL = os.environ.get(
     "OIDC_METADATA_URL", f"{OIDC_ISSUER}/.well-known/openid-configuration")
+# The origin the *browser* knows this portal by, when that is not the origin
+# the request arrives with. Empty means "ask the request", which is right
+# whenever the browser reaches this service directly.
+#
+# It is not right behind a tunnel. A Codespace forwards 9010 from a
+# github.dev address into the cluster, and what lands here says
+# localhost:9010 — so a redirect URI built from the request names a host the
+# browser cannot return to, and the authorization server rejects it as
+# unregistered.
+PORTAL_PUBLIC_URL = os.environ.get("PORTAL_PUBLIC_URL", "").rstrip("/")
 OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "alice-portal")
 SESSION_SECRET = os.environ.get("PORTAL_SESSION_SECRET", "dev-session-secret")
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -129,10 +139,21 @@ def require_login(request: Request):
 # --- Auth --------------------------------------------------------------------
 
 
+def _callback_url(request: Request) -> str:
+    """Where the authorization server should send the browser back to.
+
+    Must match a redirect URI registered on the client, and must be somewhere
+    the browser can actually reach — which is not necessarily the host this
+    process sees the request on.
+    """
+    if PORTAL_PUBLIC_URL:
+        return f"{PORTAL_PUBLIC_URL}/auth/callback"
+    return str(request.url_for("auth_callback")).replace("http://", "https://")
+
+
 @app.get("/auth/login")
 async def login(request: Request):
-    redirect_uri = str(request.url_for("auth_callback")).replace("http://", "https://")
-    return await oauth.keycloak.authorize_redirect(request, redirect_uri)
+    return await oauth.keycloak.authorize_redirect(request, _callback_url(request))
 
 
 @app.get("/auth/callback")
