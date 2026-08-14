@@ -6,6 +6,16 @@ The premise: **Alice's money sits at a brokerage. Bob's AI agent wants at it.
 Alice is asleep.** You will play both sides — the agent from this terminal,
 Alice from her portal — and watch her policy decide without her.
 
+## Watch it first, if you like
+
+[![The lab running in a Codespace: the cluster comes up, Alice signs in, an agent is refused and then admitted, and a trade waits for her tap](screenshots/codespace-demo-poster.png)](screenshots/codespace-demo.mp4)
+
+Two and a half minutes of exactly what follows. *(Click through for the
+video — GitHub only plays videos it hosts itself, so from the repo page this
+is a still that opens the file.)*
+
+---
+
 The **k8s-topology** tab beside this one is what you are about to build:
 one namespace per party, a mesh between them, and the authorization server
 replicated behind a database. Worth thirty seconds now — the namespaces in

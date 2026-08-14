@@ -42,6 +42,10 @@ a fifteen-minute demo guide,
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/nickgamb/uma4agents?devcontainer_path=.devcontainer%2Fdevcontainer.json)
 
+[![The lab running in a Codespace](screenshots/codespace-demo-poster.png)](screenshots/codespace-demo.mp4)
+
+*Two and a half minutes, start to finish — click through for the video.*
+
 That opens the **Kubernetes reference architecture** in a browser — the whole
 toolchain present, `*.uma.lab` already resolving, and the walkthrough open
 beside a terminal. Thirteen minutes to a running three-node cluster, then:

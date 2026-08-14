@@ -29,6 +29,11 @@ __pycache__/
 # Upstream checkouts (pinned + fetched by make, not vendored)
 aauth/upstream/
 
+# The master screen recording — 96 MB of 1080p, kept locally as the source to
+# re-encode from. screenshots/codespace-demo.mp4 is the committed version at
+# 3.9 MB, which is what the docs point at.
+screenshots/U4A_Codespace_Demo.mp4
+
 # macOS
 .DS_Store
 
