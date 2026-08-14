@@ -23,67 +23,93 @@ between them. Most of the time is image pulls.
 Notice there is no `make init` and no certificate on your machine —
 cert-manager issues the lab's CA inside the cluster.
 
-## 2. Check it
+## 2. Open Alice's portal and sign in
 
-```bash
-make k8s-smoke-test
-```
+Do this before running anything else — the whole point is watching her decide,
+and you cannot watch if you are not looking.
 
-Expect **13 passed, 0 failed**. If you see fewer, something is still
-settling — wait a minute and run it again.
-
-```bash
-make k8s-policy-test
-```
-
-Expect **11 passed, 0 failed** — and note that eight of them are *refusals*.
-A policy suite that only proves the allows would pass on a cluster with no
-policy at all.
-
-## 3. Watch Alice's day
-
-```bash
-make k8s-demo-all SIM=1
-```
-
-Three acts. A holdings request that is granted automatically because her
-terms already permit it. A transaction history request under stricter terms.
-Then a trade — which her policy says she must approve personally, so it
-*pends* until she taps. `SIM=1` taps for you.
-
-```bash
-make k8s-audit
-```
-
-The ledger: what the agent **promised**, what Alice **approved**, what it
-actually **touched**.
-
-## 4. Be Alice yourself
-
-Her portal is already published — `make kind-up` did it. Open the **PORTS**
-tab beside this terminal, find **Alice's portal** on 9010, and use its
+Her portal is already published; `make kind-up` did it. Open the **PORTS** tab
+beside this terminal, find **Alice's portal** on 9010, and use its
 open-in-browser action. Sign in as **alice / alice-demo**.
 
 The URL is predictable if you would rather type it:
 `https://<codespace-name>-9010.app.github.dev`. If the port ever stops
-answering — a rollout replaces the pod it was attached to — run
+answering — a rollout replaces the pod the forward was attached to — run
 `make codespaces-web` to republish it.
 
-Now run the trade act *without* the simulator and approve it yourself:
+> The forwarded ports stay **private**, which is what you want: this lab ships
+> fixed development credentials, and a public port would put them on the
+> internet behind nothing but an unguessable URL. Private ports open fine in
+> your own browser because you are already signed in to GitHub.
+
+Keep that tab where you can see it.
+
+## 3. Let the agent in — approve the connection
+
+```bash
+make k8s-demo-all ACT=tier1 SIM=0
+```
+
+Bob's agent asks for Alice's holdings. Her terms would permit that on their
+own, but this agent has **no standing relationship with her yet**, and a
+first contact pends regardless of how permissive the tier is. Nothing about
+the request is wrong; she has simply never met it.
+
+**Go to her portal and approve it.** Then watch the terminal: the agent was
+holding its ticket the whole time, and the grant is issued the moment she
+taps.
+
+That connection is now standing. The next request from this agent will not
+ask her again — which is exactly what makes the next step mean something.
+
+> `SIM=0` leaves the tap to you. `SIM=1` taps for you and is how the headless
+> runs work, but it also means nothing ever appears in her portal.
+>
+> **Do not leave it sitting.** The agent gives up after a couple of minutes
+> and the run ends with `grant denied: timed out waiting for the owner` —
+> which is correct behaviour, not a failure, but it is not what you came to
+> see.
+
+## 4. Now the one she has to answer for — a trade
 
 ```bash
 make k8s-demo-all ACT=tier3 SIM=0
 ```
 
-Watch the request arrive in her portal, approve it, and see the agent
-receive a grant good for exactly that one trade.
+Same agent, same standing connection, and this time she is asked anyway.
+Her policy puts trades on an ask-me tier: the connection got the agent
+through the door, and it still cannot move her money without her.
 
-> The forwarded ports stay **private**, which is what you want: this lab
-> ships fixed development credentials, and a public port would put them on
-> the internet behind nothing but an unguessable URL. Private ports open
-> fine in your own browser because you are already signed in to GitHub.
+Approve it in the portal, and notice what the agent receives — a grant
+**bound to that one order**. Not "may trade". The epilogue in the terminal
+proves it by replaying the same token and being refused.
 
-## 5. Try to break it
+## 5. Read what actually happened
+
+```bash
+make k8s-audit
+```
+
+The ledger, in three columns: what the agent **promised** (the signed terms,
+hash and all), what Alice **personally approved**, and what was actually
+**touched** — every row correlated by its negotiation id.
+
+> Reading raw pod logs instead will mislead you. The authorization server
+> runs **three replicas**, so `kubectl logs deploy/uma-as` shows one of them
+> and the events of a single negotiation are spread across all three. The
+> audit target is a projection over the whole stream, which is why it exists.
+
+## 6. Check the boundary holds
+
+```bash
+make k8s-smoke-test     # expect 13 passed, 0 failed
+make k8s-policy-test    # expect 11 passed, 0 failed
+```
+
+Eight of those eleven are **refusals**. A policy suite that only proves the
+allows would pass on a cluster with no policy at all.
+
+## 7. Try to break it
 
 ```bash
 make k8s-chaos
