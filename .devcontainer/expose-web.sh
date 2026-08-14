@@ -55,9 +55,23 @@ log "Keycloak ${KEYCLOAK_URL}"
 # Keycloak already runs with KC_PROXY_HEADERS=xforwarded because the edge
 # terminates TLS; this only changes which origin it advertises.
 log "Pointing Keycloak and the portal at the forwarded origins"
-kubectl -n alice set env deploy/keycloak "KC_HOSTNAME=${KEYCLOAK_URL}" >/dev/null
+
+# Keycloak advertises the forwarded origin as its issuer and as the endpoint
+# the *browser* visits. hostname-backchannel-dynamic keeps the endpoints a
+# *server* calls resolving from the request instead — without it Keycloak
+# would advertise the github.dev address for the token endpoint too, and the
+# portal cannot follow it: that address is authenticated at GitHub's edge and
+# served with a public certificate, while this pod trusts only the lab CA.
+kubectl -n alice set env deploy/keycloak \
+  "KC_HOSTNAME=${KEYCLOAK_URL}" \
+  "KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true" >/dev/null
+
+# The portal expects the public issuer — that is what the ID token will
+# carry — but reads the discovery document over the cluster network.
 kubectl -n alice set env deploy/alice-portal \
-  "OIDC_ISSUER=${KEYCLOAK_URL}/realms/alice" >/dev/null
+  "OIDC_ISSUER=${KEYCLOAK_URL}/realms/alice" \
+  "OIDC_METADATA_URL=http://keycloak.alice.svc.cluster.local:8080/realms/alice/.well-known/openid-configuration" \
+  >/dev/null
 
 kubectl -n alice rollout status deploy/keycloak --timeout=180s
 kubectl -n alice rollout status deploy/alice-portal --timeout=180s

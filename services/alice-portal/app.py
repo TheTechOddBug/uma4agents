@@ -30,6 +30,18 @@ UMA_AS = os.environ.get("UMA_AS_INTERNAL", "http://uma-as:9000")
 VAULT_MCP = os.environ.get("VAULT_MCP_URL", "http://alice-vault-mcp:9020/mcp")
 AUTH_MODE = os.environ.get("PORTAL_AUTH", "oidc")
 OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "https://keycloak.uma.lab/realms/alice")
+# Where *this process* reads the discovery document, as distinct from the
+# issuer the browser is sent to and the `iss` an ID token must carry.
+#
+# Normally the same host answers both and this is just derived. They come
+# apart when the browser reaches Keycloak somewhere this pod cannot follow —
+# a Codespace forwards it to a github.dev address that is authenticated at
+# the edge and served with a public certificate, while this pod trusts only
+# the lab CA. Keycloak keeps `issuer` and `authorization_endpoint` pointing
+# at the public origin and, with hostname-backchannel-dynamic, hands back
+# request-derived URLs for the endpoints a server calls.
+OIDC_METADATA_URL = os.environ.get(
+    "OIDC_METADATA_URL", f"{OIDC_ISSUER}/.well-known/openid-configuration")
 OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "alice-portal")
 SESSION_SECRET = os.environ.get("PORTAL_SESSION_SECRET", "dev-session-secret")
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -43,7 +55,7 @@ if AUTH_MODE == "oidc":
     oauth.register(
         name="keycloak",
         client_id=OIDC_CLIENT_ID,
-        server_metadata_url=f"{OIDC_ISSUER}/.well-known/openid-configuration",
+        server_metadata_url=OIDC_METADATA_URL,
         client_kwargs={"scope": "openid profile", "code_challenge_method": "S256"},
         token_endpoint_auth_method="none",
     )
