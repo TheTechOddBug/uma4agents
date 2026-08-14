@@ -42,13 +42,34 @@ if ! grep -q 'uma\.lab' /etc/hosts; then
   } | sudo tee -a /etc/hosts >/dev/null
 fi
 
+# --- where things will be -------------------------------------------------
+# The forwarded URL is derived from the Codespace name, so it can be printed
+# before anything is listening. Otherwise the only way to learn it is to run
+# `make codespaces-web` and read the output, or hunt through the PORTS tab
+# after a port happens to open.
+CS_NAME="${CODESPACE_NAME:-}"
+if [ -z "$CS_NAME" ] && [ -d /workspaces/.codespaces/shared ]; then
+  CS_NAME="$(grep -rhoE '^CODESPACE_NAME=[A-Za-z0-9-]+$' \
+    /workspaces/.codespaces/shared/.env* 2>/dev/null | head -1 | cut -d= -f2 || true)"
+fi
+DOMAIN="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+
 log "Ready. Next:"
 cat <<'EOF'
 
-  make kind-up          bring up the cluster and the whole stack
-  make k8s-smoke-test   verify it (13 checks)
+  make kind-up          bring up the cluster and the whole stack  (~13 min)
+  make k8s-smoke-test   verify it — expect 13 passed, 0 failed
+  make k8s-demo-all     walk Alice's whole day
   make codespaces-web   publish Alice's portal to a browser tab
 
-  The walkthrough is open beside this terminal: docs/KUBERNETES.md
-
 EOF
+
+if [ -n "$CS_NAME" ]; then
+  printf '  Alice'"'"'s portal will be at, once you run `make codespaces-web`:\n\n'
+  printf '    \033[1mhttps://%s-9010.%s\033[0m\n\n' "$CS_NAME" "$DOMAIN"
+  printf '  Sign in as alice / alice-demo. The same link appears in the PORTS\n'
+  printf '  tab and in that command'"'"'s output, so there are three ways to find it.\n\n'
+fi
+
+printf '  The walkthrough is docs/KUBERNETES.md — it should already be open\n'
+printf '  beside this terminal. If not, open it and pick up at step 1.\n\n'

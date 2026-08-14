@@ -49,6 +49,16 @@
   },
 
   "customizations": {
+    // Open the walkthrough on arrival. Combined with the Markdown editor
+    // association below it lands rendered, beside the terminal, so the
+    // Codespace explains itself without anyone going looking.
+    //
+    // Two documented limits: this fires only the first time a Codespace is
+    // opened, and only in the browser client — not desktop VS Code. The
+    // post-create message covers those cases by naming the file.
+    "codespaces": {
+      "openFiles": ["docs/KUBERNETES.md"]
+    },
     "vscode": {
       "extensions": [
         "ms-kubernetes-tools.vscode-kubernetes-tools",
