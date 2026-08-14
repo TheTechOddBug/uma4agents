@@ -291,9 +291,18 @@ a
     padding: 0.6rem 0
     &:hover
       color: $fg
+  // The `a` rule above makes every link in this drawer muted, so each button
+  // has to say what its own ink is. Setting it once on `.btn` was fine while
+  // the drawer held a single lime button; a second, outlined one inherited
+  // dark-on-dark and vanished.
   .btn
     margin-top: 0.5rem
+  .btn--primary
     color: $on-primary
+  .btn--outline
+    color: $fg
+    &:hover
+      color: $primary
 
 // -------------------------------------------------------------------
 // Footer
