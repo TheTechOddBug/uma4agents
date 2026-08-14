@@ -41,10 +41,13 @@ To see Alice's portal in a browser tab:
 make codespaces-web
 ```
 
-It prints the URL when it finishes. It is also derived from the Codespace
-name, so it is predictable — `https://<codespace-name>-9010.app.github.dev` —
-and it appears in the **PORTS** tab beside the terminal once the port is
-open. Sign in as `alice` / `alice-demo`.
+Then open it from the **PORTS** tab beside the terminal — **Alice's portal**
+on 9010, with an open-in-browser action. That tab is the reliable way in; it
+lists whatever is listening. The URL is also printed by the command, and is
+derived from the Codespace name, so it is predictable:
+`https://<codespace-name>-9010.app.github.dev`.
+
+Sign in as `alice` / `alice-demo`.
 
 The ports stay **private**, which is what you want: this lab ships fixed
 development credentials, and a public port puts them on the internet behind

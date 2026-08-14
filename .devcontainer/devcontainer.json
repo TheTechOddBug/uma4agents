@@ -42,19 +42,20 @@
   // Alice's portal and her identity provider. Both serve plain HTTP inside
   // the cluster — the edge terminates TLS — which is exactly what Codespaces
   // port forwarding wants. `make codespaces-web` wires them up.
+  // Declared here so they show up in the PORTS tab with names rather than as
+  // bare numbers — that tab, beside the terminal, is how you reach the portal
+  // once `make codespaces-web` has run. It lists what is listening and gives
+  // you an open-in-browser action.
+  //
+  // No onAutoForward action on purpose. It governs the event where VS Code
+  // detects a *newly listening* port, and a port named here is forwarded
+  // eagerly at container start — long before the cluster exists — so that
+  // event never arrives and nothing opens. Tried openPreview; it did not
+  // fire. The PORTS tab is the reliable path, so the docs point at it.
   "forwardPorts": [9010, 8080],
   "portsAttributes": {
-    // openPreview puts her portal in VS Code's built-in Simple Browser as
-    // soon as `make codespaces-web` forwards the port, so the lab and the
-    // thing it is about sit side by side.
-    //
-    // If signing in bounces, that is the embedded browser being an iframe:
-    // Keycloak sends frame-ancestors, and a cross-origin frame is exactly
-    // what it refuses. Change this one value to "openBrowserOnce" to get a
-    // real browser tab instead. START-HERE.md says so too.
-    "9010": { "label": "Alice's portal", "onAutoForward": "openPreview" },
-    // Reached by redirect during sign-in, never opened directly.
-    "8080": { "label": "Alice's identity provider", "onAutoForward": "silent" }
+    "9010": { "label": "Alice's portal" },
+    "8080": { "label": "Alice's identity provider" }
   },
 
   "customizations": {

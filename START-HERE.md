@@ -64,8 +64,12 @@ actually **touched**.
 make codespaces-web
 ```
 
-Her portal opens in the panel beside this terminal. Sign in as
+Then open it from the **PORTS** tab, beside the terminal: find
+**Alice's portal** on 9010 and use its open-in-browser action. Sign in as
 **alice / alice-demo**.
+
+The URL is also printed by the command above, and is predictable —
+`https://<codespace-name>-9010.app.github.dev`.
 
 Now run the trade act *without* the simulator and approve it yourself:
 
@@ -76,11 +80,10 @@ make k8s-demo-all ACT=tier3 SIM=0
 Watch the request arrive in her portal, approve it, and see the agent
 receive a grant good for exactly that one trade.
 
-> **If sign-in bounces in the embedded panel**, that is the built-in browser
-> being an iframe and Keycloak refusing to render inside one. Open the same
-> URL in a real browser tab — it is in the **PORTS** tab — or change
-> `onAutoForward` for port 9010 to `openBrowserOnce` in
-> `.devcontainer/devcontainer.json`.
+> The forwarded ports stay **private**, which is what you want: this lab
+> ships fixed development credentials, and a public port would put them on
+> the internet behind nothing but an unguessable URL. Private ports open
+> fine in your own browser because you are already signed in to GitHub.
 
 ## 5. Try to break it
 
