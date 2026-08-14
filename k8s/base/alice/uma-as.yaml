@@ -43,7 +43,12 @@ spec:
     matchLabels: { app: uma-as }
   template:
     metadata:
-      labels: { app: uma-as }
+      # Both halves are needed: the label on the Service routes traffic
+      # addressed to the VIP through the waypoint, and this one covers
+      # callers that resolve endpoints and dial a pod directly — which a
+      # gateway does. Without it that traffic bypasses the waypoint and is
+      # judged at L4, where a path-scoped policy can only deny.
+      labels: { app: uma-as, istio.io/use-waypoint: waypoint }
     spec:
       serviceAccountName: uma-as
       # One per node. A PodDisruptionBudget stops a voluntary drain taking
