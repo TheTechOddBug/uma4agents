@@ -39,6 +39,15 @@ KEY_PATH = os.environ.get("UMA_AS_SIGNING_KEY", "/keys/uma-as-ed25519.pem")
 # it against the realm's published keys. No static owner credential exists.
 OWNER_ISSUER = os.environ.get(
     "UMA_AS_OWNER_ISSUER", "https://keycloak.uma.lab/realms/alice")
+# Where to read her identity provider's metadata, as distinct from the issuer
+# her tokens must claim. Normally the same origin answers both. They come
+# apart when her browser reaches it somewhere this process cannot follow — a
+# tunnelled deployment gives the browser a public address while this pod has
+# only the cluster network — and the issuer in the token is then the address
+# the *browser* used, not the one the keys were fetched from.
+OWNER_METADATA_URL = os.environ.get(
+    "UMA_AS_OWNER_METADATA_URL",
+    f"{OWNER_ISSUER}/.well-known/openid-configuration")
 OWNER_USERNAME = os.environ.get("UMA_AS_OWNER", "alice")
 OWNER_AUDIENCES = set(
     os.environ.get("UMA_AS_OWNER_CLIENTS", "alice-portal").split(","))
@@ -425,7 +434,7 @@ def owner_issuer_keys() -> list:
     import httpx
 
     with httpx.Client(verify=AGENT_ISSUER_CA or True, timeout=5.0) as client:
-        meta = client.get(f"{OWNER_ISSUER}/.well-known/openid-configuration")
+        meta = client.get(OWNER_METADATA_URL)
         meta.raise_for_status()
         jwks = client.get(meta.json()["jwks_uri"])
         jwks.raise_for_status()

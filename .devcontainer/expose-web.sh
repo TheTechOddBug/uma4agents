@@ -78,8 +78,17 @@ kubectl -n alice set env deploy/alice-portal \
   "PORTAL_PUBLIC_URL=${PORTAL_URL}" \
   >/dev/null
 
+# The authorization server validates Alice's own OIDC token, so it has to
+# expect the same issuer Keycloak now stamps on it — while still reading her
+# realm's keys over the cluster network.
+kubectl -n alice set env deploy/uma-as \
+  "UMA_AS_OWNER_ISSUER=${KEYCLOAK_URL}/realms/alice" \
+  "UMA_AS_OWNER_METADATA_URL=http://keycloak.alice.svc.cluster.local:8080/realms/alice/.well-known/openid-configuration" \
+  >/dev/null
+
 kubectl -n alice rollout status deploy/keycloak --timeout=180s
 kubectl -n alice rollout status deploy/alice-portal --timeout=180s
+kubectl -n alice rollout status deploy/uma-as --timeout=240s
 
 # --- 2. let the realm redirect back to the forwarded portal -----------------
 # Patched through the admin API rather than the realm ConfigMap: the import
