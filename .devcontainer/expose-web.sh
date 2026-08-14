@@ -87,13 +87,38 @@ kubectl -n alice exec deploy/keycloak -- sh -c "
 " || warn "Realm patch failed — sign-in will bounce. See the note in docs/KUBERNETES.md."
 
 # --- 3. forward the ports ---------------------------------------------------
+# Under setsid and in a restart loop, deliberately. `kubectl port-forward`
+# dies when the pod it is attached to is replaced — which happens on every
+# rollout, and the chaos target kills pods on purpose — and a bare `nohup ... &`
+# from a make recipe does not outlive the terminal that ran it. Either way the
+# PORTS tab would still list the port while nothing answered behind it, which
+# is the failure this whole script exists to avoid.
+forward() {
+  local svc="$1" port="$2"
+  setsid bash -c "
+    while true; do
+      kubectl -n alice port-forward --address 127.0.0.1 svc/$svc $port:$port
+      sleep 2
+    done" >"/tmp/pf-$svc.log" 2>&1 < /dev/null &
+}
+
 log "Forwarding 9010 and 8080"
 pkill -f 'kubectl.*port-forward.*(alice-portal|keycloak)' 2>/dev/null || true
-nohup kubectl -n alice port-forward --address 127.0.0.1 svc/alice-portal 9010:9010 \
-  >/tmp/pf-portal.log 2>&1 &
-nohup kubectl -n alice port-forward --address 127.0.0.1 svc/keycloak 8080:8080 \
-  >/tmp/pf-keycloak.log 2>&1 &
-sleep 3
+pkill -f 'port-forward.*svc/(alice-portal|keycloak)' 2>/dev/null || true
+forward alice-portal 9010
+forward keycloak 8080
+
+# Confirm rather than assume — a listed port with nothing behind it is the
+# exact thing that made this look broken before.
+for _ in $(seq 1 20); do
+  sleep 1
+  if (ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null) | grep -q ':9010'; then
+    break
+  fi
+done
+if ! (ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null) | grep -q ':9010'; then
+  warn "Port 9010 never came up — see /tmp/pf-alice-portal.log"
+fi
 
 log "Open ${PORTAL_URL} and sign in as alice / alice-demo"
 cat <<'EOF'

@@ -14,14 +14,24 @@ NS_AGENT     := sterling-vance
 ## kind-up: the whole Kubernetes lab, from nothing
 .PHONY: kind-up
 kind-up: kind-preflight kind-cluster k8s-registry k8s-platform k8s-build k8s-apply k8s-wait
+	@# In a Codespace the portal is not reachable until the forwards exist and
+	@# the OIDC origins name the forwarded host. Doing that here rather than
+	@# leaving it as a step to remember: the ports are listed in the PORTS tab
+	@# from container start, so anything less makes them look ready when they
+	@# are not.
+	@if [ -n "$$CODESPACE_NAME" ] || [ -d /workspaces/.codespaces ]; then \
+		bash .devcontainer/expose-web.sh; \
+	fi
 	@echo
 	@echo "  The lab is up. Next:"
 	@echo "    make k8s-smoke-test     verify it end to end"
 	@echo "    make k8s-demo-all       walk Alice's day"
 	@echo "    make k8s-policy-test    prove the boundary denies"
 	@echo
-	@echo "  In a browser: https://portal.uma.lab (alice / alice-demo)"
-	@echo "  Needs 'make dns-setup' once, and 'make k8s-trust-ca' for a green padlock."
+	@if [ -z "$$CODESPACE_NAME" ] && [ ! -d /workspaces/.codespaces ]; then \
+		echo "  In a browser: https://portal.uma.lab (alice / alice-demo)"; \
+		echo "  Needs 'make dns-setup' once, and 'make k8s-trust-ca' for a green padlock."; \
+	fi
 
 ## kind-preflight: fail early and legibly rather than half-way through
 .PHONY: kind-preflight
