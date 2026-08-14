@@ -6,12 +6,10 @@ The premise: **Alice's money sits at a brokerage. Bob's AI agent wants at it.
 Alice is asleep.** You will play both sides — the agent from this terminal,
 Alice from her portal — and watch her policy decide without her.
 
-Open **[docs/k8s-topology.png](docs/k8s-topology.png)** first — that is what
-you are about to build: one namespace per party, a mesh between them, and the
-authorization server replicated behind a database. Worth thirty seconds, and
-the namespaces in it are the ones `kubectl get pods -A` will show you.
-
-> Reading this as raw Markdown? `Cmd/Ctrl+Shift+V` renders it.
+The **k8s-topology** tab beside this one is what you are about to build:
+one namespace per party, a mesh between them, and the authorization server
+replicated behind a database. Worth thirty seconds now — the namespaces in
+it are the ones `kubectl get pods -A` will show you.
 
 ## 1. Bring it up — about 13 minutes
 

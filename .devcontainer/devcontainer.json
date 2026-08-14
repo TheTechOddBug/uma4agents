@@ -47,32 +47,35 @@
   // once `make codespaces-web` has run. It lists what is listening and gives
   // you an open-in-browser action.
   //
-  // No onAutoForward action on purpose. It governs the event where VS Code
-  // detects a *newly listening* port, and a port named here is forwarded
-  // eagerly at container start — long before the cluster exists — so that
-  // event never arrives and nothing opens. Tried openPreview; it did not
-  // fire. The PORTS tab is the reliable path, so the docs point at it.
+  // openPreview puts her portal in VS Code's built-in browser once the port
+  // is forwarded. Note it hooks the event where VS Code detects a *newly
+  // listening* port — a port named in forwardPorts is forwarded eagerly at
+  // container start, so this may not fire until 9010 is taken out of that
+  // list. Left declared for now because the labels are what make the PORTS
+  // tab readable, and PORTS is the path that works regardless.
   "forwardPorts": [9010, 8080],
   "portsAttributes": {
-    "9010": { "label": "Alice's portal" },
-    "8080": { "label": "Alice's identity provider" }
+    "9010": { "label": "Alice's portal", "onAutoForward": "openPreview" },
+    "8080": { "label": "Alice's identity provider", "onAutoForward": "silent" }
   },
 
   "customizations": {
     // Open the walkthrough on arrival, beside the terminal, so the Codespace
     // explains itself without anyone going looking.
     //
-    // Markdown only. A PNG in this list made VS Code split the editor into
-    // two groups and paint the image-preview webview over the left one,
-    // obscuring the very file this is meant to show. The topology diagram is
-    // linked from START-HERE.md instead — one click, and it opens in its own
-    // group where it belongs.
+    // The topology diagram comes last so it is the tab you land beside the
+    // guide on: it is the deployed shape this lab builds, and its namespaces
+    // are the ones `kubectl get pods -A` will show.
     //
     // Two documented limits: this fires only the first time a Codespace is
     // opened, and only in the browser client — not desktop VS Code. The
     // post-create message covers those cases by naming the files.
     "codespaces": {
-      "openFiles": ["START-HERE.md", "docs/KUBERNETES.md"]
+      "openFiles": [
+        "START-HERE.md",
+        "docs/KUBERNETES.md",
+        "docs/k8s-topology.png"
+      ]
     },
     "vscode": {
       "extensions": [
