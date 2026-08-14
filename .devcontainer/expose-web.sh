@@ -27,6 +27,17 @@ set -euo pipefail
 log()  { printf '\n\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m !\033[0m %s\n' "$*"; }
 
+# Codespaces exports these into interactive shells, but not into a plain
+# `gh codespace ssh` exec — so fall back to the file the platform writes,
+# taking the first plain assignment (one of the later ones is base64).
+if [ -z "${CODESPACE_NAME:-}" ] && [ -d /workspaces/.codespaces/shared ]; then
+  CODESPACE_NAME="$(grep -rhoE '^CODESPACE_NAME=[A-Za-z0-9-]+$' \
+    /workspaces/.codespaces/shared/.env* 2>/dev/null | head -1 | cut -d= -f2 || true)"
+  GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-$(
+    grep -rhoE '^GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN=[^ ]+$' \
+      /workspaces/.codespaces/shared/.env* 2>/dev/null | head -1 | cut -d= -f2 || true)}"
+fi
+
 if [ -z "${CODESPACE_NAME:-}" ]; then
   warn "Not running in a Codespace — nothing to expose."
   warn "Locally the lab is reachable at https://portal.uma.lab after 'make dns-setup'."
