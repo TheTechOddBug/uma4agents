@@ -71,6 +71,5 @@ if [ -n "$CS_NAME" ]; then
   printf '  tab and in that command'"'"'s output, so there are three ways to find it.\n\n'
 fi
 
-printf '  Three tabs should already be open beside this terminal: START-HERE.md,\n'
-printf '  docs/KUBERNETES.md, and the topology diagram. If not, open START-HERE.md\n'
-printf '  and follow it from step 1.\n\n'
+printf '  START-HERE.md and docs/KUBERNETES.md should already be open beside this\n'
+printf '  terminal. If not, open START-HERE.md and follow it from step 1.\n\n'

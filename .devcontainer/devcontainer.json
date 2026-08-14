@@ -59,25 +59,20 @@
   },
 
   "customizations": {
-    // Open the walkthrough on arrival. Combined with the Markdown editor
-    // association below it lands rendered, beside the terminal, so the
-    // Codespace explains itself without anyone going looking.
+    // Open the walkthrough on arrival, beside the terminal, so the Codespace
+    // explains itself without anyone going looking.
     //
-    // The topology diagram comes last so it is the tab you land beside the
-    // guide on: it is the deployed shape this lab builds, and it maps onto
-    // what `kubectl get pods -A` will show. The PNG rather than the SVG on
-    // purpose — VS Code renders a PNG as an image with no configuration,
-    // where an SVG opens as XML source unless told otherwise.
+    // Markdown only. A PNG in this list made VS Code split the editor into
+    // two groups and paint the image-preview webview over the left one,
+    // obscuring the very file this is meant to show. The topology diagram is
+    // linked from START-HERE.md instead — one click, and it opens in its own
+    // group where it belongs.
     //
     // Two documented limits: this fires only the first time a Codespace is
     // opened, and only in the browser client — not desktop VS Code. The
     // post-create message covers those cases by naming the files.
     "codespaces": {
-      "openFiles": [
-        "START-HERE.md",
-        "docs/KUBERNETES.md",
-        "docs/k8s-topology.png"
-      ]
+      "openFiles": ["START-HERE.md", "docs/KUBERNETES.md"]
     },
     "vscode": {
       "extensions": [
