@@ -19,7 +19,10 @@
       "helm": "latest",
       "minikube": "none"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // So the lab can be driven over `gh codespace ssh` from a real terminal,
+    // not only from the browser editor.
+    "ghcr.io/devcontainers/features/sshd:1": {}
   },
 
   // The cluster is three nodes and measures ~5.4 GB before the platform
