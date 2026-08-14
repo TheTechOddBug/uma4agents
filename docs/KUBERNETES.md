@@ -35,7 +35,10 @@ That machine is a 2× tier, so it spends the monthly Codespaces allowance at
 twice the rate of the smallest one — about 60 hours a month on a free
 account. Stop the Codespace when you are done rather than leaving it idle.
 
-To see Alice's portal in a browser tab:
+Alice's portal is published automatically by `make kind-up` when it runs in
+a Codespace. Reach it from the **PORTS** tab beside the terminal —
+**Alice's portal** on 9010, with an open-in-browser action. To republish it
+after a rollout replaces the pod behind the forward:
 
 ```bash
 make codespaces-web

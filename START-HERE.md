@@ -60,16 +60,14 @@ actually **touched**.
 
 ## 4. Be Alice yourself
 
-```bash
-make codespaces-web
-```
+Her portal is already published — `make kind-up` did it. Open the **PORTS**
+tab beside this terminal, find **Alice's portal** on 9010, and use its
+open-in-browser action. Sign in as **alice / alice-demo**.
 
-Then open it from the **PORTS** tab, beside the terminal: find
-**Alice's portal** on 9010 and use its open-in-browser action. Sign in as
-**alice / alice-demo**.
-
-The URL is also printed by the command above, and is predictable —
-`https://<codespace-name>-9010.app.github.dev`.
+The URL is predictable if you would rather type it:
+`https://<codespace-name>-9010.app.github.dev`. If the port ever stops
+answering — a rollout replaces the pod it was attached to — run
+`make codespaces-web` to republish it.
 
 Now run the trade act *without* the simulator and approve it yourself:
 
