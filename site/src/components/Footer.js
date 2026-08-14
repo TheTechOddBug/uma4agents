@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "gatsby";
-import { repo, people, footerBlurb, tagline } from "../data/site";
+import { repo, codespace, people, footerBlurb, tagline } from "../data/site";
 import { GitHubIcon, LinkedInIcon } from "./Icons";
 
 const Footer = () => (
@@ -19,6 +19,19 @@ const Footer = () => (
           >
             <GitHubIcon className="icon-gh" />
             <span>github.com/nickgamb/uma4agents</span>
+          </a>
+
+          {/* The nav's call to action is a menu, so its contents exist only
+              once JavaScript runs. This is the plain, always-rendered path to
+              the same place — for a crawler, and for anyone without it. */}
+          <a
+            className="site-footer__repo"
+            href={codespace}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span aria-hidden="true">▶</span>
+            <span>Run the Kubernetes lab in Codespaces</span>
           </a>
 
           <p className="site-footer__label">The people behind it</p>

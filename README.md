@@ -95,7 +95,15 @@ and can revoke any of them.
 
 ## Quick start
 
-Prerequisites: Docker Desktop (or Engine + Compose v2) and
+Nothing to install — the Kubernetes reference architecture runs in a browser:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/nickgamb/uma4agents?devcontainer_path=.devcontainer%2Fdevcontainer.json)
+
+About thirteen minutes to a running cluster, then `make k8s-smoke-test`.
+See [docs/KUBERNETES.md](docs/KUBERNETES.md) for what to do with it.
+
+To run the compose stack locally instead —
+prerequisites: Docker Desktop (or Engine + Compose v2) and
 [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert`).
 
 ```bash

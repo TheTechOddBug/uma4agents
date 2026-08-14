@@ -240,7 +240,11 @@ a
 .site-nav__link--active
   color: $fg
 
-.site-nav__cta
+// Both classes, deliberately: the call to action is also a .page-actions
+// menu now, and that rule sets `display: inline-block` further down the
+// stylesheet. At equal specificity the later rule wins, so hiding it on
+// mobile needs to out-specify it rather than rely on source order.
+.page-actions.site-nav__cta
   @media (max-width: $bp-nav)
     display: none
 
@@ -952,6 +956,13 @@ a.blog-tag
   position: absolute
   top: calc(100% + 0.5rem)
   left: 0
+
+// Anchored to the right edge instead — used by the nav's call to action,
+// which sits hard against the right of the header and would otherwise open
+// off the side of the page.
+.page-actions__menu--right
+  left: auto
+  right: 0
   z-index: 60
   width: 19rem
   max-width: calc(100vw - 3rem)
@@ -1011,3 +1022,13 @@ a.blog-tag
 
 .page-hero__actions
   margin-top: 1.75rem
+
+
+// The nav's call to action opens a menu rather than linking straight out.
+.site-nav__cta-button
+  display: inline-flex
+  align-items: center
+  gap: 0.45rem
+  cursor: pointer
+  font: inherit
+  font-weight: 500

@@ -12,11 +12,48 @@ finding: the grant layer does not care which it is in.
 
 ---
 
+## Run it without installing anything
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/nickgamb/uma4agents?devcontainer_path=.devcontainer%2Fdevcontainer.json)
+
+A Codespace gets the whole toolchain, `*.uma.lab` already in `/etc/hosts`, and
+this guide open beside a terminal. Skip step 0 — `make dns-setup` and the
+`brew install` are not needed there — and start at step 1.
+
+Measured on the machine the devcontainer asks for (4 cores, 15 GB RAM, 32 GB
+disk):
+
+| | |
+|---|---|
+| `make kind-up`, cold | **13 minutes** |
+| Memory in use once up | 6.3 GB of 15 |
+| Disk in use once up | 13 GB of 32 |
+| `make k8s-smoke-test` | 13 passed, 0 failed |
+| `make k8s-policy-test` | 11 passed, 0 failed |
+
+That machine is a 2× tier, so it spends the monthly Codespaces allowance at
+twice the rate of the smallest one — about 60 hours a month on a free
+account. Stop the Codespace when you are done rather than leaving it idle.
+
+To see Alice's portal in a browser tab:
+
+```bash
+make codespaces-web
+```
+
+The lab routes by hostname under `*.uma.lab`, which your browser cannot
+resolve from outside the VM, so this forwards her portal and her identity
+provider directly and rewrites the three OIDC origins that would otherwise
+still name `keycloak.uma.lab`. Her browser session never crosses the
+enforcement point either way, so nothing being demonstrated is bypassed.
+
+---
+
 ## Demo guide
 
 Fifteen minutes, start to finish. Everything below is copy-paste.
 
-### 0. Once per machine
+### 0. Once per machine — local only, skip in a Codespace
 
 ```bash
 brew install kind helm          # docker + kubectl come with Docker Desktop

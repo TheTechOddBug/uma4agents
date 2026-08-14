@@ -1,0 +1,69 @@
+{
+  "name": "UMA for Agents — Kubernetes lab",
+
+  // A plain Debian base. The toolchain is installed by features and
+  // post-create rather than baked, so what runs here is what the README asks
+  // you to install locally — no divergence between the two paths.
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+
+  "features": {
+    // docker-IN-docker, not docker-outside-of-docker. kind runs its nodes as
+    // containers and needs a daemon it can own; the outside-of-docker variant
+    // shares the host socket and cannot host them.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true,
+      "installDockerBuildx": true
+    },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "kubectl": "latest",
+      "helm": "latest",
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // So the lab can be driven over `gh codespace ssh` from a real terminal,
+    // not only from the browser editor.
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
+
+  // The cluster is three nodes and measures ~5.4 GB before the platform
+  // charts go on, so this asks for a machine that can actually hold it.
+  // GitHub selects the smallest type meeting every field.
+  //
+  // Note for the visitor: this lands on a larger machine, which consumes the
+  // monthly Codespaces allowance faster than the default. The guide says so.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+
+  "onCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Alice's portal and her identity provider. Both serve plain HTTP inside
+  // the cluster — the edge terminates TLS — which is exactly what Codespaces
+  // port forwarding wants. `make codespaces-web` wires them up.
+  "forwardPorts": [9010, 8080],
+  "portsAttributes": {
+    "9010": { "label": "Alice's portal", "onAutoForward": "notify" },
+    "8080": { "label": "Alice's identity provider", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        // Markdown opens rendered rather than as source, so the guide reads
+        // as a guide.
+        "workbench.editorAssociations": {
+          "*.md": "vscode.markdown.preview.editor"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "remoteUser": "vscode"
+}
