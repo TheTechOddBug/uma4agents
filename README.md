@@ -1,5 +1,12 @@
 # UMA for Agents
 
+[![Site](https://img.shields.io/badge/site-u4a.ai-bcdb2c)](https://u4a.ai)
+[![License](https://img.shields.io/badge/license-Apache%202.0-8cc2d4)](LICENSE)
+[![Profiles UMA 2.0](https://img.shields.io/badge/profiles-UMA%202.0-8cc2d4)](https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-grant-2.0.html)
+[![Binds AAuth](https://img.shields.io/badge/binds-AAuth-8cc2d4)](https://github.com/dickhardt/AAuth)
+[![Speaks MCP](https://img.shields.io/badge/speaks-MCP%202026--07--28-5e8fa3)](docs/MCP-BINDING.md)
+[![Reference architecture](https://img.shields.io/badge/reference%20arch-Kubernetes-326ce5?logo=kubernetes&logoColor=white)](docs/KUBERNETES.md)
+
 [![The four-beat grant: Alice sets her terms and leaves; another party's agent is refused, handed a ticket, given her terms, signs them, and is let in](docs/hero.svg)](https://u4a.ai)
 
 A working proof-of-concept that carries [User-Managed Access (UMA)
@@ -30,6 +37,24 @@ a fifteen-minute demo guide,
 **[docs/MCP-BINDING.md](docs/MCP-BINDING.md)** for how the grant rides MCP
 2026-07-28 (plus the extension it proposes,
 [ext-auth-third-party-authorization.md](docs/ext-auth-third-party-authorization.md)).
+
+## Try it, without installing anything
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/nickgamb/uma4agents?devcontainer_path=.devcontainer%2Fdevcontainer.json)
+
+That opens the **Kubernetes reference architecture** in a browser — the whole
+toolchain present, `*.uma.lab` already resolving, and the walkthrough open
+beside a terminal. Thirteen minutes to a running three-node cluster, then:
+
+```bash
+make k8s-smoke-test   # 13 checks
+make k8s-demo-all     # Alice's whole day
+make codespaces-web   # her portal, in a browser tab
+```
+
+Measured numbers and what to notice at each step are in
+[docs/KUBERNETES.md](docs/KUBERNETES.md). Prefer to run it on your own
+machine? [Quick start](#quick-start) below.
 
 ## The demo
 
@@ -95,15 +120,11 @@ and can revoke any of them.
 
 ## Quick start
 
-Nothing to install — the Kubernetes reference architecture runs in a browser:
+This is the compose stack, on your own machine — ninety seconds, no cluster.
+For the Kubernetes path with nothing to install, see
+[Try it](#try-it-without-installing-anything) above.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/nickgamb/uma4agents?devcontainer_path=.devcontainer%2Fdevcontainer.json)
-
-About thirteen minutes to a running cluster, then `make k8s-smoke-test`.
-See [docs/KUBERNETES.md](docs/KUBERNETES.md) for what to do with it.
-
-To run the compose stack locally instead —
-prerequisites: Docker Desktop (or Engine + Compose v2) and
+Prerequisites: Docker Desktop (or Engine + Compose v2) and
 [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert`).
 
 ```bash
