@@ -139,10 +139,17 @@ k8s-smoke-test:
 	$(call run_job,smoke-test,cat $(K8S)/base/jobs/smoke-test.yaml,300s)
 
 ## k8s-demo-all: walk Alice's day (ACT=tier1|tier2|tier3|revocation|all)
+##
+## SIM=0 leaves her taps to you: the ask-me act then pends in her portal
+## until you approve it there, which is the whole point of the shape and
+## cannot be seen while something else is tapping for her.
 .PHONY: k8s-demo-all
 k8s-demo-all: ACT ?= all
+k8s-demo-all: SIM ?= 1
 k8s-demo-all:
-	$(call run_job,demo,sed 's|--act all|--act $(ACT)|' $(K8S)/base/jobs/demo.yaml,600s)
+	$(call run_job,demo,sed -e 's|--act all|--act $(ACT)|' \
+		$(if $(filter 0,$(SIM)),-e 's| --simulate-alice||',) \
+		$(K8S)/base/jobs/demo.yaml,600s)
 
 ## k8s-policy-test: prove the trust boundary denies what it claims to
 .PHONY: k8s-policy-test
