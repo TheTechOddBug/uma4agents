@@ -17,6 +17,16 @@ kind: Service
 metadata:
   name: uma-as
   namespace: alice
+  # Send this Service's traffic through the namespace waypoint.
+  #
+  # Without it ztunnel evaluates the AuthorizationPolicy at L4, where it
+  # cannot read a path, and a policy written in terms of paths denies
+  # everything rather than falling back to permit — connections are reset
+  # with no entry in any log naming a reason. The policy in
+  # k8s/base/policy/authorization.yaml is path-scoped, so it is only
+  # meaningful for traffic that reaches the waypoint.
+  labels:
+    istio.io/use-waypoint: waypoint
 spec:
   selector: { app: uma-as }
   ports:
