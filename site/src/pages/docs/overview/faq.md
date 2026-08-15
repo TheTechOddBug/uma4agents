@@ -4,7 +4,7 @@ title: FAQ
 description: The questions that come up first, answered directly, including the ones where the answer is that this does not do that.
 next:
   - title: Compare against UMA 2.0
-    to: /docs/compare/uma/
+    to: /docs/overview/compare-uma/
     blurb: What this profile keeps, changes, and adds.
   - title: Run the lab
     to: /docs/guides/run-the-lab/
@@ -31,7 +31,7 @@ without something shaped like it.
 No, and the two compose. A policy engine decides; this profile is about whose
 policy the decision expresses. You will probably want an engine *inside* the
 authorization server described here. See
-[Policy engines](/docs/compare/policy-engines/).
+[Policy engines](/docs/overview/compare-policy-engines/).
 
 ## Do I need solo.io, Istio, or Kubernetes?
 

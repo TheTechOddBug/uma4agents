@@ -67,7 +67,7 @@ const Item = ({ icon, label, hint, onClick, href }) => {
   );
 };
 
-const PageActions = ({ markdownPath, pagePath }) => {
+const PageActions = ({ markdownPath, pagePath, align }) => {
   const [open, setOpen] = useState(false);
   const [flashed, setFlashed] = useState(null);
   const ref = useRef(null);
@@ -149,7 +149,12 @@ const PageActions = ({ markdownPath, pagePath }) => {
       </div>
 
       {open && (
-        <div className="page-actions__menu" role="menu">
+        <div
+          className={`page-actions__menu${
+            align === "right" ? " page-actions__menu--right" : ""
+          }`}
+          role="menu"
+        >
           {markdownPath && (
             <>
               <Item

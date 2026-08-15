@@ -1,60 +1,69 @@
 // The documentation, as an ordered structure.
 //
 // Authored, never derived from the filesystem. Reading order is an editorial
-// decision — a concept page has to come before the guide that assumes it —
-// and alphabetical filenames cannot express that. The build checks this file
-// against the pages that actually exist, so a page added without a home here
-// fails the build rather than becoming unreachable.
+// decision — a concept has to come before the guide that assumes it — and
+// filenames cannot express that. The link checker walks this file against the
+// pages that actually built, so a page added without a home here fails the
+// build rather than becoming unreachable.
 //
-// `to` is the page's URL. The markdown lives at the matching path under
-// src/pages/, so /docs/understand/four-beats/ is
-// src/pages/docs/understand/four-beats.md.
+// Three sections, deliberately. Overview is long because everything
+// explanatory belongs together: what the shape is, how each piece works, and
+// how it sits next to the adjacent standards. Splitting those into separate
+// tabs made the reader guess which one held the answer.
+//
+// `to` is the page's URL, and the markdown lives at the matching path under
+// src/pages/ — so /docs/overview/four-beats/ is
+// src/pages/docs/overview/four-beats.md.
 
 export const tabs = [
-  { id: "introduction", label: "Introduction" },
-  { id: "understand", label: "Understand" },
+  { id: "overview", label: "Overview" },
   { id: "guides", label: "Guides" },
   { id: "reference", label: "Reference" },
-  { id: "compare", label: "Compare" },
 ];
 
 export const nav = {
-  introduction: [
+  overview: [
     {
       group: "Start here",
       pages: [
-        { title: "Overview", to: "/docs/introduction/overview/" },
-        { title: "Why the owner decides", to: "/docs/introduction/why/" },
-        { title: "Architecture", to: "/docs/introduction/architecture/" },
-        { title: "Concepts", to: "/docs/introduction/concepts/" },
+        { title: "Overview", to: "/docs/overview/" },
+        { title: "Why the owner decides", to: "/docs/overview/why/" },
+        { title: "Architecture", to: "/docs/overview/architecture/" },
+        { title: "Concepts", to: "/docs/overview/concepts/" },
       ],
     },
-    {
-      group: "Resources",
-      pages: [
-        { title: "Glossary", to: "/docs/introduction/glossary/" },
-        { title: "FAQ", to: "/docs/introduction/faq/" },
-      ],
-    },
-  ],
-
-  understand: [
     {
       group: "The grant",
       pages: [
-        { title: "The four beats", to: "/docs/understand/four-beats/" },
-        { title: "The three parties", to: "/docs/understand/parties/" },
-        { title: "Terms as first-class", to: "/docs/understand/terms/" },
+        { title: "The four beats", to: "/docs/overview/four-beats/" },
+        { title: "The three parties", to: "/docs/overview/parties/" },
+        { title: "Terms as first-class", to: "/docs/overview/terms/" },
       ],
     },
     {
       group: "What holds it together",
       pages: [
-        { title: "Identity is not authorization", to: "/docs/understand/identity/" },
-        { title: "Discovery, public and protected", to: "/docs/understand/discovery/" },
-        { title: "Proof-of-possession", to: "/docs/understand/proof-of-possession/" },
-        { title: "Single-use means indivisible", to: "/docs/understand/single-use/" },
-        { title: "Revocation and the ledger", to: "/docs/understand/revocation/" },
+        { title: "Identity is not authorization", to: "/docs/overview/identity/" },
+        { title: "Discovery, public and protected", to: "/docs/overview/discovery/" },
+        { title: "Proof-of-possession", to: "/docs/overview/proof-of-possession/" },
+        { title: "Single-use means indivisible", to: "/docs/overview/single-use/" },
+        { title: "Revocation and the ledger", to: "/docs/overview/revocation/" },
+      ],
+    },
+    {
+      group: "How it compares",
+      pages: [
+        { title: "UMA 2.0", to: "/docs/overview/compare-uma/" },
+        { title: "OAuth 2.0 and GNAP", to: "/docs/overview/compare-oauth-gnap/" },
+        { title: "Policy engines", to: "/docs/overview/compare-policy-engines/" },
+        { title: "Agent identity", to: "/docs/overview/compare-agent-identity/" },
+      ],
+    },
+    {
+      group: "Resources",
+      pages: [
+        { title: "Glossary", to: "/docs/overview/glossary/" },
+        { title: "FAQ", to: "/docs/overview/faq/" },
       ],
     },
   ],
@@ -110,23 +119,6 @@ export const nav = {
       ],
     },
   ],
-
-  compare: [
-    {
-      group: "Standards",
-      pages: [
-        { title: "UMA 2.0", to: "/docs/compare/uma/" },
-        { title: "OAuth 2.0 and GNAP", to: "/docs/compare/oauth-gnap/" },
-      ],
-    },
-    {
-      group: "Adjacent work",
-      pages: [
-        { title: "Policy engines", to: "/docs/compare/policy-engines/" },
-        { title: "Agent identity", to: "/docs/compare/agent-identity/" },
-      ],
-    },
-  ],
 };
 
 /** Every page, flat and in reading order. */
@@ -140,7 +132,7 @@ export const allPages = () =>
 /** Which tab a URL belongs to, for highlighting the tab bar. */
 export const tabForPath = (pathname) => {
   const hit = allPages().find((p) => p.to === pathname);
-  return hit ? hit.tab : (pathname.split("/")[2] || "introduction");
+  return hit ? hit.tab : (pathname.split("/")[2] || "overview");
 };
 
 /** The page before and after this one, in reading order, for the footer. */

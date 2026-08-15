@@ -4,7 +4,7 @@ title: Architecture
 description: Which party holds which responsibility, and why the boundaries between them are the design.
 next:
   - title: Concepts
-    to: /docs/introduction/concepts/
+    to: /docs/overview/concepts/
     blurb: The vocabulary the rest of the docs uses.
   - title: The roles you must fill
     to: /docs/guides/roles/

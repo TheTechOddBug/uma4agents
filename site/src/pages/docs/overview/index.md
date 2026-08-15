@@ -7,10 +7,10 @@ videoTitle: The Kubernetes lab, running in a Codespace
 videoPoster: /img/docs/codespace-demo.png
 next:
   - title: Why the owner decides
-    to: /docs/introduction/why/
+    to: /docs/overview/why/
     blurb: The problem this shape exists to solve, and who currently cannot solve it.
   - title: The four beats
-    to: /docs/understand/four-beats/
+    to: /docs/overview/four-beats/
     blurb: Challenge, attempt, commit, grant — the whole negotiation.
   - title: Run the lab
     to: /docs/guides/run-the-lab/
@@ -60,7 +60,7 @@ grant and changes four things around it:
 
 ## What is in these docs
 
-**[Understand](/docs/understand/four-beats/)** explains the shape one idea at a
+**[Understand](/docs/overview/four-beats/)** explains the shape one idea at a
 time — the beats of the grant, the parties, what makes single-use mean
 something. Read this first if you want to know whether the design is sound.
 
@@ -71,7 +71,7 @@ what you would build, not what we happened to choose.
 **[Reference](/docs/reference/wire-contract/)** is the wire contract, the
 endpoints, the events, and the exact places this profile departs from UMA 2.0.
 
-**[Compare](/docs/compare/uma/)** is where to go if you already run something
+**[Compare](/docs/overview/compare-uma/)** is where to go if you already run something
 adjacent — a policy engine, an OAuth deployment, an agent identity stack — and
 want to know what this adds and what it does not.
 

@@ -4,10 +4,10 @@ title: Why the owner decides
 description: What breaks when the party who owns a resource is not the party who configured access to it.
 next:
   - title: The three parties
-    to: /docs/understand/parties/
+    to: /docs/overview/parties/
     blurb: Owner, requesting party, requesting agent — and why collapsing them costs you.
   - title: Architecture
-    to: /docs/introduction/architecture/
+    to: /docs/overview/architecture/
     blurb: Where each responsibility lives.
 ---
 
@@ -68,7 +68,7 @@ one where the operator genuinely is the deciding party.
 None of them change **whose policy the decision expresses**. That is the axis
 this profile moves along, and it is why the pages that follow are about parties
 and boundaries rather than rule syntax. Where the two fit together is covered
-in [Compare](/docs/compare/policy-engines/).
+in [Compare](/docs/overview/compare-policy-engines/).
 
 ## The shape of the answer
 
@@ -78,4 +78,4 @@ handed her terms, signs them, and is let in — or held until she taps. She is
 not consulted about agents she has never heard of, because her policy already
 covers the case.
 
-That negotiation is [four beats long](/docs/understand/four-beats/).
+That negotiation is [four beats long](/docs/overview/four-beats/).

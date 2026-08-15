@@ -965,13 +965,6 @@ a.blog-tag
   position: absolute
   top: calc(100% + 0.5rem)
   left: 0
-
-// Anchored to the right edge instead — used by the nav's call to action,
-// which sits hard against the right of the header and would otherwise open
-// off the side of the page.
-.page-actions__menu--right
-  left: auto
-  right: 0
   z-index: 60
   width: 19rem
   max-width: calc(100vw - 3rem)
@@ -980,6 +973,14 @@ a.blog-tag
   border-radius: $radius-lg
   background: $bg-card
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55)
+
+// Anchored to the right edge instead — used where the button sits hard
+// against the right of its container and the menu would otherwise open off
+// the side of the page. Anchoring only; everything else is inherited, which
+// is the mistake that made the plain menu render with no width at all.
+.page-actions__menu--right
+  left: auto
+  right: 0
 
 .page-actions__item
   display: flex

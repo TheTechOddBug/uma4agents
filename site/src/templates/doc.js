@@ -53,7 +53,7 @@ const Doc = ({ data, location }) => {
               {here && <p className="doc__breadcrumb">{here.group}</p>}
               <div className="doc__title-row">
                 <h1>{title}</h1>
-                <PageActions markdownPath={markdownPath} />
+                <PageActions markdownPath={markdownPath} align="right" />
               </div>
               {description && <p className="doc__lede">{description}</p>}
             </div>
