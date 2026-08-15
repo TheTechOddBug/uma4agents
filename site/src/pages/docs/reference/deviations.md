@@ -1,0 +1,191 @@
+---
+templateKey: doc
+title: Deviations from UMA 2.0
+description: The extension register — every place this profile departs from stock UMA, what the baseline says, and why each departure exists.
+next:
+  - title: Findings
+    to: /docs/reference/findings/
+    blurb: What these deviations produced as recommendations.
+  - title: UMA 2.0
+    to: /docs/overview/compare-uma/
+    blurb: The conceptual comparison, if you want the shorter version.
+---
+
+The design rule was to stay inside UMA 2.0's wire surface wherever it already
+fits — `WWW-Authenticate: UMA`, the `uma-ticket` grant, `need_info`,
+`request_submitted`, introspection `permissions` — and mark every departure as an
+explicit extension.
+
+Everything not listed here is intended to be stock UMA 2.0 or stock AAuth.
+
+## 1. Terms proffered inside `required_claims`
+
+**Baseline.** The authorization server names acceptable claim *formats*.
+
+**Here.** A `terms_template` inside the required claim, so the authority proffers
+the claim's *content*, dereferenceable at a persistent `terms_uri`, with a
+counter-signed receipt returned on grant.
+
+**Why.** Owner-proffered terms, following the IEEE 7012 pattern extended from
+privacy to agentic access. It descends directly from UMA's own 2010 Requesting
+Party Policy claim. Both sides end up holding identical dually-signed records.
+
+## 2. Proof-of-possession RPT
+
+**Baseline.** A bearer RPT; permissions visible only through introspection.
+
+**Here.** The RPT is an `aa-auth+jwt`, `cnf`-bound, `token_type: PoP`, carrying
+the `permissions` array as a claim.
+
+**Why.** A bearer token for an agent is a credential that works for whoever
+picks it up. Carrying `permissions` inline lets an enforcement point see scope
+without a round trip; introspection remains the authority on liveness.
+
+## 3. `operation` and `single_use` claims
+
+**Baseline.** Per-permission scopes and expiry only.
+
+**Here.** An operation hash and a single-use flag on ask-me grants.
+
+**Why.** Approving one action must not become authorizing a class of actions.
+Classic UMA scopes authorize classes.
+
+## 4. Owner push notification on `request_submitted`
+
+**Baseline.** Resource-owner intervention is out of scope.
+
+**Here.** Two kinds of pending item — connection and operation — pushed to the
+owner's surface.
+
+**Why.** The agent era's consent surface, and the day-one handshake. The 2010
+out-of-band consent wireframes finally have an interlocutor that exists.
+
+## 5. Standing connection keyed by an identity handle
+
+**Baseline.** Nothing directly; the persisted claims token is the closest
+ancestor.
+
+**Here.** A connection keyed by JWK thumbprint when pseudonymous, by verified
+issuer-qualified subject when identified, plus a `contract` hash on the RPT.
+
+**Why.** Owner-visible, owner-revocable relationships, with promise, action and
+consent in one ledger. The identity-level split is not cosmetic: identified
+agents rotate session keys, so a thumbprint-keyed connection forgets an enrolled
+agent every session. That bit the build.
+
+## 6. Public structural discovery in two binding encodings
+
+**Baseline.** RFC 9728 and AAuth resource metadata both predate this. UMA's
+challenge carries `as_uri` on faith.
+
+**Here.** One registry serving both encodings, `resource_metadata` on the
+challenge, and clients corroborating `as_uri` against published
+`authorization_servers`.
+
+**Why.** The encodings are stock. Composing them with the UMA challenge — so it
+gains a TLS-anchored second witness — and sharing one protected instance layer
+beneath both is the extension.
+
+## 7. `owner_resources_endpoint` and the protected listing
+
+**Baseline.** FedAuthz: the resource server pushes owner-bound registrations
+under the PAT.
+
+**Here.** Public metadata stays structural; whose instances sit behind the
+resource is served only to the owner's authority, over an RFC 9421-signed query.
+
+**Why.** The privacy split. Publishing which resources a named person owns at an
+unauthenticated URI is a leak the old push registration never had. It also
+enables declarative registration. Classic push remains conformant and is
+preserved on the `legacy/rreg-baseline` branch.
+
+## 8. Challenge specified as parameters
+
+**Baseline.** UMA 2.0 mandates the `WWW-Authenticate` header.
+
+**Here.** Parameters — `as_uri`, `ticket`, `resource_metadata`, `realm` — with
+per-host encodings: a 401 with the header where there is a status line, a
+JSON-RPC error where there is not.
+
+**Why.** An enforcement point running in-process has no status line. Mandating
+the header excludes exactly the resource-side frameworks most likely to adopt
+this. Both encodings run here against one authorization server, and one client
+reads both.
+
+## 9. Enforcement obligations hosted by either party's component
+
+**Baseline.** FedAuthz names the obligations, not their host.
+
+**Here.** `ENFORCEMENT_MODE=gateway|embedded`, from one core.
+
+**Why.** The enforcement point is a role, not a product. Two conformant hosts on
+one stack means the claim is measured rather than argued.
+
+## 10. Consumption ordering made normative
+
+**Baseline.** UMA 2.0 §3.3.1 does not say where in enforcement a single-use
+token is spent.
+
+**Here.** Introspect (non-consuming) → permissions → proof-of-possession →
+operation binding → consume, atomic and last. Inactive introspection carries a
+reason, and `connection_revoked` is terminal.
+
+**Why.** The intuitive order — consume first — lets an unsigned replay destroy an
+approval the owner just gave. And a bare `{"active": false}` sends a revoked
+agent round a negotiation whose outcome is already settled.
+
+## 11. Requesting-agent identity metadata
+
+**Baseline.** The agent is its key, or its issuer's token.
+
+**Here.** An optional CIMD `client_id` in the agreement header — resolved,
+self-reference enforced, **display only** — and a Web Bot Auth `Signature-Agent`
+covered by the request signature.
+
+**Why.** The cold-start problem: a party who has never met this agent needs to be
+able to say something true about it. Neither ever becomes an authorization
+input. The verifying key is always the RPT's `cnf`, and the connection handle is
+unchanged.
+
+## 12. Structured remediation in the challenge
+
+**Baseline.** UMA's challenge carries `as_uri` and `ticket` only.
+
+**Here.** `error="insufficient_authorization"` plus `authorization_remediation`
+carrying RFC 9396 `authorization_details` and an `authorization_reference`, with
+`authorization_server` and `ticket` inside it.
+
+**Why.** A superset of `draft-zehavi-oauth-rar-metadata` rather than a rival: the
+same remediation payload, plus the two parameters that let a party who is not the
+caller decide. The same JSON rides the JSON-RPC encoding byte for byte, which
+demonstrates that the payload is portable and only the envelope is
+binding-specific.
+
+## Security properties these depend on
+
+Each is enforced somewhere in the code, and the tests that prove refusals rather
+than permissions are the policy suite and the store tests.
+
+- **Single-use must be indivisible.** Check-then-act is correct in one process
+  and wrong in two. The store exposes consume as an *intent* that decides and
+  records in one step and reports who won.
+- **Consumption is ordered and last.**
+- **Authorization inputs never come from the transport.** The signature base is
+  rebuilt from configured values, never from `Host` or a forwarded header.
+- **A truncated body must fail closed**, with a named reason rather than a
+  misleading unknown-method error.
+- **The resource server must not be able to read the owner's policy.** Structural
+  rather than advisory: PAT-scoped protection API, and in the Kubernetes
+  reference the mesh denies the path outright.
+- **Agent-token issuers are trusted by dereference**, with TLS on the issuer
+  origin as the trust root and non-`https` issuers rejected. There is
+  deliberately no issuer allow-list here — which issuers may attest agents is
+  deployment policy, and a real deployment must supply one.
+- **Liveness must not depend on a mutual dereference.**
+- **Revocation is atomic and immediate.**
+
+**Not addressed.** Signing-key rotation — the key is minted once and shared by
+all replicas, and while `jwks_uri` makes rotation possible, nothing here
+exercises it. Multiple authorization servers behind one resource server — RFC
+9728 makes `authorization_servers` an array; this profile configures one. And
+revocation propagation beyond a single shared store.

@@ -5,9 +5,23 @@ const slugify = require("./src/utils/slugify");
 
 exports.createSchemaCustomization = ({ actions }) => {
   actions.createTypes(`
+    type DocNext {
+      title: String
+      to: String
+      blurb: String
+    }
     type MarkdownRemarkFrontmatter {
       templateKey: String
       title: String
+      # Documentation only: the cards a page ends on. Typed explicitly because
+      # inference cannot see the shape until some page happens to use it, and
+      # a docs page without the field would otherwise break the query for
+      # every page that has it.
+      next: [DocNext]
+      # Documentation only: a demo video, loaded on click rather than on load.
+      video: String
+      videoTitle: String
+      videoPoster: String
       date: Date @dateformat
       author: String
       description: String
@@ -149,6 +163,64 @@ function writeSitemap({ fs, siteMeta }) {
 }
 
 /**
+ * Publish a plain-Markdown copy of every doc page beside its HTML page, e.g.
+ * /docs/overview/why.md next to /docs/overview/why/.
+ *
+ * The URL is what PageActions asks for: the page path with its trailing slash
+ * dropped and `.md` appended. So a section index at src/pages/docs/overview/
+ * index.md lands at /docs/overview.md — one level up from where the source
+ * file sits — because /docs/overview/ is the page it belongs to.
+ */
+function writeDocTwins({ fs, siteMeta }) {
+  const srcRoot = path.resolve("src/pages/docs");
+  if (!fs.existsSync(srcRoot)) return 0;
+
+  const walk = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return walk(full);
+      return entry.name.endsWith(".md") ? [full] : [];
+    });
+
+  let written = 0;
+
+  for (const file of walk(srcRoot)) {
+    const raw = fs.readFileSync(file, "utf8");
+    const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    const body = match ? match[2].trim() : raw.trim();
+
+    const field = (key) => {
+      const m = match && match[1].match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
+      return m ? m[1].trim().replace(/^["']|["']$/g, "") : "";
+    };
+
+    const rel = path
+      .relative(srcRoot, file)
+      .split(path.sep)
+      .join("/")
+      .replace(/\.md$/, "")
+      .replace(/(^|\/)index$/, "");
+    const url = `/docs/${rel}/`.replace(/\/+$/, "/");
+    const out = path.resolve(`public/docs/${rel.replace(/\/$/, "")}.md`);
+
+    const header = [
+      `# ${field("title")}`,
+      "",
+      `Source: ${siteMeta.siteUrl}${url}`,
+      "",
+      "---",
+      "",
+    ].join("\n");
+
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, header + body + "\n");
+    written += 1;
+  }
+
+  return written;
+}
+
+/**
  * Publish a plain-Markdown copy of every post beside its HTML page, e.g.
  * /blog/2026-08-06-let-them-a-developers-guide-to-u4a.md
  *
@@ -166,6 +238,9 @@ exports.onPostBuild = async () => {
   // Independent of the Markdown twins below, and written first so that the
   // early return when there are no posts cannot silently skip it.
   writeSitemap({ fs, siteMeta });
+
+  const docs = writeDocTwins({ fs, siteMeta });
+  console.info(`Published ${docs} Markdown copies to /docs/**.md`);
 
   if (!fs.existsSync(srcDir)) return;
   fs.mkdirSync(outDir, { recursive: true });

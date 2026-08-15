@@ -8,6 +8,7 @@ export const people = [
 ];
 
 export const navLinks = [
+  { label: "Docs", to: "/docs/overview/" },
   { label: "Blog", to: "/blog/" },
   { label: "Contact", to: "/contact/" },
 ];
