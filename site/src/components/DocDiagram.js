@@ -315,32 +315,56 @@ const TrustBoundary = () => (
       holds the assets
     </text>
 
-    <Arrow from={330} to={272} y={244} colour="var(--green)" />
-    <text x="332" y={239} fill="var(--green)" fontSize="12.5">
-      ticket · introspect · consume
-    </text>
-
-    <line
-      x1="330"
-      y1="282"
-      x2="272"
-      y2="282"
-      stroke="var(--red)"
-      strokeWidth="1.6"
-      strokeDasharray="4 4"
-    />
-    <g stroke="var(--red)" strokeWidth="2">
-      <line x1="294" y1="276" x2="306" y2="288" />
-      <line x1="306" y1="276" x2="294" y2="288" />
+    <g className="tb-allowed">
+      <Arrow from={330} to={272} y={244} colour="var(--green)" />
+      <text x="332" y={239} fill="var(--green)" fontSize="12.5">
+        ticket · introspect · consume
+      </text>
     </g>
-    <text x="332" y={277} fill="var(--red)" fontSize="12.5">
-      read her policy
-    </text>
-    <text x="332" y={296} fill="var(--ink-3)" fontSize="11.5">
-      403 — same port, same workload
-    </text>
+
+    <g className="tb-refused">
+      <line
+        x1="330"
+        y1="282"
+        x2="272"
+        y2="282"
+        stroke="var(--red)"
+        strokeWidth="1.6"
+        strokeDasharray="4 4"
+      />
+      <g stroke="var(--red)" strokeWidth="2">
+        <line x1="294" y1="276" x2="306" y2="288" />
+        <line x1="306" y1="276" x2="294" y2="288" />
+      </g>
+      <text x="332" y={277} fill="var(--red)" fontSize="12.5">
+        read her policy
+      </text>
+      <text x="332" y={296} fill="var(--ink-3)" fontSize="11.5">
+        403 — same port, same workload
+      </text>
+    </g>
   </Frame>
 );
+
+const trustBoundaryScenes = [
+  {
+    text: "Two parties, and a line between them. Alice's side holds the policy, the terms and the record; Meridian's side holds the assets and the component that refuses.",
+    reset: { ".tb-allowed": { opacity: 0 }, ".tb-refused": { opacity: 0 } },
+    end: {},
+    play: () => {},
+  },
+  {
+    text: "Meridian's enforcement point is allowed across the line for exactly three things: take a ticket, ask whether a grant is live, and spend it.",
+    end: { ".tb-allowed": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".tb-allowed"), { opacity: [0, 1], duration: 600 }),
+  },
+  {
+    text: "Reading her policy is refused — on the same port, from the same workload, as the call that was just permitted. That pair is the whole cross-principal argument, and it is something CI can fail on.",
+    hold: 4400,
+    end: { ".tb-allowed": { opacity: 1 }, ".tb-refused": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".tb-refused"), { opacity: [0, 1], duration: 600 }),
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Discovery — structure, so it does not move
@@ -367,28 +391,50 @@ const DiscoveryLayers = () => (
       </text>
     ))}
 
-    <Box x={20} y={158} w={560} h={104} stroke="var(--accent)" />
-    <text x="40" y="184" fill="var(--ink)" fontSize="14" fontWeight="600">
-      Protected — instances
-    </text>
-    <text x="560" y="184" textAnchor="end" fill="var(--accent)" fontSize="12.5">
-      only the owner's authority
-    </text>
-    {[
-      "whose vault sits behind this resource",
-      "the ids, names and scopes of her instances",
-      "served only to an RFC 9421-signed query",
-    ].map((t, i) => (
-      <text key={t} x="40" y={208 + i * 19} fill="var(--ink-2)" fontSize="12.5">
-        · {t}
+    <g className="dl-protected">
+      <Box x={20} y={158} w={560} h={104} stroke="var(--accent)" />
+      <text x="40" y="184" fill="var(--ink)" fontSize="14" fontWeight="600">
+        Protected — instances
       </text>
-    ))}
+      <text x="560" y="184" textAnchor="end" fill="var(--accent)" fontSize="12.5">
+        only the owner's authority
+      </text>
+      {[
+        "whose vault sits behind this resource",
+        "the ids, names and scopes of her instances",
+        "served only to an RFC 9421-signed query",
+      ].map((t, i) => (
+        <text key={t} x="40" y={208 + i * 19} fill="var(--ink-2)" fontSize="12.5">
+          · {t}
+        </text>
+      ))}
+    </g>
 
-    <text x="20" y="288" fill="var(--ink-3)" fontSize="11.5">
+    <text className="dl-note" x="20" y="288" fill="var(--ink-3)" fontSize="11.5">
       Publishing the lower band openly would say which resources Alice owns to anyone who asks.
     </text>
   </Frame>
 );
+
+const discoveryScenes = [
+  {
+    text: "The public document is structural: what tools exist, what scopes they need, which authorization servers speak for this resource, and the keys its metadata is signed under. Anyone may fetch it.",
+    reset: { ".dl-protected": { opacity: 0.12 }, ".dl-note": { opacity: 0 } },
+    end: {},
+    play: () => {},
+  },
+  {
+    text: "Whose instances sit behind the resource is a different kind of fact, and it is served only to a caller that proves possession of the owner's authorization server key.",
+    end: { ".dl-protected": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".dl-protected"), { opacity: [0.12, 1], duration: 600 }),
+  },
+  {
+    text: "Publishing that lower band openly would tell anyone who asks which resources Alice owns — a leak the older push-registration model never had.",
+    hold: 4200,
+    end: { ".dl-protected": { opacity: 1 }, ".dl-note": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".dl-note"), { opacity: [0, 1], duration: 600 }),
+  },
+];
 
 // ---------------------------------------------------------------------------
 // The enforcement order
