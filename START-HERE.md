@@ -121,8 +121,10 @@ allows would pass on a cluster with no policy at all.
 
 ## 7. Bring your own agent
 
-Everything so far has been Bob's agent. You can point **your own** at the same
-vault, and Alice will treat it as what it is — a stranger.
+Everything so far has been Bob's agent — one requesting party among however
+many there turn out to be. Point **your own** at the same vault and Alice
+treats it as what it is: a stranger, like every agent before it and every one
+after.
 
 Run it from a terminal **in this Codespace**. The lab answers to
 `gateway.uma.lab` only from inside this machine, so an agent on your laptop
@@ -159,8 +161,15 @@ agent is its key, your agent's key is not Bob's, and Alice has never met it.
 Approve it in her portal and it appears beside his in **Connected Agents**,
 with its own terms, its own trail, and its own revoke button.
 
-That is the whole point of the shape, tried on yourself rather than watched:
-her policy decided about *you*, while she was the only one who could.
+Notice what she did **not** have to do: add you to anything. Her tiers are
+written against resources — which tools, what terms, whether she must tap —
+and name no agent at all. That is what makes this scale past Bob to an
+unbounded number of strangers: one policy, written once, and everyone
+negotiates against it.
+
+Run the shim again with a different `UMA4A_KEYSTORE` and you get a third
+agent, a fourth, as many as you like — each pending on first contact, each
+with its own terms, trail and revoke button.
 
 Full detail, including what changes between MCP clients, is in
 [clients/agent-shim/README.md](clients/agent-shim/README.md).

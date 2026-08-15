@@ -55,25 +55,33 @@ The Kubernetes path has no `make init` and puts no certificate on your
 machine — cert-manager issues the CA inside the cluster, and `k8s-trust-ca`
 exports a copy.
 
-### You are a different party than Bob
+### Any number of agents, not just Bob's
 
-This is the interesting part. Bob's agent already exists in the demo, with a
-key of its own. Yours gets its own key on first run — and a pseudonymous
-agent **is** its key, so Alice's authorization server derives the connection
-handle from its RFC 7638 thumbprint. Different key, different agent.
+Bob's agent is one requesting party. It has no special standing — it is simply
+the one the scripted demo drives. Yours is another, and so is the next.
 
-Which means Alice treats you as a stranger, correctly:
+A pseudonymous agent **is** its key: Alice's authorization server derives the
+connection handle from the RFC 7638 thumbprint. Different key, different
+agent, and connections are stored one row per handle with no ceiling on how
+many. Give each agent its own `UMA4A_KEYSTORE` and you have as many distinct
+parties as you care to run.
 
-- Your first request **pends**, whatever the tier and whatever she has already
-  agreed with Bob. She has never met your agent.
-- Once approved, it appears beside Bob's in **Connected Agents** in her
-  portal, with its own terms and its own trail in the ledger.
-- She can revoke yours and leave his alone, or the reverse.
+What makes that work — and it is the point worth taking away — is that **she
+never configures them individually**. Her tiers are written against
+*resources*, not against agents: which tools a tier covers, what terms it
+dictates, whether it needs her tap. Nothing in her policy names Bob, or you,
+or anyone. So an agent she has never seen is not a gap in her configuration;
+it is simply the next one to negotiate against terms that already exist.
 
-You are not borrowing Bob's relationship. You are negotiating your own, and
-watching her policy decide about you specifically. To run several distinct
-agents, give each its own `UMA4A_KEYSTORE` — that is the whole of what makes
-them different parties.
+For each of them she gets, separately:
+
+- a **first contact that pends**, because she has met none of them before
+- its own row in **Connected Agents**, with the terms that agent signed
+- its own trail in the ledger, correlated by negotiation id
+- its own **revoke**, which touches no one else
+
+That is the shape scaled up: one policy, written once, and an unbounded number
+of strangers negotiating against it while she is asleep.
 
 ### If your lab is in a Codespace
 

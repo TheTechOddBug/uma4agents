@@ -153,17 +153,21 @@ Observability is at **https://grafana.uma.lab**.
 
 ## Connect your own agent
 
-Bob's agent can be an unmodified MCP client, and so can yours. A small local
-shim handles agent identity, request signing, and the grant negotiation —
-surfacing Alice's terms for you to approve. It is a plain stdio MCP server, so
-any client that launches MCP servers can launch it.
+Bob's agent can be an unmodified MCP client, and so can yours, and so can any
+number of others. A small local shim handles agent identity, request signing
+and the grant negotiation — it is a plain stdio MCP server, so any client that
+launches MCP servers can launch it.
 
-Your agent gets its own key, and a pseudonymous agent **is** its key: Alice's
-authorization server derives the connection handle from its thumbprint. So you
-arrive as a stranger rather than borrowing Bob's relationship — your first
-request pends whatever she has already agreed with him, and once approved your
-agent sits beside his in her portal with its own terms and its own revoke
-button.
+A pseudonymous agent **is** its key: the connection handle is its thumbprint.
+Give each agent its own keystore and each is a distinct party, with its own
+first-contact approval, its own signed terms, its own ledger trail and its own
+revocation.
+
+What makes that scale is that Alice never configures them one by one. Her
+tiers are written against *resources* — which tools, what terms, whether she
+must tap — and name no agent at all. An agent she has never seen is not a hole
+in her policy; it is just the next one to negotiate against terms that already
+exist.
 
 See [clients/agent-shim/README.md](clients/agent-shim/README.md).
 
