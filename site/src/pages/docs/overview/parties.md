@@ -2,6 +2,8 @@
 templateKey: doc
 title: The three parties
 description: Owner, requesting party, requesting agent — and what it costs to treat the last two as one.
+diagram: who-answers
+diagramCaption: Three parties, one question. Only one of them has standing to answer it.
 next:
   - title: Terms as first-class
     to: /docs/overview/terms/

@@ -34,6 +34,7 @@ const SEO = ({
   dateModified,
   tags,
   docPage,
+  breadcrumb,
   children,
 }) => {
   const imagePath = raster(image) || siteMetadata.image;
@@ -57,6 +58,8 @@ const SEO = ({
         url: seo.url,
         isAccessibleForFree: true,
         license: "https://www.apache.org/licenses/LICENSE-2.0",
+        inLanguage: "en",
+        articleSection: breadcrumb ? breadcrumb.section : undefined,
         publisher: {
           "@type": "Organization",
           name: siteMetadata.title,
@@ -174,6 +177,29 @@ const SEO = ({
       <script type="application/ld+json">
         {JSON.stringify(ld, (_k, v) => (v === undefined ? undefined : v))}
       </script>
+      {/* A second graph rather than a nested property, which is what Google's
+          own examples do — it lets the crawler read the trail without having
+          to understand the article type wrapping it. This is what turns a
+          result's URL line into Docs › Overview › The four beats. */}
+      {breadcrumb && (
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { name: "Docs", item: `${siteMetadata.siteUrl}/docs/overview/` },
+              { name: breadcrumb.section, item: `${siteMetadata.siteUrl}${breadcrumb.sectionUrl}` },
+              { name: breadcrumb.group },
+              { name: breadcrumb.title, item: seo.url },
+            ].map((entry, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: entry.name,
+              ...(entry.item ? { item: entry.item } : {}),
+            })),
+          })}
+        </script>
+      )}
       {children}
     </>
   );

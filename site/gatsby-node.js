@@ -143,7 +143,19 @@ function writeSitemap({ fs, siteMeta }) {
 
   const urls = paths
     .map((p) => {
-      const priority = p === "/" ? "1.0" : p.startsWith("/blog/") ? "0.8" : "0.6";
+      // The documentation is the reference material this site exists to
+      // publish, so it ranks with the posts rather than below them. Its
+      // section entry points sit one step higher again, because those are the
+      // pages a search result should land on when the query is about the
+      // profile as a whole rather than one mechanism inside it.
+      const priority =
+        p === "/"
+          ? "1.0"
+          : ["/docs/overview/", "/docs/guides/roles/", "/docs/reference/wire-contract/"].includes(p)
+          ? "0.9"
+          : p.startsWith("/blog/") || p.startsWith("/docs/")
+          ? "0.8"
+          : "0.6";
       return [
         "  <url>",
         `    <loc>${siteMeta.siteUrl}${p}</loc>`,

@@ -99,6 +99,15 @@ happened match what I agreed to. Reading them side by side is the point —
 `touched` without a matching `owner.decision` is either a tier she opened
 deliberately or something to investigate.
 
+![The ledger in the lab's portal, newest first: a touched entry naming the
+executed trade, the approval above it, and the promise below carrying the terms
+that were signed and the agreement hash — all three sharing one negotiation
+id.](/img/docs/owner-ledger.png)
+
+The rightmost column is the negotiation family. Three rows of a single story sit
+apart in time and are joined by that id, which is what makes the ledger
+answerable rather than merely chronological.
+
 ## Reading it in the lab
 
 ```bash

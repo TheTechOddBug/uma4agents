@@ -55,6 +55,15 @@ The fix is the same lesson as
 together. Revocation ends the connection and burns its grants indivisibly, or it
 does neither.
 
+![Two connected agents in the lab's portal, listed by key thumbprint with when
+they first connected and when they were last active. One is active with a Revoke
+button; the other is already revoked.](/img/docs/owner-connections.png)
+
+What she is revoking is the **relationship**, not a token. The agent above is
+named by the thumbprint of its key, because a pseudonymous agent *is* its key —
+and the row stays after revocation, because the fact that she once connected to
+it is part of the record.
+
 ## What the agent sees
 
 An agent presenting a revoked grant is told so explicitly, and the answer is

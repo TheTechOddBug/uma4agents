@@ -337,10 +337,15 @@ a
   margin: 0 0 1.5rem
   font-size: 0.95rem
 
+// One per line. These are two separate destinations, and as inline-flex
+// siblings they ran together into "…uma4agents▶ Run the Kubernetes lab…"
+// with no space between them.
 .site-footer__repo
-  display: inline-flex
+  display: flex
   align-items: center
+  width: fit-content
   gap: 0.55rem
+  margin-bottom: 0.55rem
   color: $fg-muted
   text-decoration: none
   font-family: $font-mono
@@ -1362,11 +1367,102 @@ $docs-toc-w: 220px
     font-size: 0.85rem
     line-height: 1.5
 
+.doc-diagram__frame
+  overflow-x: auto
+
 .doc-diagram__svg
   display: block
   width: 100%
   min-width: 30rem
   height: auto
+
+// ---- figures that move ----------------------------------------------
+// The controls sit under the drawing rather than over it, because a play
+// button floating on a diagram covers the thing it is offering to explain.
+
+.doc-figure__controls
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.5rem 0.7rem
+  margin-top: 1rem
+  padding-top: 0.9rem
+  border-top: 1px solid $border
+
+.doc-figure__button
+  flex: 0 0 auto
+  width: 2rem
+  height: 2rem
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  border: 1px solid $border-strong
+  border-radius: $radius-sm
+  background: $bg-card
+  color: $fg
+  font-size: 0.72rem
+  line-height: 1
+  cursor: pointer
+  &:hover
+    color: $primary
+    border-color: $primary
+
+.doc-figure__steps
+  flex: 0 0 auto
+  display: flex
+  gap: 0.3rem
+  list-style: none
+  margin: 0
+  padding: 0
+
+.doc-figure__step
+  width: 1.7rem
+  height: 1.7rem
+  border: 1px solid $border
+  border-radius: 50%
+  background: none
+  color: $fg-dim
+  font-family: $font-mono
+  font-size: 0.75rem
+  cursor: pointer
+  &:hover
+    color: $fg
+
+.doc-figure__step--active
+  color: $on-primary
+  background: $primary
+  border-color: $primary
+
+.doc-figure__caption
+  flex: 1 1 16rem
+  margin: 0
+  min-height: 2.6em
+  color: $fg-body
+  font-size: 0.85rem
+  line-height: 1.5
+
+// The whole script, always in the document. When the live caption above is
+// carrying the current step this is for screen readers and for anyone with
+// JavaScript off; under prefers-reduced-motion it becomes the explanation.
+.doc-figure__script
+  margin: 1rem 0 0
+  padding-left: 1.4rem
+  color: $fg-muted
+  font-size: 0.86rem
+  line-height: 1.55
+  li + li
+    margin-top: 0.4rem
+
+.doc-figure__script--quiet
+  position: absolute
+  width: 1px
+  height: 1px
+  margin: -1px
+  padding: 0
+  overflow: hidden
+  clip: rect(0 0 0 0)
+  white-space: nowrap
+  border: 0
 
 .doc__body
   max-width: 68ch

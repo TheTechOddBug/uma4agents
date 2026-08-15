@@ -45,5 +45,6 @@ Allow: /
 Sitemap: https://u4a.ai/sitemap.xml
 
 # A guided index for language models — see https://llmstxt.org
-# Every post is also available as Markdown at /blog/<slug>.md, and the site
-# speaks MCP at https://u4a.ai/mcp (tools: listBlogs, getBlog).
+# Every page is also available as Markdown by appending .md to its URL —
+# /docs/<section>/<page>.md and /blog/<slug>.md — and the site speaks MCP at
+# https://u4a.ai/mcp (tools: listDocs, getDoc, listBlogs, getBlog).

@@ -72,8 +72,14 @@ a phone:
 - **The terms** the agent signed, dereferenceable rather than summarized
 - **Whether this is first contact** or an established connection
 
+![An ask-me approval in the lab's portal: the tier, the purpose, the exact
+execute_trade call with its parameters, the agent's verified identity, the terms
+it is prohibited from breaking, and Approve or Deny.](/img/docs/owner-approval.png)
+
 For an operation approval, the parameters she sees are the ones hashed into the
-grant. If the display and the hash can disagree, the display is decoration.
+grant. If the display and the hash can disagree, the display is decoration. In
+the shot above, the `execute_trade` arguments she is reading are the same bytes
+the grant will bind to.
 
 A live feed beats polling. In the lab it is a server-sent event stream, backed
 by the database's own notification mechanism, so a pod that restarts does not

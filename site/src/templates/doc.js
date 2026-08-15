@@ -117,12 +117,22 @@ const Doc = ({ data, location }) => {
 
 export const Head = ({ data, location }) => {
   const page = data.markdownRemark;
+  const here = allPages().find((p) => p.to === location.pathname);
+  const sectionStart = here && allPages().find((p) => p.tab === here.tab);
   return (
     <SEO
       title={`${page.frontmatter.title} | UMA for Agents docs`}
       description={page.frontmatter.description}
       pathname={location.pathname}
       docPage
+      breadcrumb={
+        here && {
+          section: here.tabLabel,
+          sectionUrl: sectionStart ? sectionStart.to : here.to,
+          group: here.group,
+          title: page.frontmatter.title,
+        }
+      }
     />
   );
 };
