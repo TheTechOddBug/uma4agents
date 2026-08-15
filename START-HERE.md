@@ -119,7 +119,53 @@ make k8s-policy-test    # expect 11 passed, 0 failed
 Eight of those eleven are **refusals**. A policy suite that only proves the
 allows would pass on a cluster with no policy at all.
 
-## 7. Try to break it
+## 7. Bring your own agent
+
+Everything so far has been Bob's agent. You can point **your own** at the same
+vault, and Alice will treat it as what it is — a stranger.
+
+Run it from a terminal **in this Codespace**. The lab answers to
+`gateway.uma.lab` only from inside this machine, so an agent on your laptop
+cannot reach it.
+
+```bash
+make k8s-trust-ca      # exports the cluster's CA to /tmp/u4a-k8s-ca.pem
+```
+
+Then point any MCP client at the shim — it is a plain stdio MCP server, so
+whatever launches MCP servers for your agent will launch this:
+
+```json
+{
+  "mcpServers": {
+    "alice-vault": {
+      "command": "uv",
+      "args": [
+        "run", "--with", "mcp>=2,<3", "--with", "httpx", "--with", "pyjwt[crypto]",
+        "python", "/workspaces/uma4agents/clients/agent-shim/shim.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/workspaces/uma4agents/lib",
+        "UMA4A_CACERT": "/tmp/u4a-k8s-ca.pem"
+      }
+    }
+  }
+}
+```
+
+Ask it *"what's in Alice's portfolio?"* and watch what happens: it is
+challenged, it signs her terms, and then it **pends** — because a pseudonymous
+agent is its key, your agent's key is not Bob's, and Alice has never met it.
+Approve it in her portal and it appears beside his in **Connected Agents**,
+with its own terms, its own trail, and its own revoke button.
+
+That is the whole point of the shape, tried on yourself rather than watched:
+her policy decided about *you*, while she was the only one who could.
+
+Full detail, including what changes between MCP clients, is in
+[clients/agent-shim/README.md](clients/agent-shim/README.md).
+
+## 8. Try to break it
 
 ```bash
 make k8s-chaos
