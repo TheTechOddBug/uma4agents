@@ -18,6 +18,10 @@ exports.createSchemaCustomization = ({ actions }) => {
       # a docs page without the field would otherwise break the query for
       # every page that has it.
       next: [DocNext]
+      # Documentation only: a demo video, loaded on click rather than on load.
+      video: String
+      videoTitle: String
+      videoPoster: String
       date: Date @dateformat
       author: String
       description: String

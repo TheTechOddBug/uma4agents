@@ -7,6 +7,7 @@ import TableOfContents from "../components/TableOfContents";
 import PageActions from "../components/PageActions";
 import DocsSidebar, { DocsTabs } from "../components/DocsSidebar";
 import DocsCards from "../components/DocsCards";
+import VideoEmbed from "../components/VideoEmbed";
 import { allPages, neighbours, tabForPath } from "../data/docs-nav";
 
 /**
@@ -19,7 +20,8 @@ import { allPages, neighbours, tabForPath } from "../data/docs-nav";
  */
 const Doc = ({ data, location }) => {
   const page = data.markdownRemark;
-  const { title, description, next } = page.frontmatter;
+  const { title, description, next, video, videoTitle, videoPoster } =
+    page.frontmatter;
   const pathname = location.pathname;
   const markdownPath = `${pathname.replace(/\/$/, "")}.md`;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,6 +57,14 @@ const Doc = ({ data, location }) => {
               </div>
               {description && <p className="doc__lede">{description}</p>}
             </div>
+
+            {video && (
+              <VideoEmbed
+                id={video}
+                title={videoTitle || title}
+                poster={videoPoster}
+              />
+            )}
 
             {/* Rendered before the contents list on purpose: TableOfContents
                 reads the headings out of the live DOM, so they have to exist
@@ -125,6 +135,9 @@ export const pageQuery = graphql`
       frontmatter {
         title
         description
+        video
+        videoTitle
+        videoPoster
         next {
           title
           to
