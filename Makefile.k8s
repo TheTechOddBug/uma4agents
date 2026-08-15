@@ -246,3 +246,15 @@ k8s-status:
 .PHONY: codespaces-web
 codespaces-web:
 	@bash .devcontainer/expose-web.sh
+
+## k8s-many-agents: N distinct agents, N connections, one policy (AGENTS=12)
+##
+## Not part of any suite yet — written, never run. The assertions are the
+## interesting ones (distinct keys become distinct connections, revoking one
+## leaves the rest, her policy still names no agent), but nothing has proved
+## the script itself is right, so treat a failure as suspect until it has
+## passed once.
+.PHONY: k8s-many-agents
+k8s-many-agents: AGENTS ?= 12
+k8s-many-agents:
+	$(call run_job,many-agents,sed 's|"12"|"$(AGENTS)"|' $(K8S)/base/jobs/many-agents.yaml,600s)
