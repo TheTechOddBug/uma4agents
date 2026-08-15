@@ -40,10 +40,6 @@ const VideoEmbed = ({ id, title = "Demo video", poster }) => {
           ▶ Play
         </span>
       </button>
-      <p className="video-embed__note">
-        Loads from YouTube when you press play. Nothing is requested from them
-        before that.
-      </p>
     </div>
   );
 };
