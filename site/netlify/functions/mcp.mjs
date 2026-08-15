@@ -7,9 +7,10 @@ import { createRequire } from "module";
  * u4a.ai as an MCP server.
  *
  * The site is about agents negotiating for access to things, so it should be
- * readable by one. Two tools: list what is here, and fetch a post in full.
+ * readable by one. Two pairs of tools: list what is here, and fetch one thing
+ * in full — once for the documentation, once for the blog.
  *
- * The index is generated at build time by scripts/build-blog-data.js and
+ * The indexes are generated at build time by scripts/build-blog-data.js and
  * bundled with the function — reading the Markdown from disk at request time
  * would not work, because the source tree is not deployed alongside the
  * function.
@@ -21,6 +22,7 @@ import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
 const blogData = require("./blog-data.json");
+const docsData = require("./docs-data.json");
 
 const SITE = "https://u4a.ai";
 const NAME = "u4a";
@@ -28,6 +30,80 @@ const VERSION = "1.0.0";
 
 function createServer() {
   const server = new McpServer({ name: NAME, version: VERSION });
+
+  server.tool(
+    "listDocs",
+    "List every documentation page on u4a.ai in reading order, with its " +
+      "section, group, description and headings. Call this first to find a " +
+      "slug for getDoc.",
+    {},
+    async () => ({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            docsData.map((doc) => ({
+              title: doc.title,
+              section: doc.section,
+              group: doc.group,
+              description: doc.description,
+              slug: doc.slug,
+              url: `${SITE}${doc.url}`,
+              markdown: `${SITE}${doc.markdown}`,
+              headings: doc.headings,
+            })),
+            null,
+            2
+          ),
+        },
+      ],
+    })
+  );
+
+  server.tool(
+    "getDoc",
+    "Get the full Markdown of one documentation page by slug. Use listDocs " +
+      "first to find available slugs.",
+    {
+      slug: z
+        .string()
+        .describe(
+          "The page slug, e.g. 'overview/four-beats' or 'reference/wire-contract'"
+        ),
+    },
+    async ({ slug }) => {
+      const wanted = slug.replace(/^\/?docs\//, "").replace(/\/$/, "");
+      const doc = docsData.find((d) => d.slug === wanted);
+
+      if (!doc) {
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `No documentation page with slug "${slug}". Available: ` +
+                docsData.map((d) => d.slug).join(", "),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const header = [
+        `# ${doc.title}`,
+        "",
+        `**Section:** ${doc.section} — ${doc.group}`,
+        `**URL:** ${SITE}${doc.url}`,
+        "",
+        doc.description ? `> ${doc.description}` : "",
+        "",
+        "---",
+        "",
+      ].join("\n");
+
+      return { content: [{ type: "text", text: header + doc.body }] };
+    }
+  );
 
   server.tool(
     "listBlogs",
@@ -118,9 +194,10 @@ export default async (req) => {
         name: NAME,
         version: VERSION,
         description:
-          "MCP server for u4a.ai. Tools: listBlogs, getBlog. " +
-          "Every post is also plain Markdown at /blog/<slug>.md",
-        tools: ["listBlogs", "getBlog"],
+          "MCP server for u4a.ai. Tools: listDocs, getDoc, listBlogs, getBlog. " +
+          "Every page is also plain Markdown — /docs/<section>/<page>.md and " +
+          "/blog/<slug>.md",
+        tools: ["listDocs", "getDoc", "listBlogs", "getBlog"],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );

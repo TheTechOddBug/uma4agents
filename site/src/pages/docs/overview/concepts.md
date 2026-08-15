@@ -11,9 +11,9 @@ next:
     blurb: Terms and their exact meanings.
 ---
 
-Eight ideas carry the design. Each has a page of its own in
-[Understand](/docs/overview/four-beats/); this is the short form, in the order
-the pieces meet each other.
+Eight ideas carry the design. Each gets a page of its own further down this
+section, starting at [the four beats](/docs/overview/four-beats/); this is the
+short form, in the order the pieces meet each other.
 
 ## The four beats
 

@@ -82,11 +82,11 @@ byte-for-byte identical in each, which is the point of carrying it: the
 RAR-metadata draft defines that payload against `WWW-Authenticate`, and this
 shows the payload survives a transport with no status line.
 
-**A gateway-hosted enforcement point can never answer beat one with a JSON-RPC
-result.** In an external-authorization callout a 2xx means allow and the body is
-discarded; only non-2xx bodies reach the client. Any design where a
-gateway-hosted enforcement point returns a typed result rather than an error is
-impossible, which is why the challenge is an error in both encodings.
+> **A gateway-hosted enforcement point can never answer beat one with a
+> JSON-RPC result.** In an external-authorization callout a 2xx means allow and
+> the body is discarded; only non-2xx bodies reach the client. Any design where
+> a gateway-hosted enforcement point returns a typed result rather than an error
+> is impossible, which is why the challenge is an error in both encodings.
 
 ## The pend
 

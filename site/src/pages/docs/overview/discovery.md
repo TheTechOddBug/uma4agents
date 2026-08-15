@@ -2,6 +2,8 @@
 templateKey: doc
 title: Discovery, public and protected
 description: What a resource is can be public. Whose instances sit behind it cannot.
+diagram: discovery-layers
+diagramCaption: Both bands are served by the resource server, from one registry. Only the audience differs.
 next:
   - title: Issue the challenge
     to: /docs/guides/challenge/
@@ -54,6 +56,13 @@ publishes what it protects; the owner's authorization server reads it and
 materialises its own registry. One writer, one source of truth, and no
 imperative registration call that can half-fail and leave the two sides
 disagreeing.
+
+It also explains why the older model felt heavy. The two bands carry facts with
+different cardinality: what a tool is, and which scopes it needs, are universal
+and true once — while whose instance sits behind it is per-owner. Push
+registration sent both down one per-instance channel, so a universal fact was
+re-registered for every owner. Splitting them puts each on a surface sized for
+it.
 
 It also gives the agent a second witness. The challenge names an authorization
 server, and the published metadata names authorization servers. The agent checks

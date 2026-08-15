@@ -2,6 +2,8 @@
 templateKey: doc
 title: Architecture
 description: Which party holds which responsibility, and why the boundaries between them are the design.
+diagram: trust-boundary
+diagramCaption: The seam the profile exists to hold. Meridian enforces a policy it is refused permission to read.
 next:
   - title: Concepts
     to: /docs/overview/concepts/

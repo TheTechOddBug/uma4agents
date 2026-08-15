@@ -7,9 +7,52 @@ A working proof-of-concept, with Eve Maler, carrying User-Managed Access
 people's AI agents negotiate access against it while she is offline. The lab
 runs locally with one command and also deploys to Kubernetes.
 
-Every post below is available as plain Markdown by appending `.md` to its
-URL. The site also speaks MCP at https://u4a.ai/mcp with two tools,
-`listBlogs` and `getBlog`, if you would rather read it that way.
+Every page below is available as plain Markdown by appending `.md` to its
+URL. The site also speaks MCP at https://u4a.ai/mcp with four tools —
+`listDocs`, `getDoc`, `listBlogs` and `getBlog` — if you would rather read
+it that way.
+
+## Documentation
+
+Concept pages explain one idea; guides walk a procedure end to end; the
+reference is the wire contract, the endpoints and the deviations from
+UMA 2.0. Listed in reading order.
+
+- [Overview · Overview](https://u4a.ai/docs/overview.md): A working profile of UMA 2.0 for the case where the thing asking is someone else's AI agent, and the person who owns the resource is asleep.
+- [Overview · Why the owner decides](https://u4a.ai/docs/overview/why.md): What breaks when the party who owns a resource is not the party who configured access to it.
+- [Overview · Architecture](https://u4a.ai/docs/overview/architecture.md): Which party holds which responsibility, and why the boundaries between them are the design.
+- [Overview · Concepts](https://u4a.ai/docs/overview/concepts.md): The eight ideas the rest of the documentation assumes, each in a paragraph.
+- [Overview · Standards this composes](https://u4a.ai/docs/overview/standards.md): Every specification U4A builds on, what each one supplies, and where it appears in the flow.
+- [Overview · The four beats](https://u4a.ai/docs/overview/four-beats.md): Challenge, attempt, commit, grant — the whole negotiation, and what each exchange is for.
+- [Overview · The three parties](https://u4a.ai/docs/overview/parties.md): Owner, requesting party, requesting agent — and what it costs to treat the last two as one.
+- [Overview · Terms as first-class](https://u4a.ai/docs/overview/terms.md): The owner does not just decide — she states what she requires, and the agent signs it.
+- [Overview · Identity is not authorization](https://u4a.ai/docs/overview/identity.md): Knowing which agent is calling tells you nothing about whether it may proceed. Both are needed, and they answer different questions.
+- [Overview · Discovery, public and protected](https://u4a.ai/docs/overview/discovery.md): What a resource is can be public. Whose instances sit behind it cannot.
+- [Overview · Proof-of-possession](https://u4a.ai/docs/overview/proof-of-possession.md): A grant that names a key, and a request signed with it — so holding the token is not enough.
+- [Overview · Single-use means indivisible](https://u4a.ai/docs/overview/single-use.md): Once has to mean once across every replica, which makes it a property of how you write to the store rather than of the protocol.
+- [Overview · Revocation and the ledger](https://u4a.ai/docs/overview/revocation.md): What was promised, what was approved, what was touched — and what happens the moment the owner changes her mind.
+- [Overview · Compared to UMA 2.0](https://u4a.ai/docs/overview/compare-uma.md): What this profile keeps, what it changes, and why each change was necessary rather than preferred.
+- [Overview · Compared to OAuth 2.0 and GNAP](https://u4a.ai/docs/overview/compare-oauth-gnap.md): Both can carry a negotiation. Neither, on its own, puts the deciding party anywhere but the service.
+- [Overview · Compared to policy engines](https://u4a.ai/docs/overview/compare-policy-engines.md): OPA, Cedar and AuthZEN decide well. They do not decide whose policy is being expressed, and the two compose.
+- [Overview · Compared to agent identity work](https://u4a.ai/docs/overview/compare-agent-identity.md): AAuth, Web Bot Auth, CIMD and enterprise-managed agent auth — what each answers, and what is left over.
+- [Overview · Glossary](https://u4a.ai/docs/overview/glossary.md): Terms as this documentation uses them, including the places where a word means something narrower here than it does elsewhere.
+- [Overview · FAQ](https://u4a.ai/docs/overview/faq.md): The questions that come up first, answered directly, including the ones where the answer is that this does not do that.
+- [Guides · The roles you must fill](https://u4a.ai/docs/guides/roles.md): Six roles, what each one has to be able to do, and how to judge whether something in your stack can do it.
+- [Guides · Run the lab](https://u4a.ai/docs/guides/run-the-lab.md): A three-node deployment with one command, then the sequence that shows an owner deciding while she is the only one who can.
+- [Guides · Choose an enforcement point](https://u4a.ai/docs/guides/enforcement-point.md): What the component that refuses has to be able to do, the two shapes it can take, and how to keep one implementation behind both.
+- [Guides · Issue the challenge](https://u4a.ai/docs/guides/challenge.md): Turning a refusal into the start of a negotiation — what the challenge carries, and the check that stops it being redirected.
+- [Guides · Dictate terms, take an agreement](https://u4a.ai/docs/guides/terms.md): How the owner's side proffers the conditions of access, what a signed echo has to prove, and the checks that stop an agent agreeing to something weaker.
+- [Guides · Mint an operation-bound grant](https://u4a.ai/docs/guides/grant.md): Issuing a credential that authorizes one operation rather than a capability, and the enforcement order that makes it hold.
+- [Guides · Make single-use indivisible](https://u4a.ai/docs/guides/indivisible.md): Why the burn has to be one statement, how to write it in a relational store, and how to test something that only fails under concurrency.
+- [Guides · Wire the owner's approval path](https://u4a.ai/docs/guides/approval.md): Holding a negotiation while a human decides, showing her something she can act on, and authorizing her without inventing a credential for her.
+- [Guides · Deploy it at scale](https://u4a.ai/docs/guides/at-scale.md): Separating the parties so the seam is enforced rather than described, replicating an authority correctly, and the checks that prove it held.
+- [Reference · Wire contract](https://u4a.ai/docs/reference/wire-contract.md): Every message that travels between the parties, in order, with the fields that carry meaning.
+- [Reference · Endpoints](https://u4a.ai/docs/reference/endpoints.md): Every surface each party exposes, who may call it, and what it answers.
+- [Reference · Events](https://u4a.ai/docs/reference/events.md): The structured event stream, every event name, and the ledger projected from it.
+- [Reference · MCP binding](https://u4a.ai/docs/reference/mcp-binding.md): How the grant travels over Model Context Protocol — discovery channels, both challenge encodings, the pend, and what MCP's types cannot yet express.
+- [Reference · Configuration](https://u4a.ai/docs/reference/configuration.md): Every setting each component reads, its default, and the two settings people get wrong.
+- [Reference · Deviations from UMA 2.0](https://u4a.ai/docs/reference/deviations.md): The extension register — every place this profile departs from stock UMA, what the baseline says, and why each departure exists.
+- [Reference · Findings](https://u4a.ai/docs/reference/findings.md): What the build produced for the people writing the specifications — verdicts on each UMA 2.0 primitive, nine recommendations, and what was parked.
 
 ## Posts
 
@@ -19,6 +62,7 @@ URL. The site also speaks MCP at https://u4a.ai/mcp with two tools,
 ## Pages
 
 - [Home](https://u4a.ai/): The four-beat grant as an animated walkthrough — challenge, terms, commit, grant.
+- [Docs](https://u4a.ai/docs/overview/): Concepts, guides and the wire contract.
 - [Blog](https://u4a.ai/blog/): Working notes on carrying UMA into the agent era.
 - [Contact](https://u4a.ai/contact/): Use cases, problems and ideas are what shape where this goes next.
 

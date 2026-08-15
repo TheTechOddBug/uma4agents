@@ -1087,6 +1087,136 @@ $docs-toc-w: 220px
   color: $primary
   border-bottom-color: $primary
 
+// ---- search ---------------------------------------------------------
+
+.docs-search__trigger
+  flex: 0 0 auto
+  margin-left: auto
+  align-self: center
+  display: inline-flex
+  align-items: center
+  gap: 0.6rem
+  padding: 0.35rem 0.6rem 0.35rem 0.75rem
+  border: 1px solid $border
+  border-radius: $radius-sm
+  background: $bg-card
+  color: $fg-dim
+  font: inherit
+  font-size: 0.85rem
+  cursor: pointer
+  white-space: nowrap
+  &:hover
+    color: $fg
+    border-color: $border-strong
+  kbd
+    padding: 0.1rem 0.35rem
+    border: 1px solid $border
+    border-radius: 4px
+    background: $bg-sunken
+    font-family: $font-mono
+    font-size: 0.72rem
+  // The physical key does not exist on a phone, and the row it sits in is
+  // already scrolling sideways there.
+  @media (max-width: $bp-sm)
+    kbd
+      display: none
+
+.docs-search__label--short
+  display: none
+
+@media (max-width: $bp-sm)
+  .docs-search__label
+    display: none
+  .docs-search__label--short
+    display: inline
+
+.docs-search__scrim
+  position: fixed
+  inset: 0
+  z-index: 200
+  display: flex
+  justify-content: center
+  padding: 12vh 1.25rem 2rem
+  background: rgba(0, 0, 0, 0.6)
+  backdrop-filter: blur(3px)
+
+.docs-search__dialog
+  width: 100%
+  max-width: 34rem
+  max-height: 70vh
+  display: flex
+  flex-direction: column
+  border: 1px solid $border-strong
+  border-radius: $radius-lg
+  background: $bg-card
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6)
+  overflow: hidden
+
+.docs-search__input
+  width: 100%
+  padding: 1rem 1.1rem
+  border: 0
+  border-bottom: 1px solid $border
+  background: none
+  color: $fg
+  font: inherit
+  font-size: 1rem
+  &:focus
+    outline: none
+  &::placeholder
+    color: $fg-dim
+
+.docs-search__empty
+  margin: 0
+  padding: 1.1rem
+  color: $fg-dim
+  font-size: 0.9rem
+
+.docs-search__results
+  list-style: none
+  margin: 0
+  padding: 0.4rem
+  overflow-y: auto
+
+.docs-search__result
+  display: block
+  width: 100%
+  padding: 0.6rem 0.7rem
+  border: 0
+  border-radius: $radius-sm
+  background: none
+  color: $fg
+  font: inherit
+  text-align: left
+  cursor: pointer
+
+.docs-search__result--active
+  background: $tint-granted
+
+.docs-search__crumb
+  display: block
+  font-family: $font-mono
+  font-size: 0.68rem
+  letter-spacing: 0.1em
+  text-transform: uppercase
+  color: $accent
+
+.docs-search__title
+  display: block
+  margin-top: 0.15rem
+  font-size: 0.95rem
+  font-weight: 600
+
+.docs-search__blurb
+  display: -webkit-box
+  margin-top: 0.2rem
+  color: $fg-muted
+  font-size: 0.82rem
+  line-height: 1.45
+  overflow: hidden
+  -webkit-line-clamp: 2
+  -webkit-box-orient: vertical
+
 .docs-shell
   max-width: $container
   margin: 0 auto
@@ -1194,13 +1324,20 @@ $docs-toc-w: 220px
 .doc__title-row
   display: flex
   align-items: flex-start
-  justify-content: space-between
-  gap: 1.5rem
+  gap: 0.9rem 1.5rem
   flex-wrap: wrap
   h1
     margin: 0
     font-size: clamp(1.9rem, 4vw, 2.5rem)
     line-height: 1.15
+  // `margin-left: auto` rather than `justify-content: space-between`, because
+  // the two behave differently once the row wraps. With space-between, a title
+  // long enough to take the whole first line leaves the button alone on the
+  // second — where it is pushed to the *left*. Its menu is right-anchored, so
+  // it then opened leftwards off the side of a phone screen. Auto margin keeps
+  // the button at the right edge whether or not the row wrapped.
+  > .page-actions
+    margin-left: auto
 
 .doc__lede
   margin: 0.9rem 0 0
@@ -1209,8 +1346,46 @@ $docs-toc-w: 220px
   font-size: 1.08rem
   line-height: 1.55
 
+// A diagram scrolls sideways rather than shrinking without limit, on the same
+// reasoning as the tables and code blocks above: below about 500px the labels
+// stop being readable, and an unreadable diagram is worse than a scrollbar.
+.doc-diagram
+  margin: 0 0 2.2rem
+  padding: 1.2rem
+  border: 1px solid $border
+  border-radius: $radius-lg
+  background: $bg-sunken
+  overflow-x: auto
+  figcaption
+    margin-top: 0.9rem
+    color: $fg-dim
+    font-size: 0.85rem
+    line-height: 1.5
+
+.doc-diagram__svg
+  display: block
+  width: 100%
+  min-width: 30rem
+  height: auto
+
 .doc__body
   max-width: 68ch
+
+  // A blockquote in a post is a pull-quote, and it is set in italics to read
+  // as one. In the documentation it is a callout — something the reader loses
+  // real time by skipping — so it gets a panel rather than a quotation mark.
+  blockquote
+    margin: 1.75rem 0
+    padding: 0.9rem 1.1rem
+    border-left: 3px solid $accent
+    border-radius: 0 $radius-sm $radius-sm 0
+    background: $bg-card
+    color: $fg-body
+    font-style: normal
+    p:first-child
+      margin-top: 0
+    p:last-child
+      margin-bottom: 0
 
 .doc__next
   margin-top: 3rem

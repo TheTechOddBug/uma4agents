@@ -2,6 +2,8 @@
 templateKey: doc
 title: The four beats
 description: Challenge, attempt, commit, grant — the whole negotiation, and what each exchange is for.
+diagram: four-beats
+diagramCaption: One negotiation. Alice appears only in beat three, and only on her own surface — she is never on the connection between the agent and the resource.
 next:
   - title: The three parties
     to: /docs/overview/parties/

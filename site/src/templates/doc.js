@@ -8,6 +8,7 @@ import PageActions from "../components/PageActions";
 import DocsSidebar, { DocsTabs } from "../components/DocsSidebar";
 import DocsCards from "../components/DocsCards";
 import VideoEmbed from "../components/VideoEmbed";
+import DocDiagram from "../components/DocDiagram";
 import { allPages, neighbours, tabForPath } from "../data/docs-nav";
 
 /**
@@ -20,7 +21,7 @@ import { allPages, neighbours, tabForPath } from "../data/docs-nav";
  */
 const Doc = ({ data, location }) => {
   const page = data.markdownRemark;
-  const { title, description, next, video, videoTitle, videoPoster } =
+  const { title, description, next, video, videoTitle, videoPoster, diagram, diagramCaption } =
     page.frontmatter;
   const pathname = location.pathname;
   const markdownPath = `${pathname.replace(/\/$/, "")}.md`;
@@ -64,6 +65,10 @@ const Doc = ({ data, location }) => {
                 title={videoTitle || title}
                 poster={videoPoster}
               />
+            )}
+
+            {diagram && (
+              <DocDiagram name={diagram} caption={diagramCaption} />
             )}
 
             {/* Rendered before the contents list on purpose: TableOfContents
@@ -138,6 +143,8 @@ export const pageQuery = graphql`
         video
         videoTitle
         videoPoster
+        diagram
+        diagramCaption
         next {
           title
           to

@@ -60,9 +60,15 @@ grant and changes four things around it:
 
 ## What is in these docs
 
-**[Understand](/docs/overview/four-beats/)** explains the shape one idea at a
-time — the beats of the grant, the parties, what makes single-use mean
-something. Read this first if you want to know whether the design is sound.
+Three sections, and two kinds of page. Concept pages explain one idea; guides
+walk one procedure end to end.
+
+**Overview** — this section. It explains the shape one idea at a time: the
+[beats of the grant](/docs/overview/four-beats/), the
+[parties](/docs/overview/parties/), what makes
+[single-use mean something](/docs/overview/single-use/). It also holds the
+comparisons — start at [UMA 2.0](/docs/overview/compare-uma/) if you already
+run something adjacent and want to know what this adds and what it does not.
 
 **[Guides](/docs/guides/roles/)** walk procedures. They name the *role* first
 and only then say how this lab filled it, because the interesting question is
@@ -70,10 +76,6 @@ what you would build, not what we happened to choose.
 
 **[Reference](/docs/reference/wire-contract/)** is the wire contract, the
 endpoints, the events, and the exact places this profile departs from UMA 2.0.
-
-**[Compare](/docs/overview/compare-uma/)** is where to go if you already run something
-adjacent — a policy engine, an OAuth deployment, an agent identity stack — and
-want to know what this adds and what it does not.
 
 ## What this is not
 

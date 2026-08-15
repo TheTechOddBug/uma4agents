@@ -2,6 +2,8 @@
 templateKey: doc
 title: Mint an operation-bound grant
 description: Issuing a credential that authorizes one operation rather than a capability, and the enforcement order that makes it hold.
+diagram: enforcement-order
+diagramCaption: Check, then act. The burn is last because everything before it can fail.
 next:
   - title: Make single-use indivisible
     to: /docs/guides/indivisible/

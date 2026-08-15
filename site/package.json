@@ -1,6 +1,6 @@
 {
   "name": "u4a-site",
-  "description": "u4a.ai — UMA for Agents",
+  "description": "u4a.ai \u2014 UMA for Agents",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -10,6 +10,7 @@
     "clean": "gatsby clean",
     "start": "npm run develop",
     "build": "npm run clean && mkdir -p .cache && gatsby build",
+    "postbuild": "npm run check-links",
     "develop": "npm run clean && mkdir -p .cache && gatsby develop",
     "develop:fast": "gatsby develop",
     "serve": "gatsby serve",
@@ -19,7 +20,8 @@
     "predevelop": "npm run theme && npm run blog-data",
     "predevelop:fast": "npm run theme && npm run blog-data",
     "social": "node scripts/gen-social.js",
-    "blog-data": "node scripts/build-blog-data.js"
+    "blog-data": "node scripts/build-blog-data.js",
+    "check-links": "node scripts/check-links.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

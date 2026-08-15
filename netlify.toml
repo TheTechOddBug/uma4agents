@@ -23,7 +23,10 @@
   # nft traces the real module graph. esbuild would have to be told about the
   # SDK's dynamic imports, and the JSON is loaded through createRequire.
   node_bundler = "nft"
-  included_files = ["netlify/functions/blog-data.json"]
+  included_files = [
+    "netlify/functions/blog-data.json",
+    "netlify/functions/docs-data.json",
+  ]
 
 [[plugins]]
   package = "@netlify/plugin-gatsby"

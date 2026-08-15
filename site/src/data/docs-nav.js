@@ -14,14 +14,20 @@
 // `to` is the page's URL, and the markdown lives at the matching path under
 // src/pages/ — so /docs/overview/four-beats/ is
 // src/pages/docs/overview/four-beats.md.
+//
+// CommonJS on purpose, for the same reason src/style/theme.js is: this file is
+// read both by webpack for the app and by plain Node in scripts/, and the build
+// pins Node 20, which cannot `require` an ES module. Reading order has to be
+// the same list for the sidebar, the search index and the link checker — two
+// copies would drift.
 
-export const tabs = [
+const tabs = [
   { id: "overview", label: "Overview" },
   { id: "guides", label: "Guides" },
   { id: "reference", label: "Reference" },
 ];
 
-export const nav = {
+const nav = {
   overview: [
     {
       group: "Start here",
@@ -123,7 +129,7 @@ export const nav = {
 };
 
 /** Every page, flat and in reading order. */
-export const allPages = () =>
+const allPages = () =>
   tabs.flatMap((t) =>
     (nav[t.id] || []).flatMap((g) =>
       g.pages.map((p) => ({ ...p, tab: t.id, tabLabel: t.label, group: g.group }))
@@ -131,13 +137,13 @@ export const allPages = () =>
   );
 
 /** Which tab a URL belongs to, for highlighting the tab bar. */
-export const tabForPath = (pathname) => {
+const tabForPath = (pathname) => {
   const hit = allPages().find((p) => p.to === pathname);
   return hit ? hit.tab : (pathname.split("/")[2] || "overview");
 };
 
 /** The page before and after this one, in reading order, for the footer. */
-export const neighbours = (pathname) => {
+const neighbours = (pathname) => {
   const flat = allPages();
   const i = flat.findIndex((p) => p.to === pathname);
   return i === -1
@@ -145,4 +151,4 @@ export const neighbours = (pathname) => {
     : { prev: flat[i - 1] || null, next: flat[i + 1] || null };
 };
 
-export default nav;
+module.exports = { tabs, nav, allPages, tabForPath, neighbours, default: nav };

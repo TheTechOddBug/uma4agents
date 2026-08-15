@@ -102,10 +102,10 @@ trades on an ask-me tier. Approve it, and notice what the agent receives: a
 grant bound to that one order. The epilogue proves it by replaying the same
 token and being refused.
 
-`SIM=1` taps for her, which is how the headless runs work. It also means nothing
-reaches her portal, so use `SIM=0` when you want to see the point. If she does
-not answer within a couple of minutes the run ends with `grant denied: timed out
-waiting for the owner`, which is correct rather than broken.
+> `SIM=1` taps for her, which is how the headless runs work. It also means
+> nothing reaches her portal, so use `SIM=0` when you want to see the point. If
+> she does not answer within a couple of minutes the run ends with `grant
+> denied: timed out waiting for the owner`, which is correct rather than broken.
 
 ## Read what happened
 

@@ -31,6 +31,21 @@ which is AAuth's own precondition.
 
 Of everything on this page, AAuth is the closest fit and the most complementary.
 
+The two protocols even mint the same kind of artifact. AAuth's resource token
+and UMA's permission ticket are both produced at a refused access attempt, both
+name what was attempted, and both are handed to the agent as a pointer to the
+authority that could grant it. The difference is where the state sits: AAuth's
+resource token is minted by the resource, and the authority holds nothing until
+the agent presents it. UMA's ticket is minted by the owner's authority when the
+resource registers the attempt, so her side holds the negotiation from the first
+message.
+
+For a grant that can pend — where the answer is "ask her, and she is asleep" —
+only the second arrangement has anywhere to keep the pending request. That is
+why the ticket carries through this profile unchanged, and why the challenge can
+also be expressed as an AAuth requirement so an AAuth-native agent finds the
+grant layer through its own challenge header.
+
 ## Web Bot Auth
 
 A directory where an operator publishes the keys its agents sign with, so a

@@ -159,8 +159,9 @@ worth as much as a record of agreement.
 
 ## What this does and does not give you
 
-Signing terms does not enforce them. Nothing in the protocol stops an agent that
-agreed to `prohibited: ["model-training"]` from training on the data anyway.
+> Signing terms does not enforce them. Nothing in the protocol stops an agent
+> that agreed to `prohibited: ["model-training"]` from training on the data
+> anyway.
 
 What the exchange produces is a **record**: dually signed, content-addressed,
 naming a persistent document, correlated to the access that followed. That is

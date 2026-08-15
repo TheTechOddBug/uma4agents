@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Reads the blog Markdown and writes the two indexes that are not pages:
+ * Reads the blog and docs Markdown and writes the indexes that are not pages:
  *
  *   netlify/functions/blog-data.json   what the MCP server answers from
+ *   netlify/functions/docs-data.json   the same, for the documentation
+ *   static/search-index.json           what ⌘K filters, client-side
  *   static/llms.txt                    the guided index for language models
  *
- * Both are generated rather than maintained, because either one going stale
- * is invisible — a missing post does not break a build, it just quietly stops
+ * All generated rather than maintained, because any of them going stale is
+ * invisible — a missing page does not break a build, it just quietly stops
  * being findable.
  *
  * Runs from `prebuild` / `predevelop`.
@@ -14,10 +16,14 @@
 const fs = require("fs");
 const path = require("path");
 const siteMetadata = require("../site-meta");
+const { allPages } = require("../src/data/docs-nav");
 
 const root = path.join(__dirname, "..");
 const BLOG_DIR = path.join(root, "src", "pages", "blog");
+const DOCS_DIR = path.join(root, "src", "pages", "docs");
 const DATA_OUT = path.join(root, "netlify", "functions", "blog-data.json");
+const DOCS_OUT = path.join(root, "netlify", "functions", "docs-data.json");
+const SEARCH_OUT = path.join(root, "static", "search-index.json");
 const LLMS_OUT = path.join(root, "static", "llms.txt");
 const SITE = siteMetadata.siteUrl;
 
@@ -94,6 +100,80 @@ const posts = fs
 fs.mkdirSync(path.dirname(DATA_OUT), { recursive: true });
 fs.writeFileSync(DATA_OUT, JSON.stringify(posts, null, 2));
 
+// --- the documentation ---------------------------------------------------
+// Walked in the reading order docs-nav.js declares rather than in filesystem
+// order, so an agent listing the docs gets them in the sequence a person would
+// read them. A page in the nav with no file is a build failure here, which is
+// the cheapest place to catch it.
+const docs = allPages().map((entry) => {
+  const rel = entry.to.replace(/^\/docs\//, "").replace(/\/$/, "");
+  const candidates = [
+    path.join(DOCS_DIR, `${rel}.md`),
+    path.join(DOCS_DIR, rel, "index.md"),
+  ];
+  const file = candidates.find((c) => fs.existsSync(c));
+  if (!file) {
+    throw new Error(
+      `docs-nav.js lists ${entry.to} but neither ${path.relative(root, candidates[0])} ` +
+        `nor ${path.relative(root, candidates[1])} exists`
+    );
+  }
+
+  const { frontmatter, body } = parseFrontmatter(fs.readFileSync(file, "utf-8"));
+  return {
+    slug: rel,
+    url: entry.to,
+    markdown: `${entry.to.replace(/\/$/, "")}.md`,
+    title: frontmatter.title || entry.title,
+    description: frontmatter.description || null,
+    section: entry.tabLabel,
+    group: entry.group,
+    headings: (body.match(/^##+ .+$/gm) || []).map((h) =>
+      h.replace(/^#+\s*/, "")
+    ),
+    body,
+  };
+});
+
+fs.writeFileSync(DOCS_OUT, JSON.stringify(docs, null, 2));
+
+// --- the search index ----------------------------------------------------
+// Deliberately small: title, where it sits, its headings, and the first
+// paragraph. Enough for a name-what-you-want search over a few dozen pages,
+// and small enough that shipping the whole thing to the browser is cheaper
+// than standing up a search service for it.
+const firstParagraph = (body) => {
+  const para = body
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .find((p) => p && !p.startsWith("#") && !p.startsWith("```") && !p.startsWith("|"));
+  return para ? para.replace(/\s+/g, " ").slice(0, 240) : "";
+};
+
+const searchIndex = [
+  ...docs.map((d) => ({
+    title: d.title,
+    url: d.url,
+    section: d.section,
+    group: d.group,
+    description: d.description || firstParagraph(d.body),
+    headings: d.headings,
+  })),
+  ...posts.map((p) => ({
+    title: p.title,
+    url: p.url,
+    section: "Blog",
+    group: p.category || "Posts",
+    description: p.description || firstParagraph(p.body),
+    headings: (p.body.match(/^##+ .+$/gm) || []).map((h) =>
+      h.replace(/^#+\s*/, "")
+    ),
+  })),
+];
+
+fs.mkdirSync(path.dirname(SEARCH_OUT), { recursive: true });
+fs.writeFileSync(SEARCH_OUT, JSON.stringify(searchIndex));
+
 // --- llms.txt (https://llmstxt.org) --------------------------------------
 const llms = [
   `# ${siteMetadata.title}`,
@@ -105,9 +185,21 @@ const llms = [
   "people's AI agents negotiate access against it while she is offline. The lab",
   "runs locally with one command and also deploys to Kubernetes.",
   "",
-  "Every post below is available as plain Markdown by appending `.md` to its",
-  "URL. The site also speaks MCP at " + `${SITE}/mcp` + " with two tools,",
-  "`listBlogs` and `getBlog`, if you would rather read it that way.",
+  "Every page below is available as plain Markdown by appending `.md` to its",
+  "URL. The site also speaks MCP at " + `${SITE}/mcp` + " with four tools —",
+  "`listDocs`, `getDoc`, `listBlogs` and `getBlog` — if you would rather read",
+  "it that way.",
+  "",
+  "## Documentation",
+  "",
+  "Concept pages explain one idea; guides walk a procedure end to end; the",
+  "reference is the wire contract, the endpoints and the deviations from",
+  "UMA 2.0. Listed in reading order.",
+  "",
+  ...docs.map(
+    (d) =>
+      `- [${d.section} · ${d.title}](${SITE}${d.markdown}): ${d.description || ""}`.trimEnd()
+  ),
   "",
   "## Posts",
   "",
@@ -118,6 +210,7 @@ const llms = [
   "## Pages",
   "",
   `- [Home](${SITE}/): The four-beat grant as an animated walkthrough — challenge, terms, commit, grant.`,
+  `- [Docs](${SITE}/docs/overview/): Concepts, guides and the wire contract.`,
   `- [Blog](${SITE}/blog/): Working notes on carrying UMA into the agent era.`,
   `- [Contact](${SITE}/contact/): Use cases, problems and ideas are what shape where this goes next.`,
   "",
@@ -133,4 +226,7 @@ const llms = [
 fs.writeFileSync(LLMS_OUT, llms);
 
 const rel = (p) => path.relative(process.cwd(), p);
-console.log(`blog index: ${posts.length} posts\n  ${rel(DATA_OUT)}\n  ${rel(LLMS_OUT)}`);
+console.log(
+  `indexes: ${posts.length} posts, ${docs.length} doc pages\n` +
+    [DATA_OUT, DOCS_OUT, SEARCH_OUT, LLMS_OUT].map((p) => `  ${rel(p)}`).join("\n")
+);
