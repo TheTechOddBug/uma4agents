@@ -1441,6 +1441,89 @@ $docs-toc-w: 220px
   font-size: 0.85rem
   line-height: 1.5
 
+// ---- the figure you operate -----------------------------------------
+
+.doc-sandbox
+  overflow: visible
+
+.doc-sandbox__controls
+  display: grid
+  gap: 1rem
+
+.doc-sandbox__label
+  display: block
+  margin-bottom: 0.4rem
+  font-family: $font-mono
+  font-size: 0.68rem
+  letter-spacing: 0.12em
+  text-transform: uppercase
+  color: $fg-dim
+
+.doc-sandbox__options
+  display: flex
+  flex-wrap: wrap
+  gap: 0.4rem
+
+.doc-sandbox__option
+  padding: 0.45rem 0.75rem
+  border: 1px solid $border
+  border-radius: $radius-sm
+  background: $bg-card
+  color: $fg-muted
+  font: inherit
+  font-size: 0.85rem
+  cursor: pointer
+  &:hover
+    color: $fg
+    border-color: $border-strong
+
+.doc-sandbox__option--on
+  color: $on-primary
+  background: $primary
+  border-color: $primary
+  font-weight: 500
+
+.doc-sandbox__result
+  margin-top: 1.3rem
+  padding: 1rem 1.1rem
+  border: 1px solid $border
+  border-left-width: 3px
+  border-radius: 0 $radius-sm $radius-sm 0
+  background: $bg-card
+
+.doc-sandbox__result--granted
+  border-left-color: $primary
+
+.doc-sandbox__result--pending
+  border-left-color: $amber
+
+.doc-sandbox__result--denied
+  border-left-color: $red
+
+.doc-sandbox__verdict
+  margin: 0
+  font-size: 1rem
+  font-weight: 600
+  color: $fg
+
+.doc-sandbox__because
+  margin: 0.5rem 0 0
+  color: $fg-body
+  font-size: 0.88rem
+  line-height: 1.55
+
+.doc-sandbox__event
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 0.6rem
+  margin: 0.8rem 0 0
+  font-size: 0.75rem
+  color: $fg-dim
+  code
+    font-family: $font-mono
+    color: $fg-muted
+
 // The whole script, always in the document. When the live caption above is
 // carrying the current step this is for screen readers and for anyone with
 // JavaScript off; under prefers-reduced-motion it becomes the explanation.

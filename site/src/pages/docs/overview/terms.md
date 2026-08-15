@@ -2,6 +2,8 @@
 templateKey: doc
 title: Terms as first-class
 description: The owner does not just decide — she states what she requires, and the agent signs it.
+diagram: terms-exchange
+diagramCaption: The owner proffers, the agent signs, her authority counter-signs. Both sides keep the same artifact.
 next:
   - title: Dictate terms, take an agreement
     to: /docs/guides/terms/

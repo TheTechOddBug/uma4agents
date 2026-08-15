@@ -2,6 +2,8 @@
 templateKey: doc
 title: Revocation and the ledger
 description: What was promised, what was approved, what was touched — and what happens the moment the owner changes her mind.
+diagram: revoke-cascade
+diagramCaption: Ending the relationship and burning the grants behind it are one operation, not two.
 next:
   - title: How it compares to UMA 2.0
     to: /docs/overview/compare-uma/

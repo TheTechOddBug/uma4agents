@@ -2,6 +2,8 @@
 templateKey: doc
 title: Proof-of-possession
 description: A grant that names a key, and a request signed with it — so holding the token is not enough.
+diagram: proof-of-possession
+diagramCaption: Three callers, one grant. Only the one holding the private key gets through.
 next:
   - title: Single-use means indivisible
     to: /docs/overview/single-use/

@@ -1,5 +1,6 @@
 import React from "react";
 import DocFigure from "./DocFigure";
+import DocSandbox from "./DocSandbox";
 
 /**
  * The documentation's diagrams, still and moving.
@@ -1011,11 +1012,554 @@ const whoAnswersScenes = [
 ];
 
 // ---------------------------------------------------------------------------
+// Terms: proffered, signed, counter-signed, held by both
+// ---------------------------------------------------------------------------
+
+/** A sheet of terms. The one light surface in the set, as on the home page. */
+const Sheet = ({ x, y, label, signedBy }) => (
+  <g transform={`translate(${x} ${y})`}>
+    <rect x="0" y="0" width="104" height="76" rx="6" fill="var(--paper)" />
+    {[0, 1, 2].map((i) => (
+      <line
+        key={i}
+        x1="14"
+        y1={20 + i * 14}
+        x2={i === 2 ? 68 : 90}
+        y2={20 + i * 14}
+        stroke="var(--paper-line)"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
+    ))}
+    {signedBy && (
+      <path
+        d="M16 66 q10 -12 20 0 t20 -2"
+        fill="none"
+        stroke={signedBy}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
+    )}
+    <text x="52" y="-8" textAnchor="middle" fill="var(--ink-2)" fontSize="11.5">
+      {label}
+    </text>
+  </g>
+);
+
+const TermsExchange = () => (
+  <Frame title="How terms are proffered, signed and kept" viewBox="0 0 600 240">
+    <Markers />
+
+    <text x="60" y="24" textAnchor="middle" fill="var(--accent)" fontSize="12" fontFamily={MONO}>
+      ALICE
+    </text>
+    <text x="540" y="24" textAnchor="middle" fill="var(--agent)" fontSize="12" fontFamily={MONO}>
+      THE AGENT
+    </text>
+
+    <g className="te-proffer">
+      <Sheet x={8} y={64} label="her template" />
+      <Arrow from={124} to={230} y={102} colour="var(--amber)" />
+      <text x={177} y={94} textAnchor="middle" fill="var(--amber)" fontSize="11.5">
+        need_info
+      </text>
+      {/* Two short lines rather than one long one: the gap between the sheets
+          is 106 units wide and a single line ran underneath the next sheet. */}
+      <text x={177} y={122} textAnchor="middle" fill="var(--ink-3)" fontSize="10.5">
+        purpose · scope
+      </text>
+      <text x={177} y={136} textAnchor="middle" fill="var(--ink-3)" fontSize="10.5">
+        expiry · prohibited
+      </text>
+    </g>
+
+    <g className="te-sign">
+      <Sheet x={244} y={64} label="echoed and signed" signedBy="var(--agent)" />
+      <text x={296} y={158} textAnchor="middle" fill="var(--ink-3)" fontSize="11">
+        the same key it will
+      </text>
+      <text x={296} y={174} textAnchor="middle" fill="var(--ink-3)" fontSize="11">
+        prove possession with
+      </text>
+    </g>
+
+    <g className="te-verify">
+      <Arrow from={356} to={230} y={196} colour="var(--red)" />
+      <text x={293} y={216} textAnchor="middle" fill="var(--red)" fontSize="11.5">
+        weakened echo → refused
+      </text>
+    </g>
+
+    <g className="te-receipt">
+      <Sheet x={480} y={64} label="dual record" signedBy="var(--green)" />
+      <Arrow from={366} to={472} y={102} colour="var(--green)" />
+      <text x={419} y={94} textAnchor="middle" fill="var(--green)" fontSize="11.5">
+        receipt
+      </text>
+      <text x={419} y={122} textAnchor="middle" fill="var(--ink-3)" fontSize="10.5">
+        counter-signed,
+      </text>
+      <text x={419} y={136} textAnchor="middle" fill="var(--ink-3)" fontSize="10.5">
+        embedding hers
+      </text>
+    </g>
+  </Frame>
+);
+
+const termsScenes = [
+  {
+    text: "Alice's authority does not ask what the agent will accept. It proffers her terms: the purpose, the scope, how long, and what is forbidden — as a document at a URL that keeps working.",
+    reset: {
+      ".te-sign": { opacity: 0 },
+      ".te-verify": { opacity: 0 },
+      ".te-receipt": { opacity: 0 },
+    },
+    end: {},
+    play: (animate, $$) => animate($$(".te-proffer"), { opacity: [0.2, 1], duration: 600 }),
+  },
+  {
+    text: "The agent echoes the template back, signed with the key it will later use to prove possession of the grant. One key, two jobs — so the party that committed is the party that calls.",
+    end: { ".te-sign": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".te-sign"), { opacity: [0, 1], duration: 600 }),
+  },
+  {
+    text: "The echo is checked field by field. A valid signature over weaker terms is exactly what an adversarial agent would send, so a dropped prohibition or a stretched expiry ends the negotiation.",
+    hold: 4200,
+    end: { ".te-sign": { opacity: 1 }, ".te-verify": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".te-verify"), { opacity: [0, 1], duration: 600 }),
+  },
+  {
+    text: "On grant, her authority returns a receipt that embeds the agent's signed agreement and counter-signs it. Both sides now hold the same dually-signed record, and neither can produce a version the other cannot check.",
+    hold: 4600,
+    end: {
+      ".te-sign": { opacity: 1 },
+      ".te-verify": { opacity: 1 },
+      ".te-receipt": { opacity: 1 },
+    },
+    play: (animate, $$) => animate($$(".te-receipt"), { opacity: [0, 1], duration: 600 }),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Proof-of-possession
+// ---------------------------------------------------------------------------
+
+const PopKey = () => (
+  <Frame title="Why a stolen grant is not enough" viewBox="0 0 600 250">
+    <Markers />
+
+    {[
+      ["pop-good", 44, "The agent that holds the key", "var(--green)", "allowed"],
+      ["pop-thief", 118, "Anyone who copied the token", "var(--red)", "refused — no signature"],
+      ["pop-tamper", 192, "The same agent, body changed", "var(--red)", "refused — digest"],
+    ].map(([cls, y, who, colour, verdict]) => (
+      <g key={cls} className={cls}>
+        <Box x={20} y={y - 20} w={232} h={40} />
+        <text x={36} y={y + 5} fill="var(--ink)" fontSize="12.5">
+          {who}
+        </text>
+        <Arrow from={258} to={352} y={y} colour={colour} />
+        <Box
+          x={360}
+          y={y - 20}
+          w={220}
+          h={40}
+          stroke={colour}
+          fill={colour === "var(--green)" ? "var(--tint-granted)" : "var(--card)"}
+        />
+        <text x={376} y={y + 5} fill={colour} fontSize="12.5" fontWeight="600">
+          {verdict}
+        </text>
+      </g>
+    ))}
+
+    <text x="20" y="234" fill="var(--ink-3)" fontSize="11.5" fontFamily={MONO}>
+      signature base: @method @authority @path authorization · digest over the body
+    </text>
+  </Frame>
+);
+
+const popScenes = [
+  {
+    text: "The grant names the agent's public key. Every call carries a signature over the method, the authority, the path, the authorization header and a digest of the body.",
+    reset: { ".pop-thief": { opacity: 0.12 }, ".pop-tamper": { opacity: 0.12 } },
+    end: {},
+    play: (animate, $$) => animate($$(".pop-good"), { opacity: [0.3, 1], duration: 500 }),
+  },
+  {
+    text: "Copy the token and you have a string. Without the private key there is no signature that verifies against the key the grant names, so the call is refused before it reaches the resource.",
+    end: { ".pop-thief": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".pop-thief"), { opacity: [0.12, 1], duration: 500 }),
+  },
+  {
+    text: "Nor can the holder change the call after signing it. The body is covered by a digest inside the signature base, so an edited request fails verification rather than passing with new arguments.",
+    hold: 4200,
+    end: { ".pop-thief": { opacity: 1 }, ".pop-tamper": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".pop-tamper"), { opacity: [0.12, 1], duration: 500 }),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Identity is not authorization
+// ---------------------------------------------------------------------------
+
+const IdentityVsAuthz = () => (
+  <Frame title="Knowing who is asking does not answer whether they may" viewBox="0 0 600 210">
+    <Markers />
+
+    <g className="iv-known">
+      <Box x={20} y={40} w={250} h={110} stroke="var(--agent)" />
+      <text x={36} y={66} fill="var(--ink)" fontSize="13.5" fontWeight="600">
+        What identity establishes
+      </text>
+      {[
+        "which agent this is, across sessions",
+        "who operates it",
+        "that it holds the key it claims",
+      ].map((t, i) => (
+        <text key={t} x={36} y={90 + i * 19} fill="var(--ink-2)" fontSize="12">
+          ✓ {t}
+        </text>
+      ))}
+    </g>
+
+    <g className="iv-gap">
+      <Arrow from={278} to={322} y={95} colour="var(--red)" />
+      <text x={300} y={82} textAnchor="middle" fill="var(--red)" fontSize="11.5">
+        still
+      </text>
+      <text x={300} y={122} textAnchor="middle" fill="var(--red)" fontSize="11.5">
+        shut
+      </text>
+    </g>
+
+    <g className="iv-unknown">
+      <Box x={330} y={40} w={250} h={110} stroke="var(--edge)" />
+      <text x={346} y={66} fill="var(--ink)" fontSize="13.5" fontWeight="600">
+        What it does not
+      </text>
+      {[
+        "whether the owner agreed",
+        "on what terms, and for how long",
+        "how she takes it back",
+      ].map((t, i) => (
+        <text key={t} x={346} y={90 + i * 19} fill="var(--ink-2)" fontSize="12">
+          ? {t}
+        </text>
+      ))}
+    </g>
+
+    <g className="iv-answer">
+      <rect x={20} y={166} width={560} height={34} rx="8" fill="var(--tint-granted)" stroke="var(--primary)" />
+      <text x={300} y={188} textAnchor="middle" fill="var(--primary)" fontSize="13">
+        Only the owner's authority answers the right-hand column.
+      </text>
+    </g>
+  </Frame>
+);
+
+const identityScenes = [
+  {
+    text: "A verified agent identity is worth having. It tells you which agent this is across sessions, who operates it, and that it holds the key it claims.",
+    reset: { ".iv-gap": { opacity: 0 }, ".iv-unknown": { opacity: 0.12 }, ".iv-answer": { opacity: 0 } },
+    end: {},
+    play: (animate, $$) => animate($$(".iv-known"), { opacity: [0.3, 1], duration: 500 }),
+  },
+  {
+    text: "None of that says whether the owner agreed, on what terms, or how she withdraws it. A perfectly identified agent is still an agent standing at a door that has not been opened.",
+    end: { ".iv-gap": { opacity: 1 }, ".iv-unknown": { opacity: 1 } },
+    play: (animate, $$) => {
+      animate($$(".iv-unknown"), { opacity: [0.12, 1], duration: 500 });
+      animate($$(".iv-gap"), { opacity: [0, 1], duration: 500, delay: 300 });
+    },
+  },
+  {
+    text: "That is the division of labour: identity work answers who is asking, and the grant answers whether they may. This profile consumes the first rather than competing with it.",
+    hold: 4200,
+    end: { ".iv-gap": { opacity: 1 }, ".iv-unknown": { opacity: 1 }, ".iv-answer": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".iv-answer"), { opacity: [0, 1], duration: 600 }),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Revocation
+// ---------------------------------------------------------------------------
+
+const RevokeCascade = () => (
+  <Frame title="Revoking a connection and the grants behind it" viewBox="0 0 600 230">
+    <Markers />
+
+    <Box className="rv-conn" x={20} y={36} w={220} h={58} stroke="var(--accent)" />
+    <text x={36} y={60} fill="var(--ink)" fontSize="13.5" fontWeight="600">
+      Connection
+    </text>
+    <text className="rv-status" x={36} y={80} fill="var(--green)" fontSize="12" fontFamily={MONO}>
+      active
+    </text>
+    <text className="rv-status-off" x={36} y={80} fill="var(--red)" fontSize="12" fontFamily={MONO} opacity="0">
+      revoked
+    </text>
+
+    {[0, 1, 2].map((i) => (
+      <g key={i} className={`rv-grant rv-grant-${i}`}>
+        <Box x={330} y={30 + i * 46} w={250} h={36} stroke="var(--green)" fill="var(--tint-granted)" />
+        <text x={346} y={53 + i * 46} fill="var(--ink)" fontSize="12" fontFamily={MONO}>
+          rpt_{["8f3a", "b21c", "44de"][i]}
+        </text>
+        <text
+          className="rv-live"
+          x={566}
+          y={53 + i * 46}
+          textAnchor="end"
+          fill="var(--green)"
+          fontSize="11.5"
+        >
+          live
+        </text>
+      </g>
+    ))}
+
+    <g className="rv-burn">
+      <Arrow from={248} to={322} y={100} colour="var(--red)" />
+      <text x={285} y={90} textAnchor="middle" fill="var(--red)" fontSize="11.5">
+        one
+      </text>
+      <text x={285} y={120} textAnchor="middle" fill="var(--red)" fontSize="11.5">
+        statement
+      </text>
+    </g>
+
+    <g className="rv-terminal">
+      <rect x={20} y={172} width={560} height={40} rx="8" fill="var(--card)" stroke="var(--red)" />
+      <text x={300} y={197} textAnchor="middle" fill="var(--red)" fontSize="12.5">
+        Introspection answers connection_revoked — terminal, not an invitation to renegotiate.
+      </text>
+    </g>
+  </Frame>
+);
+
+const revokeScenes = [
+  {
+    text: "A standing connection, and the live grants issued under it. This is what Alice sees: a relationship with one agent, not a list of tokens.",
+    reset: { ".rv-burn": { opacity: 0 }, ".rv-terminal": { opacity: 0 }, ".rv-status-off": { opacity: 0 } },
+    end: {},
+    play: (animate, $$) =>
+      animate($$(".rv-grant"), { opacity: [0.3, 1], duration: 450, delay: (el, i) => i * 160 }),
+  },
+  {
+    text: "She revokes it. Ending the relationship and burning every grant behind it happen in one operation — as two steps the second can fail on its own, leaving the agent holding exactly the authority she just withdrew.",
+    hold: 4400,
+    end: {
+      ".rv-status": { opacity: 0 },
+      ".rv-status-off": { opacity: 1 },
+      ".rv-burn": { opacity: 1 },
+      ".rv-grant .rv-live": { opacity: 0 },
+      ".rv-grant rect": { stroke: "var(--red)" },
+    },
+    play: (animate, $$) => {
+      animate($$(".rv-status"), { opacity: [1, 0], duration: 300 });
+      animate($$(".rv-status-off"), { opacity: [0, 1], duration: 400, delay: 200 });
+      animate($$(".rv-burn"), { opacity: [0, 1], duration: 400 });
+      animate($$(".rv-grant rect"), {
+        stroke: ["var(--green)", "var(--red)"],
+        duration: 600,
+        delay: (el, i) => 300 + i * 140,
+      });
+      animate($$(".rv-grant .rv-live"), { opacity: [1, 0], duration: 400, delay: 400 });
+    },
+  },
+  {
+    text: "An agent presenting one of them is told so explicitly, and the answer is terminal. Re-negotiating cannot change an outcome she has already settled, and a bare inactive would send it round the loop again.",
+    hold: 4400,
+    end: {
+      ".rv-status": { opacity: 0 },
+      ".rv-status-off": { opacity: 1 },
+      ".rv-burn": { opacity: 1 },
+      ".rv-grant .rv-live": { opacity: 0 },
+      ".rv-grant rect": { stroke: "var(--red)" },
+      ".rv-terminal": { opacity: 1 },
+    },
+    play: (animate, $$) => animate($$(".rv-terminal"), { opacity: [0, 1], duration: 600 }),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// The six roles, and where each one sits
+// ---------------------------------------------------------------------------
+
+const ROLES = [
+  {
+    n: "1",
+    key: "authority",
+    x: 366,
+    y: 34,
+    w: 214,
+    h: 50,
+    name: "An authority on her side",
+    short: "Her authority",
+    must: "Holds her policy, dictates terms, mints grants, and answers while she is offline.",
+    judge: "Judge it by who can change the rules, not by where it runs.",
+  },
+  {
+    n: "2",
+    key: "pep",
+    x: 176,
+    y: 34,
+    w: 152,
+    h: 50,
+    name: "An enforcement point",
+    short: "Enforcement point",
+    must: "Refuses before forwarding, returns a ticket, verifies a signature, and spends a single-use grant.",
+    judge: "Judge it by whether its callout can control the response body, not just the verdict.",
+  },
+  {
+    n: "3",
+    key: "resource",
+    x: 176,
+    y: 116,
+    w: 152,
+    h: 50,
+    name: "A resource that says what it is",
+    short: "The resource",
+    must: "Publishes its tool surfaces, its scopes, and which authorization servers speak for it.",
+    judge: "Usually the cheapest role to fill: the resource itself does not have to change.",
+  },
+  {
+    n: "4",
+    key: "store",
+    x: 366,
+    y: 100,
+    w: 104,
+    h: 50,
+    name: "Somewhere to store single-use state",
+    short: "The store",
+    must: "Decides and records in one indivisible operation, and reports who won.",
+    judge: "If you would write this as read-then-write, it is the wrong store.",
+  },
+  {
+    n: "5",
+    key: "reach",
+    x: 476,
+    y: 100,
+    w: 104,
+    h: 50,
+    name: "A way to reach her",
+    short: "Her surface",
+    must: "Notifies her, shows what is asked and on what terms, takes a decision, releases the hold.",
+    judge: "Judge it by latency tolerance — she may be asleep for hours.",
+  },
+  {
+    n: "6",
+    key: "identity",
+    x: 20,
+    y: 76,
+    w: 122,
+    h: 50,
+    name: "An identity for the agent",
+    short: "Agent identity",
+    must: "Gives the agent a stable name her authority recognises across sessions.",
+    judge: "Judge it by whether the name survives key rotation.",
+  },
+];
+
+const RolesMap = () => (
+  <Frame title="The six roles and where each one sits" viewBox="0 0 600 200">
+    <Markers />
+
+    <line x1="158" y1="8" x2="158" y2="192" stroke="var(--edge)" strokeWidth="1" strokeDasharray="5 5" />
+    <line x1="348" y1="8" x2="348" y2="192" stroke="var(--edge-strong)" strokeWidth="1.4" strokeDasharray="6 5" />
+
+    <text x="80" y="20" textAnchor="middle" fill="var(--agent)" fontSize="10.5" fontFamily={MONO} letterSpacing="1">
+      REQUESTING SIDE
+    </text>
+    <text x="252" y="20" textAnchor="middle" fill="var(--ink-3)" fontSize="10.5" fontFamily={MONO} letterSpacing="1">
+      RESOURCE SERVER
+    </text>
+    <text x="472" y="20" textAnchor="middle" fill="var(--accent)" fontSize="10.5" fontFamily={MONO} letterSpacing="1">
+      THE OWNER
+    </text>
+
+    {/* The connections between them, drawn under the boxes. */}
+    <g className="rm-wires">
+      <Arrow from={146} to={170} y={100} colour="var(--agent)" />
+      <Arrow from={252} to={252} y={90} colour="var(--ink-3)" />
+      <line x1="252" y1="84" x2="252" y2="116" stroke="var(--ink-3)" strokeWidth="1.2" />
+      <Arrow from={332} to={360} y={59} colour="var(--ink-3)" />
+      <line x1="420" y1="84" x2="420" y2="100" stroke="var(--accent)" strokeWidth="1.2" />
+      <line x1="528" y1="84" x2="528" y2="100" stroke="var(--accent)" strokeWidth="1.2" />
+    </g>
+
+    {ROLES.map((r) => (
+      <g key={r.key} className={`rm-role rm-${r.key}`}>
+        <Box
+          className="rm-box"
+          x={r.x}
+          y={r.y}
+          w={r.w}
+          h={r.h}
+          stroke={r.x >= 348 ? "var(--accent)" : r.x < 158 ? "var(--agent)" : "var(--edge)"}
+        />
+        <text
+          x={r.x + 12}
+          y={r.y + 20}
+          fill="var(--primary)"
+          fontSize="12"
+          fontWeight="700"
+          fontFamily={MONO}
+        >
+          {r.n}
+        </text>
+        <text x={r.x + 28} y={r.y + 20} fill="var(--ink)" fontSize="11.5" fontWeight="600">
+          {r.short}
+        </text>
+        <text x={r.x + 12} y={r.y + 38} fill="var(--ink-2)" fontSize="10.5">
+          {
+            {
+              authority: "policy · terms · grants",
+              pep: "refuses · verifies · spends",
+              resource: "publishes what it protects",
+              store: "one statement",
+              reach: "notify · decide · release",
+              identity: "a name that persists",
+            }[r.key]
+          }
+        </text>
+      </g>
+    ))}
+  </Frame>
+);
+
+const rolesScenes = ROLES.map((r) => ({
+  text: `${r.n}. ${r.name} — ${r.must} ${r.judge}`,
+  hold: 5200,
+  reset: { ".rm-role": { opacity: 0.16 }, ".rm-wires": { opacity: 0.3 } },
+  end: { [`.rm-${r.key}`]: { opacity: 1 } },
+  play: (animate, $$) => animate($$(`.rm-${r.key}`), { opacity: [0.16, 1], duration: 450 }),
+}));
+
+// ---------------------------------------------------------------------------
 
 const diagrams = {
   "four-beats": { Draw: FourBeats, scenes: fourBeatScenes, title: "The four beats" },
-  "trust-boundary": { Draw: TrustBoundary },
-  "discovery-layers": { Draw: DiscoveryLayers },
+  "trust-boundary": {
+    Draw: TrustBoundary,
+    scenes: trustBoundaryScenes,
+    title: "The trust boundary",
+  },
+  "discovery-layers": {
+    Draw: DiscoveryLayers,
+    scenes: discoveryScenes,
+    title: "Public and protected discovery",
+  },
+  "terms-exchange": { Draw: TermsExchange, scenes: termsScenes, title: "The terms exchange" },
+  "proof-of-possession": { Draw: PopKey, scenes: popScenes, title: "Proof-of-possession" },
+  "identity-vs-authz": {
+    Draw: IdentityVsAuthz,
+    scenes: identityScenes,
+    title: "Identity is not authorization",
+  },
+  "revoke-cascade": { Draw: RevokeCascade, scenes: revokeScenes, title: "Revocation" },
+  "roles-map": { Draw: RolesMap, scenes: rolesScenes, title: "The six roles" },
   "enforcement-order": {
     Draw: EnforcementOrder,
     scenes: enforcementScenes,
@@ -1034,6 +1578,9 @@ const diagrams = {
 };
 
 const DocDiagram = ({ name, caption }) => {
+  // The one figure that is operated rather than watched.
+  if (name === "pend-sandbox") return <DocSandbox caption={caption} />;
+
   const chosen = diagrams[name];
   if (!chosen) return null;
   const { Draw, scenes, title } = chosen;

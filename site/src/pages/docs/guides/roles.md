@@ -2,6 +2,8 @@
 templateKey: doc
 title: The roles you must fill
 description: Six roles, what each one has to be able to do, and how to judge whether something in your stack can do it.
+diagram: roles-map
+diagramCaption: Step through to see each role and what it must be able to do. They light up and stay lit, because the last one only makes sense once the other five are there.
 next:
   - title: Run the lab
     to: /docs/guides/run-the-lab/

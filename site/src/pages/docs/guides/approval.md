@@ -2,6 +2,8 @@
 templateKey: doc
 title: Wire the owner's approval path
 description: Holding a negotiation while a human decides, showing her something she can act on, and authorizing her without inventing a credential for her.
+diagram: pend-sandbox
+diagramCaption: The rule as the lab implements it. An open tier still pends for an agent she has never met — that is the day-one handshake, and it is the part readers most often leave out.
 next:
   - title: Deploy it at scale
     to: /docs/guides/at-scale/

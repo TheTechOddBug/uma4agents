@@ -2,6 +2,8 @@
 templateKey: doc
 title: Identity is not authorization
 description: Knowing which agent is calling tells you nothing about whether it may proceed. Both are needed, and they answer different questions.
+diagram: identity-vs-authz
+diagramCaption: The left column is what agent identity work gives you. The right column is what still has to be answered.
 next:
   - title: Proof-of-possession
     to: /docs/overview/proof-of-possession/
