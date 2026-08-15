@@ -33,6 +33,7 @@ const SEO = ({
   datePublished,
   dateModified,
   tags,
+  docPage,
   children,
 }) => {
   const imagePath = raster(image) || siteMetadata.image;
@@ -45,7 +46,25 @@ const SEO = ({
 
   // Structured data. This is the part search engines and agents read to know
   // what the page *is* rather than guessing from the prose.
-  const ld = article
+  const ld = docPage
+    ? {
+        // Documentation is reference material, not a dated post. TechArticle
+        // is what search engines use to treat it that way.
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        headline: title ? title.replace(/ \| UMA for Agents docs$/, "") : seo.title,
+        description: seo.description,
+        url: seo.url,
+        isAccessibleForFree: true,
+        license: "https://www.apache.org/licenses/LICENSE-2.0",
+        publisher: {
+          "@type": "Organization",
+          name: siteMetadata.title,
+          url: siteMetadata.siteUrl,
+        },
+        mainEntityOfPage: { "@type": "WebPage", "@id": seo.url },
+      }
+    : article
     ? {
         "@context": "https://schema.org",
         "@type": "BlogPosting",

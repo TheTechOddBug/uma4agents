@@ -5,9 +5,19 @@ const slugify = require("./src/utils/slugify");
 
 exports.createSchemaCustomization = ({ actions }) => {
   actions.createTypes(`
+    type DocNext {
+      title: String
+      to: String
+      blurb: String
+    }
     type MarkdownRemarkFrontmatter {
       templateKey: String
       title: String
+      # Documentation only: the cards a page ends on. Typed explicitly because
+      # inference cannot see the shape until some page happens to use it, and
+      # a docs page without the field would otherwise break the query for
+      # every page that has it.
+      next: [DocNext]
       date: Date @dateformat
       author: String
       description: String
