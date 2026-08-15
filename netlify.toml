@@ -28,6 +28,20 @@
 [[plugins]]
   package = "@netlify/plugin-gatsby"
 
+# /docs/ is not a page — the documentation starts at the Overview tab and the
+# nav links straight there. This is so trimming the URL by hand still lands
+# somewhere real. Declared here rather than through createRedirect because this
+# file is the one that gets read to find out what the host does.
+[[redirects]]
+  from = "/docs"
+  to = "/docs/overview/"
+  status = 301
+
+[[redirects]]
+  from = "/docs/"
+  to = "/docs/overview/"
+  status = 301
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -40,5 +54,18 @@
 # that a language model can read the words without the page around them.
 [[headers]]
   for = "/blog/*.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"
+
+# The same for the docs twins. Two rules because the docs tree is two levels
+# deep (/docs/overview.md and /docs/overview/why.md) and a single `*` is only
+# reliably a trailing splat.
+[[headers]]
+  for = "/docs/*.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"
+
+[[headers]]
+  for = "/docs/*/*.md"
   [headers.values]
     Content-Type = "text/markdown; charset=utf-8"
