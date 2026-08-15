@@ -30,6 +30,7 @@ export const nav = {
         { title: "Why the owner decides", to: "/docs/overview/why/" },
         { title: "Architecture", to: "/docs/overview/architecture/" },
         { title: "Concepts", to: "/docs/overview/concepts/" },
+        { title: "Standards this composes", to: "/docs/overview/standards/" },
       ],
     },
     {

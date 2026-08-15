@@ -38,14 +38,27 @@ correlation id in every event.
 than by its key alone. Its continuity survives key rotation, because the
 connection is keyed by issuer and subject.
 
+**JWK / JWK thumbprint (jkt)** — a key in JSON form, and the
+[RFC 7638](https://www.rfc-editor.org/rfc/rfc7638.html) hash that names it
+compactly. A pseudonymous agent's connection handle is its jkt.
+
 **Ledger** — the append-only record of what was promised, approved, denied,
 touched and revoked. A projection over the event stream, not a separate store.
+
+**MCP (Model Context Protocol)** — the protocol the lab uses to expose the
+resource as tools an agent can call. One binding of the grant, not a
+requirement of it; the four beats are binding-independent.
+
+**need_info** — the authorization server's answer when it wants something before
+it will decide. Carries the terms it requires. UMA 2.0 term.
 
 **Operation binding** — a grant tied to one operation and one set of parameters,
 so approving a specific trade does not authorise trading.
 
-**Owner** — the party whose resource is being reached, and the only party whose
-permission the profile treats as decisive. `resource owner` in UMA 2.0.
+**Owner / resource owner (RO)** — the party whose resource is being reached, and
+the only party whose permission the profile treats as decisive. `resource owner`
+in UMA 2.0 and OAuth 2.0; these docs say *owner* in prose and RO where the
+abbreviation is doing work, as in **RO ≠ RqP**.
 
 **PAT (protection API token)** — the token a resource server holds to call the
 authorization server's protection API. Issued in the owner's name, and
@@ -66,11 +79,22 @@ thumbprint.
 requesting party. A 2010-era UMA term, revived here because the distinction has
 become load-bearing again.
 
-**Requesting party** — the human or organisation on whose behalf the agent asks.
-Accountable; not present at the keyboard.
+**Requesting party (RqP)** — the human or organisation on whose behalf the agent
+asks. Accountable; not present at the keyboard. **RO ≠ RqP** is the shorthand
+for the case this profile exists for: the party asking is not the party who
+owns the thing.
 
 **Resource server (RS)** — the party holding the resource and performing the
 enforcement obligations. Does not hold the owner's policy and cannot read it.
+
+**PEP (policy enforcement point)** — the component that actually refuses: it
+challenges, verifies proof-of-possession, checks scope and operation binding,
+and spends single-use grants. Sits on the resource server's side and holds none
+of the owner's policy. Term borrowed from XACML, and in wide use since.
+
+**PDP (policy decision point)** — the component that decides. In this profile
+the owner's authorization server is the PDP for her resources, which is the
+whole argument: the decision belongs to her side, not to the RS.
 
 **RPT (requesting party token)** — the grant issued at the end of a successful
 negotiation. Here it is proof-of-possession rather than bearer, and for
