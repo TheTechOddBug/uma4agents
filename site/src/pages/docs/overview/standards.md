@@ -2,6 +2,8 @@
 templateKey: doc
 title: Standards this composes
 description: Every specification U4A builds on, what each one supplies, and where it appears in the flow.
+diagram: standards-map
+diagramCaption: Almost nothing here is invented. Step through to see what each layer supplies.
 next:
   - title: Compared to UMA 2.0
     to: /docs/overview/compare-uma/

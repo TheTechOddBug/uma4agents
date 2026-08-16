@@ -36,6 +36,15 @@ reuse it for a different order, retain the data, act beyond the approved
 parameters. Nothing enforces a prohibition at the wire level, which is exactly
 why it needs to be recorded and signed rather than assumed.
 
+![Alice editing the terms for her holdings tier in the lab's portal: the
+purpose she requires an agent to accept, how long access lasts, a
+comma-separated list of prohibited actions, and a toggle for asking her every
+time.](/img/docs/owner-terms.png)
+
+These are her fields, on her surface. The tier above governs a specific
+resource, so the same four values are what every agent asking for her holdings
+must echo back and sign.
+
 ## Where the pattern comes from
 
 The shape follows [IEEE 7012](https://standards.ieee.org/ieee/7012/7192/) — the

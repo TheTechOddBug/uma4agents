@@ -187,9 +187,25 @@ const DocFigure = ({ title, scenes, children, caption }) => {
               </li>
             ))}
           </ol>
-          <p className="doc-figure__caption" aria-live="polite">
-            {scenes[step].text}
-          </p>
+          {/* Every caption is rendered, stacked in one grid cell, with the
+              inactive ones hidden. The cell sizes to the tallest, so the
+              figure's height is reserved rather than growing as the captions
+              wrap — measured before this: 373 → 393 → 413px across three
+              steps, which made the whole page jump every few seconds while a
+              figure autoplayed. A min-height guess would have had to be
+              re-tuned for every new figure; this cannot drift. */}
+          <div className="doc-figure__captions" aria-live="polite">
+            {scenes.map((s, i) => (
+              <p
+                key={s.text}
+                className="doc-figure__caption"
+                aria-hidden={i === step ? undefined : "true"}
+                data-active={i === step ? "" : undefined}
+              >
+                {s.text}
+              </p>
+            ))}
+          </div>
         </div>
       )}
 

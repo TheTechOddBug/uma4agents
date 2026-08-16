@@ -80,6 +80,13 @@ Open Alice's portal first, and keep it visible. In a Codespace, `make kind-up`
 has already published it — find **Alice's portal** on 9010 in the **PORTS** tab.
 Locally it is `https://portal.uma.lab`. Sign in as `alice` / `alice-demo`.
 
+![Alice's holdings in the lab's portal — a fictional brokerage called Meridian
+Wealth, with her positions and an Agent Access section in the
+sidebar.](/img/docs/portal-holdings.png)
+
+Meridian is her brokerage, not her authority. Everything the agent negotiates
+for lives here; everything that decides lives under **Agent Access**.
+
 **Let the agent in.**
 
 ```bash

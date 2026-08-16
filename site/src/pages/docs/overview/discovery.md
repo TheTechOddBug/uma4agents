@@ -57,6 +57,15 @@ materialises its own registry. One writer, one source of truth, and no
 imperative registration call that can half-fail and leave the two sides
 disagreeing.
 
+![The lab's portal listing Alice's protected resources: each one tagged
+published and pulled, with its scopes, the policy tier governing it, and
+whether it grants automatically under her terms or asks her every
+time.](/img/docs/owner-resources.png)
+
+Each row above was **pulled** rather than pushed — her authorization server read
+them from what the resource server publishes. The row above them is the resource
+server holding protection access in her name, with a revoke button beside it.
+
 It also explains why the older model felt heavy. The two bands carry facts with
 different cardinality: what a tool is, and which scopes it needs, are universal
 and true once — while whose instance sits behind it is per-owner. Push

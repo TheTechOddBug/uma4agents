@@ -187,6 +187,8 @@ function writeDocTwins({ fs, siteMeta }) {
   const srcRoot = path.resolve("src/pages/docs");
   if (!fs.existsSync(srcRoot)) return 0;
 
+  const { scriptFor, titleFor } = require("./src/data/figure-scripts");
+
   const walk = (dir) =>
     fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(dir, entry.name);
@@ -224,8 +226,23 @@ function writeDocTwins({ fs, siteMeta }) {
       "",
     ].join("\n");
 
+    // A page with an animated figure carries part of its explanation in that
+    // figure's captions. They are real prose, so the plain-Markdown copy has
+    // to include them — otherwise the version an agent reads is missing
+    // whatever the page chose to say in pictures.
+    const steps = scriptFor(field("diagram"));
+    const figure = steps.length
+      ? [
+          "",
+          `## Figure: ${titleFor(field("diagram"))}`,
+          "",
+          ...steps.map((s, i) => `${i + 1}. ${s}`),
+          "",
+        ].join("\n")
+      : "";
+
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, header + body + "\n");
+    fs.writeFileSync(out, header + body + "\n" + figure);
     written += 1;
   }
 

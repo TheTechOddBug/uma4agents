@@ -17,6 +17,7 @@ const fs = require("fs");
 const path = require("path");
 const siteMetadata = require("../site-meta");
 const { allPages } = require("../src/data/docs-nav");
+const { scriptFor, titleFor } = require("../src/data/figure-scripts");
 
 const root = path.join(__dirname, "..");
 const BLOG_DIR = path.join(root, "src", "pages", "blog");
@@ -120,6 +121,16 @@ const docs = allPages().map((entry) => {
   }
 
   const { frontmatter, body } = parseFrontmatter(fs.readFileSync(file, "utf-8"));
+
+  // An animated figure's captions are part of the page's explanation, so they
+  // travel with the body rather than being left behind in a React component
+  // that only a browser can run.
+  const steps = scriptFor(frontmatter.diagram);
+  const figure = steps.length
+    ? `\n\n## Figure: ${titleFor(frontmatter.diagram)}\n\n` +
+      steps.map((s, i) => `${i + 1}. ${s}`).join("\n")
+    : "";
+
   return {
     slug: rel,
     url: entry.to,
@@ -128,10 +139,11 @@ const docs = allPages().map((entry) => {
     description: frontmatter.description || null,
     section: entry.tabLabel,
     group: entry.group,
+    figure: steps.length ? { title: titleFor(frontmatter.diagram), steps } : null,
     headings: (body.match(/^##+ .+$/gm) || []).map((h) =>
       h.replace(/^#+\s*/, "")
     ),
-    body,
+    body: body + figure,
   };
 });
 
@@ -157,7 +169,12 @@ const searchIndex = [
     section: d.section,
     group: d.group,
     description: d.description || firstParagraph(d.body),
-    headings: d.headings,
+    // A figure's steps are searchable text. Someone looking for "unsigned
+    // replay" should land on the grant guide, and that phrase only exists in
+    // the enforcement-order figure.
+    headings: d.figure
+      ? [...d.headings, d.figure.title, ...d.figure.steps]
+      : d.headings,
   })),
   ...posts.map((p) => ({
     title: p.title,

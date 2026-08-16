@@ -11,6 +11,27 @@ import VideoEmbed from "../components/VideoEmbed";
 import DocDiagram from "../components/DocDiagram";
 import { allPages, neighbours, tabForPath } from "../data/docs-nav";
 
+const FIGURE_MARKER = /<!--\s*figure:([a-z0-9-]+)\s*-->/g;
+
+/**
+ * Split rendered HTML at `<!--figure:name-->` markers.
+ *
+ * Returns an ordered list of `{ html }` and `{ figure }` parts, so a page can
+ * place a diagram inside a section instead of only at the top. Pages with no
+ * marker come back as a single html part and render exactly as before.
+ */
+const splitOnFigures = (html) => {
+  const parts = [];
+  let last = 0;
+  for (const match of html.matchAll(FIGURE_MARKER)) {
+    if (match.index > last) parts.push({ html: html.slice(last, match.index) });
+    parts.push({ figure: match[1] });
+    last = match.index + match[0].length;
+  }
+  if (last < html.length) parts.push({ html: html.slice(last) });
+  return parts;
+};
+
 /**
  * A documentation page.
  *
@@ -73,9 +94,22 @@ const Doc = ({ data, location }) => {
 
             {/* Rendered before the contents list on purpose: TableOfContents
                 reads the headings out of the live DOM, so they have to exist
-                by the time it runs. CSS puts it back on the right. */}
+                by the time it runs. CSS puts it back on the right.
+
+                A page can also drop a figure into the middle of itself with an
+                HTML comment — `<!--figure:ticket-lifecycle-->` — which remark
+                passes through untouched. The frontmatter `diagram` is the
+                page's opening figure; this is for a diagram that belongs to
+                one section rather than to the page, like a state machine that
+                would otherwise have to be ASCII art. */}
             <div className="doc__body blog-body">
-              <HTMLContentWithCodeCopy content={page.html} />
+              {splitOnFigures(page.html).map((part, i) =>
+                part.figure ? (
+                  <DocDiagram key={`fig-${part.figure}`} name={part.figure} />
+                ) : (
+                  <HTMLContentWithCodeCopy key={`html-${i}`} content={part.html} />
+                )
+              )}
             </div>
 
             {next && next.length > 0 && (

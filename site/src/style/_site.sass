@@ -1373,6 +1373,10 @@ $docs-toc-w: 220px
 .doc-diagram__svg
   display: block
   width: 100%
+  // Every figure is drawn on a 600-unit canvas with ~11px labels, so they all
+  // stop being readable at about the same width. Tuning this per figure by how
+  // busy the drawing looks was a mistake: it traded 7px type for less
+  // scrolling. Below this, scroll.
   min-width: 30rem
   height: auto
 
@@ -1433,12 +1437,96 @@ $docs-toc-w: 220px
   background: $primary
   border-color: $primary
 
-.doc-figure__caption
+// All the captions occupy one grid cell, so the cell is as tall as the
+// longest and the figure never changes height between steps.
+.doc-figure__captions
   flex: 1 1 16rem
+  display: grid
+
+.doc-figure__caption
+  grid-area: 1 / 1
   margin: 0
-  min-height: 2.6em
   color: $fg-body
   font-size: 0.85rem
+  line-height: 1.5
+  visibility: hidden
+  &[data-active]
+    visibility: visible
+
+// ---- the message inspector -------------------------------------------
+
+.doc-inspector
+  overflow: visible
+
+.doc-inspector__tabs
+  display: flex
+  flex-wrap: wrap
+  gap: 0.35rem
+  margin-bottom: 1rem
+
+.doc-inspector__tab
+  padding: 0.4rem 0.7rem
+  border: 1px solid $border
+  border-radius: $radius-sm
+  background: $bg-card
+  color: $fg-muted
+  font-family: $font-mono
+  font-size: 0.78rem
+  cursor: pointer
+  white-space: nowrap
+  &:hover
+    color: $fg
+    border-color: $border-strong
+
+.doc-inspector__tab--on
+  color: $on-primary
+  background: $primary
+  border-color: $primary
+
+.doc-inspector__route
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin: 0
+  font-family: $font-mono
+  font-size: 0.72rem
+  letter-spacing: 0.1em
+  text-transform: uppercase
+  color: $accent
+
+.doc-inspector__summary
+  margin: 0.5rem 0 0
+  color: $fg-body
+  font-size: 0.88rem
+  line-height: 1.55
+
+.doc-inspector__message
+  margin-top: 1rem
+
+.doc-inspector__label
+  margin: 0 0 0.4rem
+  font-family: $font-mono
+  font-size: 0.72rem
+  color: $fg-dim
+
+.doc-inspector__message pre
+  margin: 0
+  padding: 1rem
+  border: 1px solid $border
+  border-radius: $radius-lg
+  background: $bg-sunken
+  overflow-x: auto
+  code
+    font-family: $font-mono
+    font-size: 0.78rem
+    line-height: 1.55
+    color: $fg-code
+    white-space: pre
+
+.doc-inspector__note
+  margin: 0.9rem 0 0
+  color: $fg-dim
+  font-size: 0.8rem
   line-height: 1.5
 
 // ---- the figure you operate -----------------------------------------

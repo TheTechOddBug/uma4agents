@@ -2,6 +2,8 @@
 templateKey: doc
 title: Choose an enforcement point
 description: What the component that refuses has to be able to do, the two shapes it can take, and how to keep one implementation behind both.
+diagram: two-hosts
+diagramCaption: Both hosts are conformant. What must not happen is two implementations of the decision.
 next:
   - title: Issue the challenge
     to: /docs/guides/challenge/

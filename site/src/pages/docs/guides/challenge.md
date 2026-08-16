@@ -2,6 +2,8 @@
 templateKey: doc
 title: Issue the challenge
 description: Turning a refusal into the start of a negotiation — what the challenge carries, and the check that stops it being redirected.
+diagram: rogue-challenge
+diagramCaption: The check that stops a refusal from redirecting an agent to an authority the resource never claimed.
 next:
   - title: Dictate terms, take an agreement
     to: /docs/guides/terms/

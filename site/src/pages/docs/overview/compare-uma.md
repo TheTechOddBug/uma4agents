@@ -2,6 +2,8 @@
 templateKey: doc
 title: Compared to UMA 2.0
 description: What this profile keeps, what it changes, and why each change was necessary rather than preferred.
+diagram: compare-uma
+diagramCaption: The verdict pass from FINDINGS.md, as three columns.
 next:
   - title: Deviations, in detail
     to: /docs/reference/deviations/

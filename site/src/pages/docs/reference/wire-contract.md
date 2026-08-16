@@ -2,6 +2,8 @@
 templateKey: doc
 title: Wire contract
 description: Every message that travels between the parties, in order, with the fields that carry meaning.
+diagram: wire-inspector
+diagramCaption: A quick index into the sections below, which carry the same messages in reading order with the detail around them.
 next:
   - title: Endpoints
     to: /docs/reference/endpoints/
@@ -227,17 +229,7 @@ distinguishable from a settled one:
 
 ## Ticket lifecycle
 
-```
-issued ─present─▶ need_info(rotated) ─commit─▶ ┌─ known conn, open tier ─▶ granted (consumed)
-                        │                       ├─ new agent (any tier) ──▶ awaiting-owner ┐
-                        │                       └─ ask-me tier ───────────▶ awaiting-owner ┤
-                        │                                                                   │
-                        └─(weakened echo / bad sig / policy fail)─▶ request_denied          │
-                                                                                            │
-        awaiting-owner(rotated per poll):  approved ─▶ granted    denied ─▶ request_denied  │
-                                           expired  ─▶ invalid_grant                        │
-                                                       (connection recorded on approve) ◀───┘
-```
+<!--figure:ticket-lifecycle-->
 
 Every presentation consumes the ticket and, if the negotiation continues, issues
 a fresh one. The **family** id, assigned when the permission is registered, is

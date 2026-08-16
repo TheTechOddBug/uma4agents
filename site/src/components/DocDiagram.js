@@ -1,6 +1,8 @@
 import React from "react";
 import DocFigure from "./DocFigure";
 import DocSandbox from "./DocSandbox";
+import DocInspector from "./DocInspector";
+import { scriptFor } from "../data/figure-scripts";
 
 /**
  * The documentation's diagrams, still and moving.
@@ -26,6 +28,9 @@ import DocSandbox from "./DocSandbox";
  * being scaled into a phone-width column. Anything that needs more room than
  * that needs to be two diagrams.
  */
+
+/** One dim level for every figure that fades context back. */
+const DIM = 0.14;
 
 const MONO = "var(--mono)";
 const UI = "var(--ui)";
@@ -90,6 +95,26 @@ const Arrow = ({ from, to, y, colour = "var(--accent)", dash }) => (
     markerEnd={markerFor(colour)}
   />
 );
+
+
+/**
+ * Zip a figure's captions in from src/data/figure-scripts.js.
+ *
+ * The scenes below describe motion only. Their words live in that file so the
+ * Markdown twins, the search index and the MCP payload can read them too — a
+ * caption that exists only in JSX is content agents cannot see. Counts must
+ * agree, and a mismatch throws at build time rather than rendering a figure
+ * with a blank caption.
+ */
+const scripted = (name, scenes) => {
+  const steps = scriptFor(name);
+  if (steps.length !== scenes.length) {
+    throw new Error(
+      `figure "${name}": ${scenes.length} scenes but ${steps.length} captions in src/data/figure-scripts.js`
+    );
+  }
+  return scenes.map((scene, i) => ({ ...scene, text: steps[i] }));
+};
 
 // ---------------------------------------------------------------------------
 // The four beats
@@ -191,7 +216,7 @@ const FourBeats = () => (
 /** Which arrows belong to which beat. */
 const BEAT_STEPS = [[0], [1, 2], [3, 4], [5], [6, 7]];
 
-const dimAll = { ".fb-step": { opacity: 0.12 }, ".fb-wait": { opacity: 0.12 } };
+const dimAll = { ".fb-step": { opacity: DIM }, ".fb-wait": { opacity: DIM } };
 const litThrough = (n) => {
   const state = { ...dimAll };
   BEAT_STEPS.slice(0, n + 1)
@@ -202,41 +227,37 @@ const litThrough = (n) => {
   return state;
 };
 
-const fourBeatScenes = [
+const fourBeatScenes = scripted("four-beats", [
   {
-    text: "Bob's agent calls a protected tool. It holds no grant, so nothing about the call is allowed yet.",
     reset: dimAll,
     end: litThrough(0),
-    play: (animate, $$) => animate($$(".fb-step-0"), { opacity: [0.12, 1], duration: 500 }),
+    play: (animate, $$) => animate($$(".fb-step-0"), { opacity: [DIM, 1], duration: 500 }),
   },
   {
-    text: "The enforcement point registers the attempt with Alice's authority, then refuses — handing back a ticket and the address of the authority that could grant it.",
     end: litThrough(1),
     play: (animate, $$) =>
       animate($$(".fb-step-1, .fb-step-2"), {
-        opacity: [0.12, 1],
+        opacity: [DIM, 1],
         duration: 500,
         delay: (el, i) => i * 320,
       }),
   },
   {
-    text: "The agent presents the ticket. Instead of a grant it gets Alice's terms, and a fresh ticket — every presentation rotates it.",
     end: litThrough(2),
     play: (animate, $$) =>
       animate($$(".fb-step-3, .fb-step-4"), {
-        opacity: [0.12, 1],
+        opacity: [DIM, 1],
         duration: 500,
         delay: (el, i) => i * 320,
       }),
   },
   {
-    text: "It signs the terms and presents again. Alice is asleep, so the negotiation waits on her — the agent holds a ticket rather than a call.",
     hold: 3600,
     end: { ...litThrough(3), ".fb-wait": { opacity: 1 } },
     play: (animate, $$) => {
-      animate($$(".fb-step-5"), { opacity: [0.12, 1], duration: 500 });
+      animate($$(".fb-step-5"), { opacity: [DIM, 1], duration: 500 });
       animate($$(".fb-wait"), {
-        opacity: [0.12, 1],
+        opacity: [DIM, 1],
         duration: 700,
         delay: 500,
       });
@@ -249,16 +270,15 @@ const fourBeatScenes = [
     },
   },
   {
-    text: "She approves. The grant is bound to that one order, and the agent retries the original call with its signature over it.",
     end: { ...litThrough(4), ".fb-wait": { opacity: 1 } },
     play: (animate, $$) =>
       animate($$(".fb-step-6, .fb-step-7"), {
-        opacity: [0.12, 1],
+        opacity: [DIM, 1],
         duration: 500,
         delay: (el, i) => i * 380,
       }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // The trust boundary — structure, so it does not move
@@ -272,6 +292,7 @@ const TrustBoundary = () => (
     <Markers />
 
     <line
+      className="tb-seam"
       x1="300"
       y1="14"
       x2="300"
@@ -347,25 +368,24 @@ const TrustBoundary = () => (
   </Frame>
 );
 
-const trustBoundaryScenes = [
+const trustBoundaryScenes = scripted("trust-boundary", [
   {
-    text: "Two parties, and a line between them. Alice's side holds the policy, the terms and the record; Meridian's side holds the assets and the component that refuses.",
     reset: { ".tb-allowed": { opacity: 0 }, ".tb-refused": { opacity: 0 } },
     end: {},
-    play: () => {},
+    // The seam is the subject of this scene, so it draws itself in.
+    play: (animate, $$) =>
+      animate($$(".tb-seam"), { opacity: [0, 1], strokeWidth: [3, 1.4], duration: 700 }),
   },
   {
-    text: "Meridian's enforcement point is allowed across the line for exactly three things: take a ticket, ask whether a grant is live, and spend it.",
     end: { ".tb-allowed": { opacity: 1 } },
     play: (animate, $$) => animate($$(".tb-allowed"), { opacity: [0, 1], duration: 600 }),
   },
   {
-    text: "Reading her policy is refused — on the same port, from the same workload, as the call that was just permitted. That pair is the whole cross-principal argument, and it is something CI can fail on.",
     hold: 4400,
     end: { ".tb-allowed": { opacity: 1 }, ".tb-refused": { opacity: 1 } },
     play: (animate, $$) => animate($$(".tb-refused"), { opacity: [0, 1], duration: 600 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Discovery — structure, so it does not move
@@ -375,22 +395,24 @@ const DiscoveryLayers = () => (
   <Frame title="Public and protected discovery" viewBox="0 0 600 300">
     <Markers />
 
-    <Box x={20} y={30} w={560} h={104} />
-    <text x="40" y="56" fill="var(--ink)" fontSize="14" fontWeight="600">
-      Public — structure
-    </text>
-    <text x="560" y="56" textAnchor="end" fill="var(--green)" fontSize="12.5">
-      anyone may ask
-    </text>
-    {[
-      "which tools exist, and the scopes they need",
-      "which authorization servers are authoritative",
-      "the resource's keys, and metadata signed under them",
-    ].map((t, i) => (
-      <text key={t} x="40" y={80 + i * 19} fill="var(--ink-2)" fontSize="12.5">
-        · {t}
+    <g className="dl-public">
+      <Box x={20} y={30} w={560} h={104} />
+      <text x="40" y="56" fill="var(--ink)" fontSize="14" fontWeight="600">
+        Public — structure
       </text>
-    ))}
+      <text x="560" y="56" textAnchor="end" fill="var(--green)" fontSize="12.5">
+        anyone may ask
+      </text>
+      {[
+        "which tools exist, and the scopes they need",
+        "which authorization servers are authoritative",
+        "the resource's keys, and metadata signed under them",
+      ].map((t, i) => (
+        <text key={t} x="40" y={80 + i * 19} fill="var(--ink-2)" fontSize="12.5">
+          · {t}
+        </text>
+      ))}
+    </g>
 
     <g className="dl-protected">
       <Box x={20} y={158} w={560} h={104} stroke="var(--accent)" />
@@ -417,25 +439,22 @@ const DiscoveryLayers = () => (
   </Frame>
 );
 
-const discoveryScenes = [
+const discoveryScenes = scripted("discovery-layers", [
   {
-    text: "The public document is structural: what tools exist, what scopes they need, which authorization servers speak for this resource, and the keys its metadata is signed under. Anyone may fetch it.",
-    reset: { ".dl-protected": { opacity: 0.12 }, ".dl-note": { opacity: 0 } },
+    reset: { ".dl-protected": { opacity: DIM }, ".dl-note": { opacity: 0 } },
     end: {},
-    play: () => {},
+    play: (animate, $$) => animate($$(".dl-public"), { opacity: [DIM, 1], duration: 600 }),
   },
   {
-    text: "Whose instances sit behind the resource is a different kind of fact, and it is served only to a caller that proves possession of the owner's authorization server key.",
     end: { ".dl-protected": { opacity: 1 } },
-    play: (animate, $$) => animate($$(".dl-protected"), { opacity: [0.12, 1], duration: 600 }),
+    play: (animate, $$) => animate($$(".dl-protected"), { opacity: [DIM, 1], duration: 600 }),
   },
   {
-    text: "Publishing that lower band openly would tell anyone who asks which resources Alice owns — a leak the older push-registration model never had.",
     hold: 4200,
     end: { ".dl-protected": { opacity: 1 }, ".dl-note": { opacity: 1 } },
     play: (animate, $$) => animate($$(".dl-note"), { opacity: [0, 1], duration: 600 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // The enforcement order
@@ -529,28 +548,20 @@ const EnforcementOrder = () => (
   </Frame>
 );
 
-const eoDim = { ".eo-step": { opacity: 0.16 }, ".eo-wrong": { opacity: 0 } };
+const eoDim = { ".eo-step": { opacity: DIM }, ".eo-wrong": { opacity: 0 } };
 const eoLit = (n) => {
   const state = { ...eoDim };
   for (let i = 0; i <= n; i += 1) state[`.eo-step-${i}`] = { opacity: 1 };
   return state;
 };
 
-const enforcementScenes = [
-  ...EO_STEPS.map(([n, name], i) => ({
-    text: [
-      "Introspect, without consuming. Is the token live, and does the connection behind it still stand?",
-      "Scope. Does the tool being called map to a permission this grant actually carries?",
-      "Signature. Does the request verify against the key named in the grant? This is the step that makes it proof-of-possession rather than bearer.",
-      "Operation. For a single-use grant, do the parameters hash to exactly what Alice approved?",
-      "Consume. Only now is the grant spent — atomically, and a caller that loses the race denies.",
-    ][i],
+const enforcementScenes = scripted("enforcement-order", [
+  ...EO_STEPS.map((_step, i) => ({
     reset: eoDim,
     end: eoLit(i),
-    play: (animate, $$) => animate($$(`.eo-step-${i}`), { opacity: [0.16, 1], duration: 420 }),
+    play: (animate, $$) => animate($$(`.eo-step-${i}`), { opacity: [DIM, 1], duration: 420 }),
   })),
   {
-    text: "Move the burn to the top and it runs before any check does. Anyone who observes the token can replay it unsigned and destroy an approval Alice personally gave.",
     hold: 4200,
     end: { ...eoLit(4), ".eo-wrong": { opacity: 1 } },
     play: (animate, $$) => {
@@ -563,7 +574,7 @@ const enforcementScenes = [
       });
     },
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // The single-use race
@@ -709,20 +720,18 @@ const suHide = {
   ".su-flag": { opacity: 1 },
 };
 
-const singleUseScenes = [
+const singleUseScenes = scripted("single-use-race", [
   {
-    text: "Alice approved one trade. Under load, two copies of the same call reach two replicas of the authorization server.",
     reset: suHide,
     end: {},
     play: (animate, $$) =>
       animate($$(".su-replica"), {
-        opacity: [0.3, 1],
+        opacity: [DIM, 1],
         duration: 500,
         delay: (el, i) => i * 200,
       }),
   },
   {
-    text: "Read, then decide, then write. Both replicas read the flag, and both of them read false.",
     end: { ".su-read-0": { opacity: 1 }, ".su-read-1": { opacity: 1 } },
     play: (animate, $$) =>
       animate($$(".su-read-0, .su-read-1"), {
@@ -732,7 +741,6 @@ const singleUseScenes = [
       }),
   },
   {
-    text: "Both write true. Both are told yes. From each replica's point of view nothing went wrong, so nothing is logged.",
     hold: 4000,
     end: {
       ".su-read-0": { opacity: 1 },
@@ -751,7 +759,6 @@ const singleUseScenes = [
     },
   },
   {
-    text: "One statement instead: update the row only if it is still unspent, and return what changed.",
     // The failed pass has to be cleared, not merely covered — its arrows and
     // its verdict occupy the same coordinates as the ones that replace them.
     end: {
@@ -774,7 +781,6 @@ const singleUseScenes = [
     },
   },
   {
-    text: "One caller gets a row back and proceeds. The other gets nothing, and a caller that gets nothing denies.",
     hold: 4000,
     end: {
       ".su-mode": { opacity: 0 },
@@ -799,7 +805,7 @@ const singleUseScenes = [
       animate($$(".su-foot"), { opacity: [0, 1], duration: 600, delay: 900 });
     },
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Who can answer — the cast from the home page, asking one question
@@ -965,31 +971,27 @@ const waHide = {
   ".wa-tick": { opacity: 0 },
 };
 
-const whoAnswersScenes = [
+const whoAnswersScenes = scripted("who-answers", [
   {
-    text: "Bob's advisor sends an agent to Alice's holdings. The agent is not a villain — it is simply not Alice, and that is enough to need a negotiation.",
     reset: waHide,
     end: { ".wa-ask": { opacity: 1 } },
     play: (animate, $$) => {
       // Opacity only. These groups carry a `transform` attribute for their
       // position, and anime composes its own transform from x/y/scale — which
       // replaces the attribute and drops the actor at the origin.
-      animate($$(".wa-agent"), { opacity: [0.25, 1], duration: 700, ease: "outQuad" });
+      animate($$(".wa-agent"), { opacity: [DIM, 1], duration: 700, ease: "outQuad" });
       animate($$(".wa-ask"), { opacity: [0, 1], duration: 500, delay: 400 });
     },
   },
   {
-    text: "Bob can answer for Bob. He has no standing to answer for Alice — he is her advisor, not her.",
     end: { ".wa-ask": { opacity: 1 }, ".wa-no-bob": { opacity: 1 } },
     play: (animate, $$) => animate($$(".wa-no-bob"), { opacity: [0, 1], duration: 500 }),
   },
   {
-    text: "Meridian holds the assets and can refuse the call. It cannot decide, because the policy is not its to read — and it answers to a thousand other owners too.",
     end: { ".wa-ask": { opacity: 1 }, ".wa-no-bob": { opacity: 1 }, ".wa-no-vault": { opacity: 1 } },
     play: (animate, $$) => animate($$(".wa-no-vault"), { opacity: [0, 1], duration: 500 }),
   },
   {
-    text: "Only the authority on Alice's side can answer, and it can answer at three in the morning, because what it holds is her policy rather than her attention.",
     hold: 4600,
     end: {
       ".wa-ask": { opacity: 1 },
@@ -1009,7 +1011,7 @@ const whoAnswersScenes = [
       });
     },
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Terms: proffered, signed, counter-signed, held by both
@@ -1106,30 +1108,26 @@ const TermsExchange = () => (
   </Frame>
 );
 
-const termsScenes = [
+const termsScenes = scripted("terms-exchange", [
   {
-    text: "Alice's authority does not ask what the agent will accept. It proffers her terms: the purpose, the scope, how long, and what is forbidden — as a document at a URL that keeps working.",
     reset: {
       ".te-sign": { opacity: 0 },
       ".te-verify": { opacity: 0 },
       ".te-receipt": { opacity: 0 },
     },
     end: {},
-    play: (animate, $$) => animate($$(".te-proffer"), { opacity: [0.2, 1], duration: 600 }),
+    play: (animate, $$) => animate($$(".te-proffer"), { opacity: [DIM, 1], duration: 600 }),
   },
   {
-    text: "The agent echoes the template back, signed with the key it will later use to prove possession of the grant. One key, two jobs — so the party that committed is the party that calls.",
     end: { ".te-sign": { opacity: 1 } },
     play: (animate, $$) => animate($$(".te-sign"), { opacity: [0, 1], duration: 600 }),
   },
   {
-    text: "The echo is checked field by field. A valid signature over weaker terms is exactly what an adversarial agent would send, so a dropped prohibition or a stretched expiry ends the negotiation.",
     hold: 4200,
     end: { ".te-sign": { opacity: 1 }, ".te-verify": { opacity: 1 } },
     play: (animate, $$) => animate($$(".te-verify"), { opacity: [0, 1], duration: 600 }),
   },
   {
-    text: "On grant, her authority returns a receipt that embeds the agent's signed agreement and counter-signs it. Both sides now hold the same dually-signed record, and neither can produce a version the other cannot check.",
     hold: 4600,
     end: {
       ".te-sign": { opacity: 1 },
@@ -1138,7 +1136,7 @@ const termsScenes = [
     },
     play: (animate, $$) => animate($$(".te-receipt"), { opacity: [0, 1], duration: 600 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Proof-of-possession
@@ -1179,25 +1177,22 @@ const PopKey = () => (
   </Frame>
 );
 
-const popScenes = [
+const popScenes = scripted("proof-of-possession", [
   {
-    text: "The grant names the agent's public key. Every call carries a signature over the method, the authority, the path, the authorization header and a digest of the body.",
-    reset: { ".pop-thief": { opacity: 0.12 }, ".pop-tamper": { opacity: 0.12 } },
+    reset: { ".pop-thief": { opacity: DIM }, ".pop-tamper": { opacity: DIM } },
     end: {},
-    play: (animate, $$) => animate($$(".pop-good"), { opacity: [0.3, 1], duration: 500 }),
+    play: (animate, $$) => animate($$(".pop-good"), { opacity: [DIM, 1], duration: 500 }),
   },
   {
-    text: "Copy the token and you have a string. Without the private key there is no signature that verifies against the key the grant names, so the call is refused before it reaches the resource.",
     end: { ".pop-thief": { opacity: 1 } },
-    play: (animate, $$) => animate($$(".pop-thief"), { opacity: [0.12, 1], duration: 500 }),
+    play: (animate, $$) => animate($$(".pop-thief"), { opacity: [DIM, 1], duration: 500 }),
   },
   {
-    text: "Nor can the holder change the call after signing it. The body is covered by a digest inside the signature base, so an edited request fails verification rather than passing with new arguments.",
     hold: 4200,
     end: { ".pop-thief": { opacity: 1 }, ".pop-tamper": { opacity: 1 } },
-    play: (animate, $$) => animate($$(".pop-tamper"), { opacity: [0.12, 1], duration: 500 }),
+    play: (animate, $$) => animate($$(".pop-tamper"), { opacity: [DIM, 1], duration: 500 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Identity is not authorization
@@ -1258,28 +1253,25 @@ const IdentityVsAuthz = () => (
   </Frame>
 );
 
-const identityScenes = [
+const identityScenes = scripted("identity-vs-authz", [
   {
-    text: "A verified agent identity is worth having. It tells you which agent this is across sessions, who operates it, and that it holds the key it claims.",
-    reset: { ".iv-gap": { opacity: 0 }, ".iv-unknown": { opacity: 0.12 }, ".iv-answer": { opacity: 0 } },
+    reset: { ".iv-gap": { opacity: 0 }, ".iv-unknown": { opacity: DIM }, ".iv-answer": { opacity: 0 } },
     end: {},
-    play: (animate, $$) => animate($$(".iv-known"), { opacity: [0.3, 1], duration: 500 }),
+    play: (animate, $$) => animate($$(".iv-known"), { opacity: [DIM, 1], duration: 500 }),
   },
   {
-    text: "None of that says whether the owner agreed, on what terms, or how she withdraws it. A perfectly identified agent is still an agent standing at a door that has not been opened.",
     end: { ".iv-gap": { opacity: 1 }, ".iv-unknown": { opacity: 1 } },
     play: (animate, $$) => {
-      animate($$(".iv-unknown"), { opacity: [0.12, 1], duration: 500 });
+      animate($$(".iv-unknown"), { opacity: [DIM, 1], duration: 500 });
       animate($$(".iv-gap"), { opacity: [0, 1], duration: 500, delay: 300 });
     },
   },
   {
-    text: "That is the division of labour: identity work answers who is asking, and the grant answers whether they may. This profile consumes the first rather than competing with it.",
     hold: 4200,
     end: { ".iv-gap": { opacity: 1 }, ".iv-unknown": { opacity: 1 }, ".iv-answer": { opacity: 1 } },
     play: (animate, $$) => animate($$(".iv-answer"), { opacity: [0, 1], duration: 600 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // Revocation
@@ -1338,16 +1330,14 @@ const RevokeCascade = () => (
   </Frame>
 );
 
-const revokeScenes = [
+const revokeScenes = scripted("revoke-cascade", [
   {
-    text: "A standing connection, and the live grants issued under it. This is what Alice sees: a relationship with one agent, not a list of tokens.",
     reset: { ".rv-burn": { opacity: 0 }, ".rv-terminal": { opacity: 0 }, ".rv-status-off": { opacity: 0 } },
     end: {},
     play: (animate, $$) =>
-      animate($$(".rv-grant"), { opacity: [0.3, 1], duration: 450, delay: (el, i) => i * 160 }),
+      animate($$(".rv-grant"), { opacity: [DIM, 1], duration: 450, delay: (el, i) => i * 160 }),
   },
   {
-    text: "She revokes it. Ending the relationship and burning every grant behind it happen in one operation — as two steps the second can fail on its own, leaving the agent holding exactly the authority she just withdrew.",
     hold: 4400,
     end: {
       ".rv-status": { opacity: 0 },
@@ -1369,7 +1359,6 @@ const revokeScenes = [
     },
   },
   {
-    text: "An agent presenting one of them is told so explicitly, and the answer is terminal. Re-negotiating cannot change an outcome she has already settled, and a bare inactive would send it round the loop again.",
     hold: 4400,
     end: {
       ".rv-status": { opacity: 0 },
@@ -1381,7 +1370,7 @@ const revokeScenes = [
     },
     play: (animate, $$) => animate($$(".rv-terminal"), { opacity: [0, 1], duration: 600 }),
   },
-];
+]);
 
 // ---------------------------------------------------------------------------
 // The six roles, and where each one sits
@@ -1519,7 +1508,7 @@ const RolesMap = () => (
               pep: "refuses · verifies · spends",
               resource: "publishes what it protects",
               store: "one statement",
-              reach: "notify · decide · release",
+              reach: "notify · decide",
               identity: "a name that persists",
             }[r.key]
           }
@@ -1529,17 +1518,425 @@ const RolesMap = () => (
   </Frame>
 );
 
-const rolesScenes = ROLES.map((r) => ({
-  text: `${r.n}. ${r.name} — ${r.must} ${r.judge}`,
-  hold: 5200,
-  reset: { ".rm-role": { opacity: 0.16 }, ".rm-wires": { opacity: 0.3 } },
-  end: { [`.rm-${r.key}`]: { opacity: 1 } },
-  play: (animate, $$) => animate($$(`.rm-${r.key}`), { opacity: [0.16, 1], duration: 450 }),
-}));
+const rolesScenes = scripted(
+  "roles-map",
+  ROLES.map((r) => ({
+    hold: 5200,
+    reset: { ".rm-role": { opacity: DIM }, ".rm-wires": { opacity: DIM } },
+    end: { [`.rm-${r.key}`]: { opacity: 1 } },
+    play: (animate, $$) => animate($$(`.rm-${r.key}`), { opacity: [DIM, 1], duration: 450 }),
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// One core, two hosts
+// ---------------------------------------------------------------------------
+
+const TwoHosts = () => (
+  <Frame title="One enforcement core behind two hosts" viewBox="0 0 600 250">
+    <Markers />
+
+    <g className="th-gateway">
+      <Box x={20} y={24} w={230} h={70} />
+      <text x={36} y={48} fill="var(--ink)" fontSize="13" fontWeight="600">
+        A gateway, as a callout
+      </text>
+      <text x={36} y={68} fill="var(--ink-2)" fontSize="11.5">
+        ext-authz before forwarding
+      </text>
+      <text x={36} y={84} fill="var(--ink-3)" fontSize="11">
+        HTTP request → facts
+      </text>
+    </g>
+
+    <g className="th-embedded">
+      <Box x={350} y={24} w={230} h={70} />
+      <text x={366} y={48} fill="var(--ink)" fontSize="13" fontWeight="600">
+        The resource, in-process
+      </text>
+      <text x={366} y={68} fill="var(--ink-2)" fontSize="11.5">
+        middleware, no gateway at all
+      </text>
+      <text x={366} y={84} fill="var(--ink-3)" fontSize="11">
+        framework request → facts
+      </text>
+    </g>
+
+    <g className="th-core">
+      <Box x={150} y={128} w={300} h={78} stroke="var(--primary)" fill="var(--tint-granted)" />
+      <text x={300} y={154} textAnchor="middle" fill="var(--ink)" fontSize="13.5" fontWeight="600">
+        One enforcement core
+      </text>
+      <text x={300} y={176} textAnchor="middle" fill="var(--ink-2)" fontSize="12" fontFamily={MONO}>
+        AuthzFacts → Decision
+      </text>
+      <text x={300} y={195} textAnchor="middle" fill="var(--ink-3)" fontSize="11">
+        refuse · challenge · verify · bind · spend
+      </text>
+    </g>
+
+    <g className="th-wires">
+      <line x1="135" y1="94" x2="200" y2="126" stroke="var(--accent)" strokeWidth="1.4" markerEnd="url(#arrow-accent)" />
+      <line x1="465" y1="94" x2="400" y2="126" stroke="var(--accent)" strokeWidth="1.4" markerEnd="url(#arrow-accent)" />
+    </g>
+
+    <text className="th-note" x={300} y={232} textAnchor="middle" fill="var(--ink-3)" fontSize="11.5">
+      Each host only converts its own request in, and its own response out.
+    </text>
+  </Frame>
+);
+
+const twoHostsScenes = scripted("two-hosts", [
+  {
+    reset: {
+      ".th-embedded": { opacity: DIM },
+      ".th-core": { opacity: DIM },
+      ".th-wires": { opacity: 0 },
+      ".th-note": { opacity: 0 },
+    },
+    end: {},
+    play: (animate, $$) => animate($$(".th-gateway"), { opacity: [DIM, 1], duration: 500 }),
+  },
+  {
+    end: { ".th-embedded": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".th-embedded"), { opacity: [DIM, 1], duration: 500 }),
+  },
+  {
+    hold: 4400,
+    end: {
+      ".th-embedded": { opacity: 1 },
+      ".th-core": { opacity: 1 },
+      ".th-wires": { opacity: 1 },
+      ".th-note": { opacity: 1 },
+    },
+    play: (animate, $$) => {
+      animate($$(".th-core"), { opacity: [DIM, 1], duration: 500 });
+      animate($$(".th-wires"), { opacity: [0, 1], duration: 500, delay: 300 });
+      animate($$(".th-note"), { opacity: [0, 1], duration: 500, delay: 600 });
+    },
+  },
+]);
+
+// ---------------------------------------------------------------------------
+// A challenge you must not trust
+// ---------------------------------------------------------------------------
+
+const RogueChallenge = () => (
+  <Frame title="Corroborating a challenge against published metadata" viewBox="0 0 600 240">
+    <Markers />
+
+    <Box x={20} y={30} w={150} h={54} stroke="var(--agent)" />
+    <text x={95} y={54} textAnchor="middle" fill="var(--ink)" fontSize="13" fontWeight="600">
+      The agent
+    </text>
+    <text x={95} y={72} textAnchor="middle" fill="var(--ink-3)" fontSize="11">
+      about to negotiate
+    </text>
+
+    <g className="rc-challenge">
+      <Arrow from={280} to={180} y={57} colour="var(--red)" />
+      <Box x={288} y={30} w={292} h={54} stroke="var(--red)" />
+      <text x={304} y={50} fill="var(--red)" fontSize="12" fontWeight="600">
+        401 · as_uri = attacker.example
+      </text>
+      <text x={304} y={70} fill="var(--ink-3)" fontSize="11">
+        anything able to refuse can name an authority
+      </text>
+    </g>
+
+    <g className="rc-metadata">
+      <Box x={288} y={108} w={292} h={54} stroke="var(--accent)" />
+      <text x={304} y={128} fill="var(--ink)" fontSize="12" fontWeight="600">
+        The resource's published metadata
+      </text>
+      <text x={304} y={148} fill="var(--ink-2)" fontSize="11" fontFamily={MONO}>
+        authorization_servers: [alice-as]
+      </text>
+      <Arrow from={180} to={280} y={135} colour="var(--accent)" />
+    </g>
+
+    <g className="rc-verdict">
+      <rect x={20} y={186} width={560} height={38} rx="8" fill="var(--card)" stroke="var(--red)" />
+      <text x={300} y={210} textAnchor="middle" fill="var(--red)" fontSize="12.5">
+        Named authority is not one the resource published — refuse, and do not negotiate.
+      </text>
+    </g>
+  </Frame>
+);
+
+const rogueScenes = scripted("rogue-challenge", [
+  {
+    reset: { ".rc-metadata": { opacity: 0 }, ".rc-verdict": { opacity: 0 } },
+    end: {},
+    play: (animate, $$) => animate($$(".rc-challenge"), { opacity: [DIM, 1], duration: 500 }),
+  },
+  {
+    end: { ".rc-metadata": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".rc-metadata"), { opacity: [0, 1], duration: 500 }),
+  },
+  {
+    hold: 4400,
+    end: { ".rc-metadata": { opacity: 1 }, ".rc-verdict": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".rc-verdict"), { opacity: [0, 1], duration: 600 }),
+  },
+]);
+
+// ---------------------------------------------------------------------------
+// Which specification supplies which piece
+// ---------------------------------------------------------------------------
+
+const SPEC_GROUPS = [
+  {
+    key: "base",
+    label: "The base",
+    y: 30,
+    specs: ["UMA 2.0 Grant", "FedAuthz", "OAuth 2.0", "OpenID Connect"],
+    supplies: "the grant type, the ticket, the party split",
+  },
+  {
+    key: "hold",
+    label: "What makes it hold",
+    y: 92,
+    specs: ["RFC 9728", "RFC 9421", "RFC 7638", "RFC 9396"],
+    supplies: "discovery, proof-of-possession, the agent's name, the ask",
+  },
+  {
+    key: "person",
+    label: "What makes it about a person",
+    y: 154,
+    specs: ["IEEE 7012"],
+    supplies: "the owner proffers terms; the counterparty agrees",
+  },
+  {
+    key: "agent",
+    label: "Agent identity",
+    y: 216,
+    specs: ["AAuth", "Web Bot Auth", "CIMD"],
+    supplies: "who is asking — consumed, never an authorization input",
+  },
+];
+
+const StandardsMap = () => (
+  <Frame title="Which specification supplies which piece" viewBox="0 0 600 274">
+    <Markers />
+    {SPEC_GROUPS.map((g) => (
+      <g key={g.key} className={`sm-group sm-${g.key}`}>
+        <Box
+          x={20}
+          y={g.y}
+          w={560}
+          h={50}
+          stroke={g.key === "person" ? "var(--primary)" : "var(--edge)"}
+          fill={g.key === "person" ? "var(--tint-granted)" : "var(--card)"}
+        />
+        <text x={36} y={g.y + 21} fill="var(--ink)" fontSize="12.5" fontWeight="600">
+          {g.label}
+        </text>
+        <text x={36} y={g.y + 39} fill="var(--ink-2)" fontSize="11">
+          {g.supplies}
+        </text>
+        <text
+          x={564}
+          y={g.y + 21}
+          textAnchor="end"
+          fill={g.key === "person" ? "var(--primary)" : "var(--accent)"}
+          fontSize="10.5"
+          fontFamily={MONO}
+        >
+          {g.specs.join(" · ")}
+        </text>
+      </g>
+    ))}
+  </Frame>
+);
+
+const standardsScenes = scripted(
+  "standards-map",
+  SPEC_GROUPS.map((g, i) => ({
+    hold: 4200,
+    reset: { ".sm-group": { opacity: DIM } },
+    end: Object.fromEntries(
+      SPEC_GROUPS.slice(0, i + 1).map((x) => [`.sm-${x.key}`, { opacity: 1 }])
+    ),
+    play: (animate, $$) => animate($$(`.sm-${g.key}`), { opacity: [DIM, 1], duration: 450 }),
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Keep, transform, add
+// ---------------------------------------------------------------------------
+
+const VERDICTS = [
+  {
+    key: "keep",
+    label: "Carried unchanged",
+    colour: "var(--green)",
+    items: ["the cross-principal topology", "the permission ticket", "the pending state"],
+  },
+  {
+    key: "transform",
+    label: "Changed shape",
+    colour: "var(--amber)",
+    items: ["claims-gathering becomes proffered terms", "the RPT becomes proof-of-possession", "registration becomes pulled"],
+  },
+  {
+    key: "add",
+    label: "Genuinely new",
+    colour: "var(--primary)",
+    items: ["per-operation, single-use grants", "the owner's app as the consent surface"],
+  },
+];
+
+const CompareUma = () => (
+  <Frame title="What this profile keeps, changes and adds" viewBox="0 0 600 250">
+    <Markers />
+    {VERDICTS.map((v, i) => (
+      <g key={v.key} className={`cu-col cu-${v.key}`}>
+        <Box x={20 + i * 192} y={30} w={176} h={190} stroke={v.colour} />
+        <text
+          x={108 + i * 192}
+          y={54}
+          textAnchor="middle"
+          fill={v.colour}
+          fontSize="12"
+          fontWeight="700"
+        >
+          {v.label}
+        </text>
+        {v.items.map((t, j) => (
+          <text
+            key={t}
+            x={36 + i * 192}
+            y={84 + j * 42}
+            fill="var(--ink-2)"
+            fontSize="11"
+          >
+            {t.length > 26 ? (
+              <>
+                <tspan x={36 + i * 192}>{t.slice(0, t.lastIndexOf(" ", 26))}</tspan>
+                <tspan x={36 + i * 192} dy="14">
+                  {t.slice(t.lastIndexOf(" ", 26) + 1)}
+                </tspan>
+              </>
+            ) : (
+              t
+            )}
+          </text>
+        ))}
+      </g>
+    ))}
+  </Frame>
+);
+
+const compareUmaScenes = scripted(
+  "compare-uma",
+  VERDICTS.map((v, i) => ({
+    hold: 4400,
+    reset: { ".cu-col": { opacity: DIM } },
+    end: Object.fromEntries(
+      VERDICTS.slice(0, i + 1).map((x) => [`.cu-${x.key}`, { opacity: 1 }])
+    ),
+    play: (animate, $$) => animate($$(`.cu-${v.key}`), { opacity: [DIM, 1], duration: 450 }),
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// The ticket's states — structure, so it does not move
+// ---------------------------------------------------------------------------
+
+/** A state box. Terminal states carry their outcome's colour. */
+const State = ({ x, y, w = 116, label, sub, tone = "var(--edge)" }) => (
+  <g>
+    <Box x={x} y={y} w={w} h={sub ? 44 : 32} stroke={tone} />
+    <text
+      x={x + w / 2}
+      y={y + (sub ? 20 : 21)}
+      textAnchor="middle"
+      fill={tone === "var(--edge)" ? "var(--ink)" : tone}
+      fontSize="11.5"
+      fontWeight="600"
+      fontFamily={MONO}
+    >
+      {label}
+    </text>
+    {sub && (
+      <text x={x + w / 2} y={y + 36} textAnchor="middle" fill="var(--ink-3)" fontSize="10">
+        {sub}
+      </text>
+    )}
+  </g>
+);
+
+/** An edge with its label above it. */
+const Edge = ({ x1, y1, x2, y2, label, tone = "var(--ink-3)", labelDy = -6 }) => (
+  <g>
+    <path
+      d={y1 === y2 ? `M${x1} ${y1} H${x2}` : `M${x1} ${y1} V${(y1 + y2) / 2} H${x2} V${y2}`}
+      fill="none"
+      stroke={tone}
+      strokeWidth="1.3"
+      markerEnd={markerFor(tone)}
+    />
+    {label && (
+      <text
+        x={y1 === y2 ? (x1 + x2) / 2 : x2}
+        y={y1 === y2 ? y1 + labelDy : (y1 + y2) / 2 + labelDy}
+        textAnchor="middle"
+        fill={tone === "var(--ink-3)" ? "var(--ink-2)" : tone}
+        fontSize="10"
+      >
+        {label}
+      </text>
+    )}
+  </g>
+);
+
+const TicketLifecycle = () => (
+  <Frame title="The states a permission ticket moves through" viewBox="0 0 600 300">
+    <Markers />
+
+    <State x={16} y={40} label="issued" tone="var(--accent)" />
+    <Edge x1={132} y1={56} x2={196} y2={56} label="present" />
+
+    <State x={200} y={34} w={132} label="need_info" sub="rotated, terms offered" tone="var(--amber)" />
+    <Edge x1={332} y1={56} x2={396} y2={56} label="commit" />
+
+    {/* The three ways a committed agreement resolves. */}
+    <State x={400} y={16} w={184} label="granted" sub="known agent, open tier" tone="var(--green)" />
+    <State x={400} y={78} w={184} label="awaiting-owner" sub="first contact, or ask-me" tone="var(--amber)" />
+    <State x={400} y={146} w={184} label="request_denied" sub="weakened echo · bad sig · policy" tone="var(--red)" />
+
+    <Edge x1={396} y1={56} x2={400} y2={38} tone="var(--green)" />
+    <Edge x1={396} y1={56} x2={400} y2={100} tone="var(--amber)" />
+    <Edge x1={266} y1={78} x2={400} y2={168} tone="var(--red)" />
+
+    {/* What the owner's answer does to a held ticket. */}
+    <text x={16} y={214} fill="var(--ink-3)" fontSize="10.5" fontFamily={MONO} letterSpacing="1">
+      WHILE AWAITING-OWNER — THE TICKET ROTATES ON EVERY POLL
+    </text>
+    {[
+      ["she approves", "granted", "var(--green)", 16],
+      ["she denies", "request_denied", "var(--red)", 212],
+      ["it expires", "invalid_grant", "var(--ink-3)", 408],
+    ].map(([why, to, tone, x]) => (
+      <g key={to}>
+        <text x={x} y={244} fill="var(--ink-2)" fontSize="10.5">
+          {why}
+        </text>
+        <State x={x} y={252} w={172} label={to} tone={tone} />
+      </g>
+    ))}
+
+    <text x={16} y={294} fill="var(--ink-3)" fontSize="10">
+      Approving a first contact also records the standing connection.
+    </text>
+  </Frame>
+);
 
 // ---------------------------------------------------------------------------
 
 const diagrams = {
+  "ticket-lifecycle": { Draw: TicketLifecycle, title: "Ticket lifecycle" },
   "four-beats": { Draw: FourBeats, scenes: fourBeatScenes, title: "The four beats" },
   "trust-boundary": {
     Draw: TrustBoundary,
@@ -1552,14 +1949,34 @@ const diagrams = {
     title: "Public and protected discovery",
   },
   "terms-exchange": { Draw: TermsExchange, scenes: termsScenes, title: "The terms exchange" },
-  "proof-of-possession": { Draw: PopKey, scenes: popScenes, title: "Proof-of-possession" },
+  "proof-of-possession": {
+    Draw: PopKey,
+    scenes: popScenes,
+    title: "Proof-of-possession",
+  },
   "identity-vs-authz": {
     Draw: IdentityVsAuthz,
     scenes: identityScenes,
     title: "Identity is not authorization",
   },
-  "revoke-cascade": { Draw: RevokeCascade, scenes: revokeScenes, title: "Revocation" },
+  "revoke-cascade": {
+    Draw: RevokeCascade,
+    scenes: revokeScenes,
+    title: "Revocation",
+  },
   "roles-map": { Draw: RolesMap, scenes: rolesScenes, title: "The six roles" },
+  "two-hosts": {
+    Draw: TwoHosts,
+    scenes: twoHostsScenes,
+    title: "One core, two hosts",
+  },
+  "rogue-challenge": {
+    Draw: RogueChallenge,
+    scenes: rogueScenes,
+    title: "A challenge you must not trust",
+  },
+  "standards-map": { Draw: StandardsMap, scenes: standardsScenes, title: "The standards" },
+  "compare-uma": { Draw: CompareUma, scenes: compareUmaScenes, title: "Keep, change, add" },
   "enforcement-order": {
     Draw: EnforcementOrder,
     scenes: enforcementScenes,
@@ -1578,8 +1995,9 @@ const diagrams = {
 };
 
 const DocDiagram = ({ name, caption }) => {
-  // The one figure that is operated rather than watched.
+  // The two figures that are operated rather than watched.
   if (name === "pend-sandbox") return <DocSandbox caption={caption} />;
+  if (name === "wire-inspector") return <DocInspector caption={caption} />;
 
   const chosen = diagrams[name];
   if (!chosen) return null;
