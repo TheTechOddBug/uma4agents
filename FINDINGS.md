@@ -372,6 +372,73 @@ implementer will meet it, none of them will be warned by the current text, and
 the symptom is a replayed transaction rather than an error. It costs one
 sentence.
 
+**10. Say how the owner authenticates to her own authorization server.** UMA
+2.0 and FedAuthz are silent on it, which was reasonable in 2018 when an AS was
+tacitly a web application the owner logged in to. It stops being reasonable the
+moment the authority can be *personal* — on her laptop, or inside a personal AI
+— because the profile then requires her to stand up an identity provider before
+she can answer a single request. Two credential modes cost one code path, and
+the second reuses the verifier already present: an RFC 9421 signature over her
+request, checked against a key she enrolled, which is the same message-signature
+profile the agent uses for proof-of-possession pointed the other way.
+
+The configuration worth specifying is **both at once**. A person reaches her own
+things more than one way — a browser, a phone, a personal AI holding a key —
+and each credential should be independently sufficient and independently
+revocable, with none a fallback for another. The reference stack runs
+`oidc,local-key`, and a decision lands in the same ledger either way. See
+[docs/KWAAI-BINDING.md](docs/KWAAI-BINDING.md).
+
+**11. A message-signature profile has to say which requests cover their body.**
+The four components this profile signs — `@method`, `@authority`, `@path`,
+`authorization` — say who is asking and what they are asking of. They say
+nothing about the bytes, and that distinction is invisible until an endpoint
+carries its meaning in a body rather than a URL.
+
+Ours does. `POST /owner/pending/{family}/decision` is the owner saying yes or
+no, and with those four components alone an intermediary can leave her
+signature untouched and change the word. The family is in the path and cannot
+be retargeted; the answer can be inverted, which is worse, because it is silent
+and it is hers. This implementation had exactly that gap, and the case is
+recorded because the shape of the mistake generalises: a signature profile
+defined once, for one endpoint, and then reused for another whose meaning
+moved from the URL into the body.
+
+The fix is RFC 9530 `Content-Digest` as a covered component, and there are two
+rules worth writing into a spec rather than one.
+
+**A verifier must be able to require the digest, not merely accept it.**
+Optional coverage is not coverage — a signer that omits it still produces a
+signature that verifies. Endpoints whose body is the decision should mandate it.
+
+**Verifying the signature and verifying the digest are two obligations.** RFC
+9421 builds the base from the `Content-Digest` *header field value*; RFC 9530
+says nothing about whether that header is true. Our first fix recomputed the
+digest from the received body and never read the header. That is safe — a
+tampered body cannot match — and it is not conformant, so it would have
+rejected any third-party signer whose encoding differed from ours. Reading the
+header for the base and *separately* asserting it against the bytes that
+arrived satisfies both. A verifier that does only the first trusts the
+attacker's arithmetic; one that does only the second is not verifying what was
+signed.
+
+**12. Identity levels are two, and description is not one of them.** Running the
+same negotiation against four requesting-side arrangements — a bare key, an
+AAuth-identified agent with rotating session keys, a CIMD-described agent, and
+one published in a Web Bot Auth directory — produces **two** connection handles,
+not four. Either the key is the identity, or a verified issuer stands behind it.
+CIMD and Web Bot Auth are additive *description*: they let a party who has never
+met this agent say something true about who operates it, and change nothing
+about how it is filed or judged. Terms, grant and policy are byte-identical
+across all four.
+
+A core spec should say this plainly, because the failure mode is attractive and
+quiet: an implementation that lets a directory lookup or a metadata document tip
+a decision has changed the trust model without changing the wire. The test that
+catches it is the negative one — the owner's policy contains no identity
+vocabulary at all. See [docs/FLOW.md](docs/FLOW.md) and `make flow-check`.
+
+
 ---
 
 ## Binding notes (AAuth)

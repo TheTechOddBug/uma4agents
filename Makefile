@@ -46,11 +46,26 @@ init:
 	openssl genrsa -out ./certs/uma-as-signing-key.pem 2048
 	openssl rsa -in ./certs/uma-as-signing-key.pem -pubout -out ./certs/uma-as-signing-pub.pem
 
+	$(MAKE) owner-key
+
 	$(MAKE) dns-setup
 
 	@echo ""
 	@echo "==> Init complete. Run: make up"
 	@echo "==> Optional (browser trust for https://*.uma.lab): make trust-ca"
+
+## owner-key: Alice's own device key. She makes it; only the public half ever
+## reaches her authorization server, which is the point — it is a credential
+## she holds rather than one she is issued. Her portal keeps using OIDC; this
+## is the second, independent way she reaches her own authority.
+.PHONY: owner-key
+owner-key:
+	@if [ ! -f ./certs/owner-ed25519.pem ]; then \
+		openssl genpkey -algorithm ed25519 -out ./certs/owner-ed25519.pem 2>/dev/null; \
+		openssl pkey -in ./certs/owner-ed25519.pem -pubout -out ./certs/owner-ed25519.pub; \
+		chmod 600 ./certs/owner-ed25519.pem; \
+		echo "==> made Alice's device key (certs/owner-ed25519.pem)"; \
+	else echo "==> Alice's device key already exists"; fi
 
 ## trust-ca: add the local CA to the system trust store (browser use; may prompt)
 .PHONY: trust-ca
@@ -92,6 +107,52 @@ down:
 
 logs:
 	docker compose logs -f
+
+## fixture: the grant with nothing standing behind it — no identity provider,
+## no database, no gateway, no certificate, no host state. A test harness for
+## the protocol on its own, not a deployment. See docs/FIXTURE.md.
+.PHONY: fixture fixture-down owner flow-check kwaai-check kwaai-host
+fixture:
+	docker compose -f compose.fixture.yml up -d --build owner-keygen uma-as alice-vault-mcp
+	docker compose -f compose.fixture.yml --profile check run --rm fixture-check
+
+fixture-down:
+	docker compose -f compose.fixture.yml down --timeout 2 --volumes --remove-orphans
+
+## flow-check: four agents, four identity regimes, one unchanged owner.
+## The check behind docs/FLOW.md — agent identity never reaches her decision.
+flow-check:
+	docker compose --profile test run --rm flow-check
+
+## kwaai-check: the personal-AI binding — her device key alongside her portal
+## session, both accepted, one ledger. See docs/KWAAI-BINDING.md.
+kwaai-check:
+	docker compose --profile test run --rm kwaai-check
+
+## kwaai-host: the same binding, interactive, against the fixture. Each request
+## is put to you. AUTO=tier1,tier2 gives a tier standing approval.
+kwaai-host:
+	@docker compose -f compose.fixture.yml run --rm --no-deps -it \
+		-v $(PWD)/kwaai:/kwaai:ro \
+		-e UMA4A_OWNER_AS=http://uma-as:9000 \
+		-e UMA4A_OWNER_AUTHORITY=alice-as.local \
+		-e UMA4A_OWNER_KEY=/keys/owner-ed25519.pem \
+		-e UMA4A_AUTO_TIERS=$(AUTO) \
+		--entrypoint /bin/bash fixture-check \
+		-c "pip install -q httpx cryptography && python /kwaai/host_demo.py"
+
+## owner: Alice's side of her own authority, signed with her device key.
+##   make owner ARGS=pending
+##   make owner ARGS="approve fam_..."
+owner:
+	@docker compose -f compose.fixture.yml run --rm --no-deps \
+		-v $(PWD)/clients/owner-cli:/cli:ro \
+		-e UMA4A_OWNER_AS=http://uma-as:9000 \
+		-e UMA4A_OWNER_AUTHORITY=alice-as.local \
+		-e UMA4A_OWNER_KEY=/keys/owner-ed25519.pem \
+		-e PYTHONPATH=/driver/lib \
+		--entrypoint /bin/bash fixture-check \
+		-c "pip install -q httpx cryptography && python /cli/owner.py $(ARGS)"
 
 ## demo acts: walk the day headlessly (same code path as the agent-shim)
 .PHONY: demo-tier1 demo-tier2 demo-tier3 demo-all
