@@ -52,6 +52,16 @@ $tint-select:        var(--tint-select)
 $tint-granted:       var(--tint-granted)
 $tint-granted-edge:  var(--tint-granted-edge)
 
+// Films laid over a surface. A white film lifts a dark ground and washes out
+// a light one, so these have to be tokens rather than rgba() literals — they
+// are exactly the values that would otherwise survive a theme switch and look
+// wrong.
+$hover:              var(--hover)
+$hover-strong:       var(--hover-strong)
+$shadow:             var(--shadow)
+$shadow-deep:        var(--shadow-deep)
+$scrim:              var(--scrim)
+
 // Radii
 $radius:         0.625rem
 $radius-sm:      8px

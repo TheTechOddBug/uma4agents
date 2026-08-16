@@ -1,6 +1,6 @@
 import React from "react";
 import siteMetadata from "../../site-meta";
-import { role } from "../style/theme";
+import { role, lightRole } from "../style/theme";
 
 /**
  * Meta tags for Gatsby's Head API.
@@ -126,7 +126,19 @@ const SEO = ({
           the one LinkedIn's Post Inspector reads — without it, it reports the
           author as not found even though the Open Graph property is present. */}
       <meta name="author" content={author ? author.name : "UMA for Agents"} />
-      <meta name="theme-color" content={role.bg} />
+      {/* Two, so the browser chrome matches the theme the reader lands on.
+          ThemeToggle rewrites both when they choose explicitly, which forces
+          the colour regardless of what the system prefers. */}
+      <meta
+        name="theme-color"
+        media="(prefers-color-scheme: dark)"
+        content={role.bg}
+      />
+      <meta
+        name="theme-color"
+        media="(prefers-color-scheme: light)"
+        content={lightRole.bg}
+      />
       <link rel="canonical" href={seo.url} />
       {/* Crawlers are welcome, including the ones reading on behalf of an
           agent — this site exists to be found and quoted. */}

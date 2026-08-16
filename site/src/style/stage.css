@@ -106,7 +106,7 @@ circle.head { fill: var(--card); }
 .phone-screen { fill: var(--sunken); }
 .buzz-line    { fill: none; stroke: var(--amber); stroke-width: 3; stroke-linecap: round; }
 
-.paper      { fill: var(--paper); }
+.paper      { fill: var(--paper); stroke: var(--paper-edge); stroke-width: 2; }
 .paper-line { stroke: var(--paper-line); stroke-width: 3; stroke-linecap: round; }
 .sign-line  { fill: none; stroke: var(--agent); stroke-width: 3.4; stroke-linecap: round; }
 

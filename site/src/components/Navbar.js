@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "gatsby";
 import { navLinks, ctaLabel, ctaActions, codespace } from "../data/site";
+import ThemeToggle from "./ThemeToggle";
 import { GitHubIcon } from "./Icons";
 import { U4AMark } from "./BrandMark";
 
@@ -98,6 +99,8 @@ const Navbar = () => {
             </li>
           ))}
         </ul>
+
+        <ThemeToggle />
 
         <CtaMenu />
 

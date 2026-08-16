@@ -8,9 +8,10 @@
   --sunken: #0e0f12;
   --edge: #24262c;
   --edge-strong: rgba(255, 255, 255, 0.16);
+  --stage-glow: #8cc2d4;
   --ink: #ffffff;
   --ink-2: #a9aeb6;
-  --ink-3: #6c727a;
+  --ink-3: #757b83;
   --accent: #8cc2d4;
   --accent-hi: #a8d5e3;
   --agent: #5e8fa3;
@@ -25,6 +26,7 @@
   --surface-invert: #ffffff;
   --paper: #f0f0ea;
   --paper-line: #8a8477;
+  --paper-edge: transparent;
   --on-amber: #5a4318;
   --tint-accent: rgba(140, 194, 212, 0.35);
   --tint-card: rgba(18, 19, 23, 0.55);
@@ -33,6 +35,99 @@
   --tint-granted-edge: rgba(188, 219, 44, 0.40);
   --bg-blur: rgba(10, 11, 13, 0.86);
   --bg-blur-soft: rgba(10, 11, 13, 0.82);
+  --hover: rgba(255, 255, 255, 0.05);
+  --hover-strong: rgba(255, 255, 255, 0.08);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --shadow-deep: rgba(0, 0, 0, 0.6);
+  --scrim: rgba(0, 0, 0, 0.6);
   --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+:root[data-theme="light"] {
+  --bg: #fbfbf9;
+  --card: #ffffff;
+  --card-2: #f4f5f2;
+  --sunken: #f2f3ef;
+  --edge: #d7d9d2;
+  --edge-strong: rgba(10, 11, 13, 0.18);
+  --stage-glow: transparent;
+  --ink: #16181c;
+  --ink-2: #4a4f57;
+  --ink-3: #6c727a;
+  --accent: #3b7990;
+  --accent-hi: #2f6a80;
+  --agent: #3b7990;
+  --primary: #627a0e;
+  --primary-hi: #516309;
+  --on-primary: #ffffff;
+  --green: #556b08;
+  --amber: #8a5a00;
+  --red: #b04a2f;
+  --ink-body: #2b2f36;
+  --ink-code: #23262b;
+  --surface-invert: #ffffff;
+  --paper: #ffffff;
+  --paper-line: #9a958a;
+  --paper-edge: #d8d6cd;
+  --on-amber: #ffffff;
+  --tint-accent: rgba(61, 125, 148, 0.28);
+  --tint-card: rgba(255, 255, 255, 0.72);
+  --tint-select: rgba(188, 219, 44, 0.45);
+  --tint-granted: rgba(111, 138, 16, 0.10);
+  --tint-granted-edge: rgba(111, 138, 16, 0.38);
+  --bg-blur: rgba(251, 251, 249, 0.88);
+  --bg-blur-soft: rgba(251, 251, 249, 0.84);
+  --hover: rgba(10, 11, 13, 0.05);
+  --hover-strong: rgba(10, 11, 13, 0.08);
+  --shadow: rgba(10, 11, 13, 0.14);
+  --shadow-deep: rgba(10, 11, 13, 0.18);
+  --scrim: rgba(20, 22, 26, 0.42);
+  --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #fbfbf9;
+    --card: #ffffff;
+    --card-2: #f4f5f2;
+    --sunken: #f2f3ef;
+    --edge: #d7d9d2;
+    --edge-strong: rgba(10, 11, 13, 0.18);
+    --stage-glow: transparent;
+    --ink: #16181c;
+    --ink-2: #4a4f57;
+    --ink-3: #6c727a;
+    --accent: #3b7990;
+    --accent-hi: #2f6a80;
+    --agent: #3b7990;
+    --primary: #627a0e;
+    --primary-hi: #516309;
+    --on-primary: #ffffff;
+    --green: #556b08;
+    --amber: #8a5a00;
+    --red: #b04a2f;
+    --ink-body: #2b2f36;
+    --ink-code: #23262b;
+    --surface-invert: #ffffff;
+    --paper: #ffffff;
+    --paper-line: #9a958a;
+    --paper-edge: #d8d6cd;
+    --on-amber: #ffffff;
+    --tint-accent: rgba(61, 125, 148, 0.28);
+    --tint-card: rgba(255, 255, 255, 0.72);
+    --tint-select: rgba(188, 219, 44, 0.45);
+    --tint-granted: rgba(111, 138, 16, 0.10);
+    --tint-granted-edge: rgba(111, 138, 16, 0.38);
+    --bg-blur: rgba(251, 251, 249, 0.88);
+    --bg-blur-soft: rgba(251, 251, 249, 0.84);
+    --hover: rgba(10, 11, 13, 0.05);
+    --hover-strong: rgba(10, 11, 13, 0.08);
+    --shadow: rgba(10, 11, 13, 0.14);
+    --shadow-deep: rgba(10, 11, 13, 0.18);
+    --scrim: rgba(20, 22, 26, 0.42);
+    --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
 }

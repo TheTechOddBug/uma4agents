@@ -1,12 +1,13 @@
 import React from "react";
-import { role } from "../style/theme";
 import { monogram, disc } from "../style/marks";
 
 /**
  * The brand marks.
  *
- * Geometry comes from src/style/marks.js and colour from src/style/theme.js,
- * so these render exactly what static/brand/*.svg contains — those files are
+ * Geometry comes from src/style/marks.js; colour comes from the page, through
+ * the custom properties src/style/theme.js emits, so the mark follows the
+ * theme. The committed static/brand/*.svg twins bake the dark values in,
+ * because a file served on its own has no page to read from — those files are
  * generated from the same two modules.
  */
 
@@ -34,8 +35,8 @@ export const U4AMark = ({ size = 30, className, title = "U4A" }) => {
         width={f.w}
         height={f.h}
         rx={f.rx}
-        fill={role.bg}
-        stroke={role.accent}
+        fill="var(--bg)"
+        stroke="var(--accent)"
         strokeWidth={monogram.frameWidth}
       />
       <g
@@ -43,13 +44,13 @@ export const U4AMark = ({ size = 30, className, title = "U4A" }) => {
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d={monogram.u} stroke={role.ink} />
-        <path d={monogram.four} stroke={role.primary} />
-        <path d={monogram.a} stroke={role.ink} />
+        <path d={monogram.u} stroke="var(--ink)" />
+        <path d={monogram.four} stroke="var(--primary)" />
+        <path d={monogram.a} stroke="var(--ink)" />
       </g>
       <path
         d={monogram.bar}
-        stroke={role.accent}
+        stroke="var(--accent)"
         strokeWidth={monogram.barWidth}
         strokeLinecap="round"
       />
@@ -68,23 +69,23 @@ export const UMADiscMark = ({ size = 30, className, title = "UMA4Agents" }) => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <circle cx={disc.face.cx} cy={disc.face.cy} r={disc.face.r} fill={role.paper} />
+    <circle cx={disc.face.cx} cy={disc.face.cy} r={disc.face.r} fill="var(--paper)" />
     <circle
       cx={disc.ring.cx}
       cy={disc.ring.cy}
       r={disc.ring.r}
-      stroke={role.accent}
+      stroke="var(--accent)"
       strokeWidth={disc.ringWidth}
     />
     <path
       d={disc.four}
-      stroke={role.primary}
+      stroke="var(--primary)"
       strokeWidth={disc.fourWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <g
-      stroke={role.bg}
+      stroke="var(--bg)"
       strokeWidth={disc.strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"

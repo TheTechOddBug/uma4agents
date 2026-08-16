@@ -248,6 +248,27 @@ a
   @media (max-width: $bp-nav)
     display: none
 
+.theme-toggle
+  flex: 0 0 auto
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 36px
+  height: 36px
+  padding: 0
+  border: 1px solid $border
+  border-radius: $radius-sm
+  background: transparent
+  color: $fg-muted
+  cursor: pointer
+  transition: color 0.15s ease, border-color 0.15s ease
+  &:hover
+    color: $primary
+    border-color: $primary
+
+.theme-toggle__icon
+  display: inline-flex
+
 .site-nav__burger
   display: none
   flex-direction: column
@@ -943,7 +964,7 @@ a.blog-tag
   align-items: stretch
   border: 1px solid $border-strong
   border-radius: $radius-sm
-  background: rgba(255, 255, 255, 0.05)
+  background: $hover
   overflow: hidden
 
 .page-actions__primary, .page-actions__toggle
@@ -960,7 +981,7 @@ a.blog-tag
   cursor: pointer
   transition: background 0.15s ease, color 0.15s ease
   &:hover
-    background: rgba(255, 255, 255, 0.08)
+    background: $hover-strong
     color: $primary
 
 .page-actions__primary
@@ -977,7 +998,7 @@ a.blog-tag
   border: 1px solid $border-strong
   border-radius: $radius-lg
   background: $bg-card
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55)
+  box-shadow: 0 18px 40px $shadow
 
 // Anchored to the right edge instead — used where the button sits hard
 // against the right of its container and the menu would otherwise open off
@@ -1004,7 +1025,7 @@ a.blog-tag
   cursor: pointer
   transition: background 0.15s ease
   &:hover
-    background: rgba(255, 255, 255, 0.07)
+    background: $hover-strong
 
 .page-actions__icon
   flex-shrink: 0
@@ -1142,7 +1163,7 @@ $docs-toc-w: 220px
   display: flex
   justify-content: center
   padding: 12vh 1.25rem 2rem
-  background: rgba(0, 0, 0, 0.6)
+  background: $scrim
   backdrop-filter: blur(3px)
 
 .docs-search__dialog
@@ -1154,7 +1175,7 @@ $docs-toc-w: 220px
   border: 1px solid $border-strong
   border-radius: $radius-lg
   background: $bg-card
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6)
+  box-shadow: 0 24px 60px $shadow-deep
   overflow: hidden
 
 .docs-search__input
@@ -1306,7 +1327,7 @@ $docs-toc-w: 220px
   line-height: 1.45
   &:hover
     color: $fg
-    background: rgba(255, 255, 255, 0.04)
+    background: $hover
 
 .docs-sidebar__link--active
   color: $primary

@@ -30,20 +30,66 @@
  * teardown, so React owns the markup and this owns only the motion.
  */
 
-import { animate, utils } from "animejs";
-import { role } from "../style/theme";
+import { animate as tween, utils } from "animejs";
 
-/* The animation targets, from the one place the palette is chosen.
-   anime interpolates between concrete values, so these are resolved here
-   rather than left as var() references the tween could not read. */
+/* The animation's colours, as tokens rather than values.
+ *
+ * anime interpolates between concrete values and cannot read a var(), so the
+ * obvious thing is to resolve the palette here at module load. That was what
+ * this did, and it is wrong once the site has two themes: the scene data below
+ * is a pile of object literals, so every colour would be frozen at import into
+ * whichever theme happened to be active first, and a reader who switched would
+ * get a half-repainted stage.
+ *
+ * So `C.rest` is the string "@rest", and the two places a value actually
+ * reaches the DOM — `paint` on the way into `utils.set`, and the `animate`
+ * wrapper below — swap tokens for live colours read from the document. The
+ * scenes stay declarative, nothing is captured, and a theme change is just
+ * "read the properties again and replay the current scene". */
 const C = {
-  rest:    role.accent,   // the resting / identity colour
-  granted: role.granted,
-  pending: role.pending,
-  agent:   role.agent,
-  sunken:  role.sunken,
-  edge:    role.edge,
+  rest:    "@rest",       // the resting / identity colour
+  granted: "@granted",
+  pending: "@pending",
+  agent:   "@agent",
+  sunken:  "@sunken",
+  edge:    "@edge",
 };
+
+/* Filled by readTheme(), which runs before the first frame and again whenever
+   the theme changes. */
+let PALETTE = {};
+
+const VARS = {
+  rest: "--accent",
+  granted: "--green",
+  pending: "--amber",
+  agent: "--agent",
+  sunken: "--sunken",
+  edge: "--edge",
+};
+
+function readTheme() {
+  if (typeof window === "undefined") return;
+  const cs = getComputedStyle(document.documentElement);
+  PALETTE = Object.fromEntries(
+    Object.entries(VARS).map(([k, v]) => [k, cs.getPropertyValue(v).trim()])
+  );
+}
+
+/** Swap "@token" for the live colour, through arrays and property bags. */
+const paint = (v) =>
+  typeof v === "string" && v.charCodeAt(0) === 64
+    ? PALETTE[v.slice(1)] || v
+    : Array.isArray(v)
+    ? v.map(paint)
+    : v;
+
+const painted = (props) =>
+  Object.fromEntries(Object.entries(props).map(([k, v]) => [k, paint(v)]));
+
+/* The scenes below call this rather than anime's own `animate`, so a tween
+   written as [C.rest, C.granted] arrives as two real colours. */
+const animate = (targets, props) => tween(targets, painted(props));
 
 /* Where everyone stands. Named so the scenes read as blocking notes. */
 const HOME = 240;
@@ -470,10 +516,12 @@ export function prefersReducedMotion() {
 export function mount(root, onScene) {
   const $ = (sel) => root.querySelector(sel);
 
+  readTheme();
+
   function apply(state) {
     for (const [sel, props] of Object.entries(state)) {
       const targets = root.querySelectorAll(sel);
-      if (targets.length) utils.set(targets, props);
+      if (targets.length) utils.set(targets, painted(props));
     }
   }
 
@@ -492,10 +540,22 @@ export function mount(root, onScene) {
 
   if (prefersReducedMotion()) {
     /* Nothing moves. The stage holds one readable frame — everyone present,
-     * mid-story — and the caption list carries the whole explanation. */
-    apply(stateAt(5));
-    apply({ "#agent": { x: AGENT_MARK }, "#alice": { x: HOME, opacity: 1 } });
-    return () => {};
+     * mid-story — and the caption list carries the whole explanation. It
+     * still has to be repainted when the theme changes, or the one frame the
+     * reader gets keeps the colours of the theme they left. */
+    const still = () => {
+      readTheme();
+      apply(stateAt(5));
+      apply({ "#agent": { x: AGENT_MARK }, "#alice": { x: HOME, opacity: 1 } });
+    };
+    still();
+    const stillMedia = window.matchMedia("(prefers-color-scheme: light)");
+    window.addEventListener("u4a:themechange", still);
+    stillMedia.addEventListener("change", still);
+    return () => {
+      window.removeEventListener("u4a:themechange", still);
+      stillMedia.removeEventListener("change", still);
+    };
   }
 
   const scrub = $(".stage-scrub");
@@ -586,6 +646,18 @@ export function mount(root, onScene) {
   showScene(0);
   raf = requestAnimationFrame(frame);
 
+  /* A theme change repaints the stage. Re-reading the properties is not
+     enough on its own: the colours already written onto elements by earlier
+     scenes came from the old palette, so the current scene is replayed, which
+     re-applies every accumulated state through `paint`. */
+  function onTheme() {
+    readTheme();
+    if (current >= 0) showScene(current);
+  }
+  const media = window.matchMedia("(prefers-color-scheme: light)");
+  window.addEventListener("u4a:themechange", onTheme);
+  media.addEventListener("change", onTheme);
+
   return () => {
     alive = false;
     if (raf) cancelAnimationFrame(raf);
@@ -597,5 +669,7 @@ export function mount(root, onScene) {
       scrub.removeEventListener("input", onInput);
     }
     document.removeEventListener("keydown", onKey);
+    window.removeEventListener("u4a:themechange", onTheme);
+    media.removeEventListener("change", onTheme);
   };
 }
