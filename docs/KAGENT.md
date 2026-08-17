@@ -65,11 +65,20 @@ gigabytes, or an account somewhere. The U4A path is identical in every case.
 | `make kagent` | Ollama in the cluster. No account anywhere, no key. Pulls a small tool-calling model on first start, which takes a few minutes. |
 | `make kagent MODEL=anthropic` | `ANTHROPIC_API_KEY` from your shell, into a Secret and nowhere else. |
 | `make kagent MODEL=openai` | `OPENAI_API_KEY`, likewise. |
+| `make kagent MODEL=bedrock` | `AWS_BEDROCK_API_KEY`, plus `AWS_REGION` and `BEDROCK_MODEL` if the defaults are wrong. |
 
 The key never reaches this repository. `k8s/scripts/kagent.sh` reads it from
-your environment, creates a `Secret`, and the `ModelConfig` references it —
-which is also why the cloud manifest is a template rather than a committed
-file with a placeholder someone might fill in and commit.
+your environment, creates a `Secret`, and the `ModelConfig` references it.
+
+**Adding a provider is a case statement.** kagent's `ModelConfig` accepts
+`Anthropic`, `OpenAI`, `AzureOpenAI`, `Ollama`, `Gemini`, `GeminiVertexAI`,
+`AnthropicVertexAI`, `Bedrock` and `SAPAICore`; each needs a name, a model, and
+whatever block it requires of its own — Bedrock wants a `region`, Ollama wants
+a `host`. Nothing about U4A changes, because the model only decides which tool
+to call.
+
+Bedrock is written and validated against the CRD but has not been run here; the
+Ollama and Anthropic paths have.
 
 Small model, on purpose. This exists to show a framework negotiating with
 Alice's authority, not to demonstrate reasoning. Any tool-calling model works —
@@ -123,6 +132,24 @@ What it does establish is worth having anyway:
   agent asking. Two Kubernetes objects, one boundary between them.
 - **The framework's identity buys nothing.** kagent arrives as a stranger, is
   held like a stranger, and appears in her connections list like a stranger.
+
+## It is not really about kagent
+
+The adapter is Bob's, not kagent's. It runs in his namespace, holds his key,
+and speaks ordinary remote MCP — so anything that can be pointed at a remote
+MCP server can be governed by Alice's policy the same way. kagent is one such
+thing; Claude Code through the stdio shim is another; `adapter_check.py` is a
+third with no framework at all.
+
+That is worth saying plainly because it is easy to read this page as "we
+integrated kagent". The integration surface is MCP, and the list of frameworks
+that can use it is not ours to enumerate.
+
+Note also which layer this is. A `ModelConfig` answers *what does this agent
+think with*. Products that manage or govern fleets of agents are a different
+layer again, and would sit above an agent rather than inside its model
+configuration — they reach Alice the same way everything else does, by pointing
+at the adapter.
 
 ## Kubernetes only, and why
 

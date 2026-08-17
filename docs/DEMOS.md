@@ -91,7 +91,8 @@ decides which tool to call:
 ```bash
 make kagent                   # ollama, in the cluster, no key
 make kagent MODEL=anthropic   # ANTHROPIC_API_KEY from your environment
-make kagent MODEL=openai      # OPENAI_API_KEY from your environment
+make kagent MODEL=openai      # OPENAI_API_KEY
+make kagent MODEL=bedrock     # AWS_BEDROCK_API_KEY, plus AWS_REGION
 ```
 
 Full detail is in [KAGENT.md](KAGENT.md).

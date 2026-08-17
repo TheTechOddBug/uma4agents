@@ -18,8 +18,37 @@ source "$K8S/platform/versions.env"
 
 bold() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 
+# The ModelConfig, per provider.
+#
+# Adding one is meant to be small, and it is: a case here that names the
+# provider, the model, and whatever provider-specific block it requires. The
+# U4A path does not change — the adapter holds Bob's key and runs the four
+# beats whichever of these decides which tool to call.
+#
+# Written with a heredoc rather than a template plus envsubst, because
+# envsubst is gettext and not present on a stock macOS, and because each
+# provider needs a differently-shaped block rather than the same one with
+# different words in it.
+model_secret() {
+  # From your shell into a Secret, and nowhere else. Not echoed, not written
+  # to this repository, not passed on a command line.
+  local key="$1"
+  kubectl -n sterling-vance create secret generic u4a-model-key \
+    --from-literal=api-key="$key" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
+require_env() {
+  local var="$1"
+  if [ -z "${!var:-}" ]; then
+    echo "  $var is not set in your environment." >&2
+    echo "  Either export it, or run 'make kagent' for the local model." >&2
+    exit 1
+  fi
+}
+
 model_config() {
-  local model="$1"
+  local model="$1" provider name extra=""
+
   case "$model" in
     ollama)
       bold "A model in the cluster (ollama, no account anywhere)"
@@ -27,32 +56,50 @@ model_config() {
       printf '  pulling the model, which takes a few minutes the first time'
       kubectl -n kagent rollout status deploy/ollama --timeout=900s >/dev/null
       echo "  ready"
-      ;;
-    anthropic|openai)
-      local var key provider name
-      if [ "$model" = anthropic ]; then
-        var=ANTHROPIC_API_KEY; provider=Anthropic; name="claude-sonnet-4-5-20250929"
-      else
-        var=OPENAI_API_KEY;    provider=OpenAI;    name="gpt-4o-mini"
-      fi
-      key="${!var:-}"
-      if [ -z "$key" ]; then
-        echo "  $var is not set in your environment." >&2
-        echo "  Either export it, or run 'make kagent' for the local model." >&2
-        exit 1
-      fi
-      bold "A hosted model ($provider)"
-      # The key goes from your shell into a Secret and nowhere else. It is not
-      # written to this repository and not echoed.
-      kubectl -n sterling-vance create secret generic u4a-model-key \
-        --from-literal=api-key="$key" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-      MODEL_PROVIDER="$provider" MODEL_NAME="$name" \
-        envsubst < "$K8S/components/kagent/model-cloud.yaml" | kubectl apply -f - >/dev/null
-      echo "  ready"
-      ;;
+      return ;;
+
+    anthropic)
+      require_env ANTHROPIC_API_KEY
+      provider=Anthropic; name="claude-sonnet-4-5-20250929"
+      model_secret "$ANTHROPIC_API_KEY" ;;
+
+    openai)
+      require_env OPENAI_API_KEY
+      provider=OpenAI; name="gpt-4o-mini"
+      model_secret "$OPENAI_API_KEY" ;;
+
+    bedrock)
+      # A Bedrock API key is a bearer token like the others, so the secret
+      # shape is unchanged. What Bedrock adds is its own block; region is
+      # required within it, though the block itself may be omitted to fall
+      # back to the AWS default chain. Naming it beats inheriting it.
+      require_env AWS_BEDROCK_API_KEY
+      provider=Bedrock; name="${BEDROCK_MODEL:-anthropic.claude-3-5-sonnet-20241022-v2:0}"
+      extra=$(printf '  bedrock:\n    region: %s' "${AWS_REGION:-us-east-1}")
+      model_secret "$AWS_BEDROCK_API_KEY" ;;
+
     *)
-      echo "unknown MODEL=$model (want: ollama, anthropic, openai)" >&2; exit 1 ;;
+      echo "unknown MODEL=$model (want: ollama, anthropic, openai, bedrock)" >&2
+      exit 1 ;;
   esac
+
+  bold "A hosted model ($provider)"
+  {
+    cat <<YAML
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: u4a-model
+  namespace: sterling-vance
+spec:
+  provider: $provider
+  model: $name
+  apiKeySecret: u4a-model-key
+  apiKeySecretKey: api-key
+YAML
+    [ -n "$extra" ] && printf '%b\n' "$extra"
+  } | kubectl apply -f - >/dev/null
+  echo "  $name"
 }
 
 up() {
