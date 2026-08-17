@@ -172,6 +172,51 @@ k8s-policy-test:
 k8s-assurance-check:
 	$(call run_job,assurance-check,cat $(K8S)/base/jobs/assurance-check.yaml,420s)
 
+## kagent: an agent framework nobody modified, governed by Alice's policy.
+##
+## Off by default because it brings a model with it, and that is a cost nobody
+## should pay for a lab they only wanted to read. Two ways to supply one:
+##
+##   make kagent                       a model in the cluster, no account
+##                                     anywhere (ollama, pulled on start)
+##   make kagent MODEL=anthropic       ANTHROPIC_API_KEY from your environment
+##   make kagent MODEL=openai          OPENAI_API_KEY from your environment
+##
+## Either way the U4A path is identical: the adapter holds Bob's key and runs
+## the four beats, and the model only decides which tool to call.
+.PHONY: kagent kagent-down kagent-check
+kagent: MODEL ?= ollama
+kagent:
+	@./k8s/scripts/kagent.sh up "$(MODEL)"
+
+kagent-down:
+	@./k8s/scripts/kagent.sh down
+
+## kagent-check: ask it a question and watch Alice's policy decide
+kagent-check: MODEL ?= ollama
+kagent-check: kagent
+	@./k8s/scripts/kagent.sh check
+
+## k8s-adapter: the U4A adapter as a service in Bob's namespace. Off by
+## default, like every other opt-in piece, so a cold cluster stays the portal
+## demo. `make kagent` brings it up too.
+.PHONY: k8s-adapter k8s-adapter-down
+k8s-adapter:
+	@./k8s/scripts/job-configmaps.sh
+	@kubectl -n sterling-vance scale deploy/agent-shim --replicas=1 >/dev/null
+	@kubectl -n sterling-vance rollout status deploy/agent-shim --timeout=300s >/dev/null
+	@echo "==> adapter up at agent-shim.sterling-vance:9030/mcp"
+
+k8s-adapter-down:
+	@kubectl -n sterling-vance scale deploy/agent-shim --replicas=0 >/dev/null
+	@echo "==> adapter stopped"
+
+## k8s-adapter-check: the same claim as `make adapter-check`, in the cluster —
+## an MCP client with no U4A code in it, reaching Alice's things.
+.PHONY: k8s-adapter-check
+k8s-adapter-check: k8s-adapter
+	$(call run_job,adapter-check,cat $(K8S)/base/jobs/adapter-check.yaml,300s)
+
 ## k8s-load: concurrency against the deployed shape, not against the store
 # 24 agents negotiating at once through the edge, against three authorization
 # servers sharing one database. Asserts every ticket is distinct, that a

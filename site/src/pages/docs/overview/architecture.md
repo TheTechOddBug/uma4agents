@@ -64,6 +64,13 @@ An agent may be **pseudonymous**, in which case it is its key and the connection
 is handled by that key's thumbprint, or **identified** through an agent identity
 protocol, in which case its continuity survives key rotation.
 
+Neither has to be built into the agent. An **adapter** can hold the key and run
+the whole negotiation on its behalf, leaving the agent above it speaking
+ordinary MCP — which is what lets an agent framework nobody wrote for this be
+governed by the owner's policy without being modified. In the lab that adapter
+is the same process an individual runs beside their own MCP client, started as
+a network service instead of a subprocess.
+
 ## Two planes
 
 The **grant plane** is the negotiation: challenge, terms, agreement, grant. It is

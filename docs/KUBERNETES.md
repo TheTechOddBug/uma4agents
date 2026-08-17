@@ -176,7 +176,33 @@ Her rules are editable in the portal under **My Terms**, as sentences. The same
 page adds terms of her own over any resource no tier governs yet.
 [ASSURANCE.md](ASSURANCE.md) is the argument.
 
-### 7. Give Alice her own AI
+### 7. An agent framework nobody modified
+
+```bash
+make kagent                     # a model in the cluster; no account anywhere
+make kagent-check
+make kagent-down
+```
+
+**Notice** what is doing the asking: [kagent](https://kagent.dev), which is not
+ours and has never heard of UMA. It sees three ordinary MCP tools. Everything
+that makes them reachable happens in the **adapter** beside it — the same shim
+Bob runs next to Claude Code, started as a network service because an agent in
+a cluster cannot spawn a subprocess on your laptop.
+
+Check the claim without a model in the way:
+
+```bash
+make k8s-adapter-check          # expect 3 passed
+```
+
+`MODEL=anthropic` or `MODEL=openai` points the same Agent at a hosted model,
+reading the key from your environment into a Secret. The U4A path is identical
+either way — the model only decides which tool to call.
+[ASSURANCE.md](ASSURANCE.md) still applies: kagent arrives a stranger and is
+held like one. Full detail in [KAGENT.md](KAGENT.md).
+
+### 8. Give Alice her own AI
 
 ```bash
 make k8s-paios                  # Kwaai's pAI-OS, holding her key
@@ -197,7 +223,7 @@ binding — see [KWAAI-BINDING.md](KWAAI-BINDING.md).
 It starts at `replicas: 0` deliberately: while it is up, the requests it can
 answer never reach her portal, and the portal demo is the default.
 
-### 8. Look around
+### 9. Look around
 
 ```bash
 make k8s-status                 # what is running, per party
@@ -286,7 +312,7 @@ probe. The asymmetry is the point.
 
 ---
 
-## Five traps, each of which fails by pointing somewhere else
+## Six traps, each of which fails by pointing somewhere else
 
 These cost real time. Each is commented where it bit.
 
@@ -313,6 +339,14 @@ links — `PAIOS_PORT=tcp://10.96.x.x:8443` — into every pod in the namespace,
 and pAI-OS parses `PAIOS_PORT` as an integer. It crash-loops on a value it
 never set. `enableServiceLinks: false` is the fix and costs nothing.
 
+**A namespace helm created is not in the mesh**, and a `principals` rule
+cannot match a caller that has no identity. kagent's chart makes its own
+namespace, so it misses the ambient label every namespace here gets from
+`k8s/base/namespaces` — and the symptom is a connection reset with nothing
+denied in any log, because ztunnel refused at L4 before the request existed.
+This is the same shape as the CloudNativePG one below, met a second time from
+a different direction: the rule was right and the caller was invisible to it.
+
 And one more, found by `make k8s-chaos` rather than by reading: **a
 `principals` rule silently excludes anything outside the mesh.** CloudNativePG's
 operator was named correctly and `cnpg-system` was not enrolled, so its traffic
@@ -322,9 +356,6 @@ being able to fail over — invisible until the day it matters.
 ---
 
 ## Deliberately not here
-
-**kagent's `Agent`** is opt-in. An Agent needs a model provider credential, and
-requiring one would break the one-command promise.
 
 **agentregistry.** This lab's discovery argument is that discovery is
 owner-mediated: signed RFC 9728 metadata for public structure, and a protected

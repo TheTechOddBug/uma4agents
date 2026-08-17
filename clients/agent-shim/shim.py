@@ -25,6 +25,20 @@ Environment:
                       server UI. Unset: pseudonymous (bare key).
   UMA4A_PERSON_TOKEN  optional person-API bearer to auto-approve enrollment
                       (headless runs only — normally Bob taps in the PS UI)
+  UMA4A_SHIM_TRANSPORT  stdio (default) or streamable-http
+  UMA4A_SHIM_HOST/PORT  where to listen, for streamable-http
+
+Run it as a service instead of a subprocess
+-------------------------------------------
+`UMA4A_SHIM_TRANSPORT=streamable-http` makes the same shim a remote MCP
+server, which is what an agent that is not a local process needs — an agent
+framework running in a cluster cannot spawn a stdio subprocess on your laptop.
+
+Nothing else changes, and that is the point worth noticing: the four-beat
+grant, the signing key, the terms decision and the receipts are all in here,
+so the *agent* on the other side needs to know none of it. It sees ordinary
+MCP tools. See `k8s/base/sterling-vance/agent-shim.yaml` for the deployed
+shape, and `docs/KAGENT.md` for an agent framework using it unmodified.
 """
 
 import json
@@ -57,6 +71,9 @@ RECEIPTS_DIR = os.environ.get(
     "UMA4A_RECEIPTS", os.path.join(os.path.dirname(KEYSTORE) or ".", "receipts")
 )
 STANDING_MAX_EXPIRES = int(os.environ.get("UMA4A_STANDING_MAX_EXPIRES", 7 * 24 * 3600))
+TRANSPORT = os.environ.get("UMA4A_SHIM_TRANSPORT", "stdio")
+SHIM_HOST = os.environ.get("UMA4A_SHIM_HOST", "127.0.0.1")
+SHIM_PORT = int(os.environ.get("UMA4A_SHIM_PORT", "9030"))
 AGENT_ISSUER = os.environ.get("UMA4A_AGENT_ISSUER")
 PERSON_TOKEN = os.environ.get("UMA4A_PERSON_TOKEN")
 AUTHORITY = httpx.URL(GATEWAY).host
@@ -414,4 +431,14 @@ async def execute_trade(ctx: Context, symbol: str, side: str, quantity: int) -> 
 
 if __name__ == "__main__":
     log(f"proxying {GATEWAY} (authority {AUTHORITY}); keystore {KEYSTORE}")
-    mcp.run(transport="stdio")
+    if TRANSPORT == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        # Stateless, because there is no session state worth keeping: the
+        # negotiation's continuity lives in the permission ticket at Alice's
+        # authorization server, not in this process. That is what lets the
+        # shim be replicated, restarted, or scaled to zero between calls
+        # without an agent noticing.
+        log(f"listening on {SHIM_HOST}:{SHIM_PORT} ({TRANSPORT})")
+        mcp.run(transport=TRANSPORT, host=SHIM_HOST, port=SHIM_PORT,
+                stateless_http=True)

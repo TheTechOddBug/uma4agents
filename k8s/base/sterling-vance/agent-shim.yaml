@@ -1,0 +1,116 @@
+# The U4A adapter, as a service rather than a subprocess.
+#
+# This is the same clients/agent-shim/shim.py that Bob runs beside Claude Code,
+# with UMA4A_SHIM_TRANSPORT=streamable-http. It holds Bob's agent signing key,
+# runs the four-beat grant whenever the gateway challenges, decides Alice's
+# terms against Bob's standing configuration, and keeps the counter-signed
+# receipts.
+#
+# It exists as a Deployment because an agent that is not a local process cannot
+# spawn a local subprocess: a framework running in a cluster needs a remote MCP
+# endpoint. What it makes possible is the interesting part — the agent on the
+# other side speaks ordinary MCP and knows nothing about UMA, tickets, terms or
+# signatures. See docs/KAGENT.md.
+#
+# In Bob's namespace, not Alice's. It is the requesting side's component: his
+# key, his standing configuration, his receipts. Alice's authority has never
+# heard of it and treats whatever comes through it as one more agent.
+#
+# Off by default (replicas: 0) for the same reason pAI-OS is: it exists to
+# serve the kagent path, and `make kagent` scales it up.
+---
+# The identity every job on Bob's side runs as. It lives here, with the
+# namespace, rather than inside whichever Job happened to need it first —
+# which is how `make k8s-adapter-check` came to fail on a fresh cluster if
+# nobody had run the demo yet.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent
+  namespace: sterling-vance
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-shim
+  namespace: sterling-vance
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-shim
+  namespace: sterling-vance
+  labels: { app: agent-shim }
+spec:
+  replicas: 0
+  selector:
+    matchLabels: { app: agent-shim }
+  template:
+    metadata:
+      labels:
+        app: agent-shim
+        istio.io/use-waypoint: waypoint
+    spec:
+      serviceAccountName: agent-shim
+      containers:
+        - name: agent-shim
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              pip install -q 'mcp>=2,<3' httpx 'pyjwt[crypto]' 2>/dev/null
+              exec python3 /shim/shim.py
+          env:
+            - name: UMA4A_SHIM_TRANSPORT
+              value: streamable-http
+            - name: UMA4A_SHIM_HOST
+              value: 0.0.0.0
+            - name: UMA4A_SHIM_PORT
+              value: "9030"
+            - name: UMA4A_GATEWAY
+              value: https://gateway.uma.lab/mcp
+            - name: UMA4A_CACERT
+              value: /certs/rootCA.pem
+            - name: UMA4A_KEYSTORE
+              value: /keys/agent-key.pem
+            # No interactive client on the other side, so Alice's terms are
+            # decided by Bob's standing configuration — bounded, and set by a
+            # person in advance rather than by the agent in the moment. This
+            # is the shim's documented fallback, not a special case for kagent.
+            - name: UMA4A_STANDING_MAX_EXPIRES
+              value: "604800"
+            - name: PYTHONPATH
+              value: /shim/lib
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - { name: mcp, containerPort: 9030 }
+          volumeMounts:
+            - { name: shim, mountPath: /shim/shim.py, subPath: shim.py, readOnly: true }
+            - { name: lib, mountPath: /shim/lib, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+            - { name: keys, mountPath: /keys }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+      volumes:
+        - name: shim
+          configMap: { name: agent-shim }
+        - name: lib
+          configMap: { name: demo-lib }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
+        - name: keys
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-shim
+  namespace: sterling-vance
+  labels: { app: agent-shim }
+spec:
+  selector: { app: agent-shim }
+  ports:
+    - { name: mcp, port: 9030, targetPort: 9030 }

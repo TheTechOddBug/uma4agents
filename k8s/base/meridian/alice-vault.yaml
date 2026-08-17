@@ -30,8 +30,8 @@ spec:
     replicas: 1
     env:
       # The default. The same image can enforce Alice's policy in-process
-      # instead (ENFORCEMENT_MODE=embedded, no gateway in the path) — see
-      # k8s/components/embedded-mode.
+      # instead (ENFORCEMENT_MODE=embedded, no gateway in the path); the
+      # compose stack runs that shape under `make embedded-check`.
       ENFORCEMENT_MODE: gateway
     resources:
       requests: { cpu: 50m, memory: 96Mi }

@@ -1,0 +1,48 @@
+# An MCP client with no U4A code in it, reaching Alice's things — in the
+# cluster, from Bob's namespace, through the adapter.
+#
+# The Kubernetes twin of `make adapter-check`. It is the claim the kagent path
+# rests on, checked without a model in the way: if this passes, the only thing
+# kagent adds is deciding which tool to call.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: adapter-check
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: adapter-check }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: agent
+      containers:
+        - name: adapter-check
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              pip install -q 'mcp>=2,<3' httpx 2>/dev/null
+              exec python3 /driver/adapter_check.py
+          env:
+            - name: UMA4A_SHIM_URL
+              value: http://agent-shim.sterling-vance.svc.cluster.local:9030/mcp
+            - name: UMA4A_CACERT
+              value: /certs/rootCA.pem
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - { name: driver, mountPath: /driver/adapter_check.py, subPath: adapter_check.py, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+      volumes:
+        - name: driver
+          configMap: { name: demo-driver }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }

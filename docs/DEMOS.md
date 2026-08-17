@@ -1,9 +1,11 @@
-# Two demos, one lab
+# Three demos, one lab
 
 The lab tells one story — an agent that is not hers asks for something of
-Alice's, and her side decides — and it can tell it two ways. The difference is
-only **what stands on her side of the boundary**. The protocol, the terms, the
-ledger and the agent are identical in both.
+Alice's, and her side decides. Two of the demos change **what stands on her
+side**; the third changes **what stands on his**. The protocol, the terms and
+the ledger are identical in all three.
+
+**Her side of the boundary:**
 
 | | Her portal | Her personal AI |
 |---|---|---|
@@ -13,9 +15,18 @@ ledger and the agent are identical in both.
 | Bring it up | `make up` (the default) | `make up` then `make paios` |
 | In Kubernetes | up with the cluster | `make k8s-paios` |
 
-Both are worth showing, and the portal one is the default because it is the
-one that makes the protocol visible: you watch an agent hold a ticket, you tap
-approve, you watch the grant arrive.
+**His side of it:**
+
+| | Bob's agent | An agent framework |
+|---|---|---|
+| What asks | code in this repo, or Claude Code through the shim | kagent, unmodified, which has never heard of UMA |
+| Who runs the grant | the same code | the U4A adapter beside it |
+| Bring it up | `make demo-all` | `make kagent` |
+| In Kubernetes | `make k8s-demo-all` | `make kagent` (Kubernetes only) |
+
+The portal demo is the default because it is the one that makes the protocol
+visible: you watch an agent hold a ticket, you tap approve, you watch the grant
+arrive.
 
 ## Her portal
 
@@ -48,6 +59,47 @@ What her personal AI does *not* answer is anything on an ask-me tier, because
 pAI-OS gives an ability no channel to reach her. Those pend, and her portal is
 still where she answers them. So the honest version of the second demo is:
 **both surfaces, doing the part each can do.**
+
+## An agent framework nobody modified
+
+The first two demos drive the grant from code in this repository, which proves
+the protocol and proves nothing about adoption. This one is the other way
+round: [kagent](https://kagent.dev) is not ours, was not changed, and sees
+three ordinary MCP tools.
+
+```bash
+make kagent            # a model in the cluster, no account anywhere
+make kagent-check      # ask it a question; Alice decides
+make kagent-down
+```
+
+Everything that makes those tools reachable happens in the **adapter** — the
+same `clients/agent-shim/shim.py` Bob runs beside Claude Code, started as a
+network service instead of a subprocess, holding his key and running the four
+beats. The framework above it needs an adapter, not a rewrite.
+
+That claim is checkable without a model in the way, and in both shapes:
+
+```bash
+make adapter-check       # compose
+make k8s-adapter-check   # kubernetes
+```
+
+The model is your choice, and the U4A path is identical either way — it only
+decides which tool to call:
+
+```bash
+make kagent                   # ollama, in the cluster, no key
+make kagent MODEL=anthropic   # ANTHROPIC_API_KEY from your environment
+make kagent MODEL=openai      # OPENAI_API_KEY from your environment
+```
+
+Full detail is in [KAGENT.md](KAGENT.md).
+
+**Kubernetes only**, and honestly so: kagent is a Kubernetes controller and
+there is no compose shape for it. What *does* run in compose is the part that
+matters — the adapter, and an unmodified MCP client using it (`make adapter`,
+`make adapter-check`).
 
 ## Switching between them
 

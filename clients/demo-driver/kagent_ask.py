@@ -1,0 +1,129 @@
+"""Ask an agent framework a question, and watch Alice's policy answer it.
+
+This is the adoption case. kagent is not ours, was not modified, and has never
+heard of UMA. It has one tool server configured — the U4A adapter running in
+Bob's namespace — and it believes those are ordinary MCP tools.
+
+What this file does is ask a question over kagent's A2A endpoint, and play
+Alice while the request is held. What it deliberately does *not* do is any part
+of the grant: no key, no ticket, no terms, no signature. Those all happen in
+the adapter, which is the point.
+
+    make kagent-check
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import threading
+import time
+import uuid
+
+import httpx
+
+A2A = os.environ.get("KAGENT_A2A")
+AS_PUBLIC = os.environ.get("UMA4A_AS", "https://alice-as.uma.lab")
+KEYCLOAK = os.environ.get("UMA4A_OIDC", "https://keycloak.uma.lab")
+CA = os.environ.get("UMA4A_CACERT", "/certs/rootCA.pem")
+QUESTION = os.environ.get("KAGENT_QUESTION", "What is in Alice's portfolio?")
+
+
+def say(msg: str) -> None:
+    print(f"   {msg}", flush=True)
+
+
+def simulate_alice(seconds: float) -> threading.Event:
+    """Her side, with her own credential, exactly as her portal does it.
+
+    Present because the agent asking is one she has never met, and a first
+    contact is held for her however permissive the tier. `SIM=0` in the other
+    demos leaves this tap to a person; a headless check has to answer.
+    """
+    stop = threading.Event()
+
+    def loop() -> None:
+        ca = CA if os.path.exists(CA) else True
+        deadline = time.time() + seconds
+        with httpx.Client(verify=ca, timeout=15.0) as c:
+            while time.time() < deadline and not stop.is_set():
+                try:
+                    tok = c.post(
+                        f"{KEYCLOAK}/realms/alice/protocol/openid-connect/token",
+                        data={"grant_type": "password", "client_id": "alice-portal",
+                              "username": "alice", "password": "alice-demo"},
+                    ).json()["access_token"]
+                    h = {"Authorization": f"Bearer {tok}"}
+                    for p in c.get(f"{AS_PUBLIC}/owner/pending", headers=h).json():
+                        say(f"[alice] approving {p['kind']} request for {p['tier']}")
+                        c.post(f"{AS_PUBLIC}/owner/pending/{p['family']}/decision",
+                               json={"decision": "approved"}, headers=h)
+                except Exception:                                  # noqa: BLE001
+                    pass
+                time.sleep(1)
+
+    threading.Thread(target=loop, daemon=True).start()
+    return stop
+
+
+def main() -> int:
+    if not A2A:
+        print("KAGENT_A2A is not set"); return 1
+
+    approving = simulate_alice(420)
+    print("\n== An agent framework, asked a question ==")
+    say(f"agent: sterling-vance/advisory-agent (kagent)")
+    say(f"question: {QUESTION}")
+    say("it has one tool server: the U4A adapter. It knows nothing else.")
+
+    payload = {
+        "jsonrpc": "2.0", "id": uuid.uuid4().hex, "method": "message/send",
+        "params": {"message": {
+            "role": "user", "messageId": uuid.uuid4().hex,
+            "parts": [{"kind": "text", "text": QUESTION}],
+        }},
+    }
+    with httpx.Client(timeout=420.0) as c:
+        r = c.post(A2A, json=payload)
+        if r.status_code >= 400:
+            print(f"FAIL: the agent could not be reached: {r.status_code} {r.text[:200]}")
+            return 1
+        body = r.json()
+
+    approving.set()
+    text = json.dumps(body)
+    print("\n== What it came back with ==")
+    # A2A echoes the prompt back inside the task as well as the reply, and the
+    # reply appears under both `artifacts` and `history`. Dedupe, keeping order.
+    seen = set()
+    for part in _texts(body):
+        if part in seen or part.strip() == QUESTION.strip():
+            continue
+        seen.add(part)
+        print(f"   {part[:600]}")
+
+    ok = "error" not in body
+    print(f"\n{'PASS' if ok else 'FAIL'}: kagent asked, the adapter negotiated, and Alice's")
+    if ok:
+        print("      policy decided. The framework was not modified to do it.")
+        return 0
+    print(f"      run failed: {text[:300]}")
+    return 1
+
+
+def _texts(node) -> list:
+    """Pull the text parts out of whatever A2A wrapped them in."""
+    out = []
+    if isinstance(node, dict):
+        if node.get("kind") == "text" and "text" in node:
+            out.append(node["text"])
+        for v in node.values():
+            out += _texts(v)
+    elif isinstance(node, list):
+        for v in node:
+            out += _texts(v)
+    return out
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

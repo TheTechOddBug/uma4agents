@@ -1,0 +1,76 @@
+# A model that runs in the cluster, so the kagent path needs no account
+# anywhere and no key in a secret.
+#
+# Small on purpose: this exists to show an agent framework negotiating with
+# Alice's authority, not to demonstrate reasoning. Any tool-calling model works;
+# this one is chosen because it fits in a kind node and pulls in a couple of
+# minutes.
+#
+# `make kagent MODEL=anthropic` (or `openai`) points the same Agent at a cloud
+# provider instead — see model-cloud.yaml.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: kagent
+  labels: { app: ollama }
+spec:
+  selector: { app: ollama }
+  ports:
+    - { name: http, port: 11434, targetPort: 11434 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: kagent
+  labels: { app: ollama }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ollama }
+  template:
+    metadata:
+      labels: { app: ollama }
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.6.8
+          ports:
+            - { name: http, containerPort: 11434 }
+          env:
+            - { name: OLLAMA_HOST, value: "0.0.0.0" }
+            - { name: OLLAMA_KEEP_ALIVE, value: "24h" }
+          # Pull on start rather than baking a model into an image. The
+          # readiness probe is what makes `make kagent` wait for it instead of
+          # handing you an Agent whose first call times out.
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5; ollama pull qwen2.5:1.5b || true"]
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ollama list | grep -q qwen2.5"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 60
+          resources:
+            requests: { cpu: 500m, memory: 2Gi }
+            limits: { memory: 5Gi }
+          volumeMounts:
+            - { name: models, mountPath: /root/.ollama }
+      volumes:
+        - name: models
+          emptyDir: {}
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: u4a-model
+  namespace: sterling-vance
+spec:
+  provider: Ollama
+  model: qwen2.5:1.5b
+  ollama:
+    host: http://ollama.kagent.svc.cluster.local:11434

@@ -211,7 +211,32 @@ make rules-test        # the rule engine alone; nothing need be running
 Why assurance starts at nothing and can never buy access is
 [docs/ASSURANCE.md](docs/ASSURANCE.md).
 
-## 9. Give Alice her own AI
+## 9. Let a whole agent framework try
+
+Everything so far was driven by code in this repository. This is the other
+case, and the one that decides whether anyone can adopt this:
+[kagent](https://kagent.dev), unmodified, which has never heard of UMA.
+
+```bash
+make kagent          # brings a model with it, so it is opt-in
+make kagent-check
+make kagent-down
+```
+
+It sees three ordinary MCP tools. Everything that makes them reachable happens
+in the **adapter** beside it — the same shim from step 7, started as a network
+service because an agent running in the cluster cannot spawn a subprocess on
+your laptop. The requesting side needs an adapter, not a rewrite.
+
+Alice treats it exactly as she treated your MCP client: a stranger, held on
+first contact, appearing in Connected Agents with its own terms and its own
+revoke button. Being a framework earns it nothing.
+
+`make kagent MODEL=anthropic` or `MODEL=openai` uses a hosted model instead,
+reading the key from your environment. [docs/KAGENT.md](docs/KAGENT.md) has the
+rest.
+
+## 10. Give Alice her own AI
 
 Everything so far had Alice answering from a browser. She does not have to.
 The side that decides is an authority and a way to reach her, and both can sit
@@ -239,7 +264,7 @@ personal AI is up, requests it can answer never reach her portal, which is
 exactly what you would want and worth noticing during a demo.
 [docs/DEMOS.md](docs/DEMOS.md) has both, side by side.
 
-## 10. Try to break it
+## 11. Try to break it
 
 ```bash
 make k8s-chaos
@@ -251,8 +276,10 @@ answer *that same request*. Not a fresh one.
 
 ## Where to read more
 
-- **[docs/DEMOS.md](docs/DEMOS.md)** — the two demos, her portal and her
-  personal AI, and when to reach for which
+- **[docs/DEMOS.md](docs/DEMOS.md)** — the three demos, and when to reach for
+  which
+- **[docs/KAGENT.md](docs/KAGENT.md)** — an agent framework nobody modified,
+  and the adapter that makes that possible
 - **[docs/ASSURANCE.md](docs/ASSURANCE.md)** — what her authority can verify
   about an agent, and why none of it can ever buy access
 - **[docs/KUBERNETES.md](docs/KUBERNETES.md)** — the same walkthrough with

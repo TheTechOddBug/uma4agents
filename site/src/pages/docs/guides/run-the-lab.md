@@ -151,6 +151,33 @@ JSON, and adds terms of her own there over any resource no tier governs yet.
 Operators live under **Connected agents**.
 [Agent assurance](/docs/overview/assurance/) is the argument behind it.
 
+## Point an agent framework at it
+
+Everything above is driven by code in the lab. The adoption question is whether
+something you did not write can be governed the same way.
+
+```bash
+make kagent            # Kubernetes only; it brings a model with it
+make kagent-check
+```
+
+[kagent](https://kagent.dev) is unmodified and has never heard of UMA. It sees
+three ordinary MCP tools. Everything that makes them reachable happens in the
+**adapter** beside it — the same shim you would run next to Claude Code,
+started as a network service because an agent in a cluster cannot spawn a local
+subprocess. The requesting side needs an adapter, not a rewrite.
+
+The claim is checkable without a model involved, in either shape:
+
+```bash
+make adapter-check        # compose
+make k8s-adapter-check    # kubernetes
+```
+
+Alice treats it as a stranger, holds its first contact, and lists it in
+Connected Agents with its own revoke button. Being a framework earns it
+nothing.
+
 ## Give her a personal AI instead
 
 Everything above had Alice answering from a browser. She does not have to. The

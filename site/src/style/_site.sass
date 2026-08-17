@@ -793,6 +793,16 @@ a
     padding: 0.12em 0.4em
     color: $fg-code
 
+  // gatsby-remark-prismjs tags *inline* code `language-text`, and the Prism
+  // stylesheet paints anything matching [class*="language-"] with a hardcoded
+  // dark background. Our colour is themed and its background is not, so in the
+  // light theme that lands dark text on a dark box. Take the background back,
+  // and keep it a variable so it stays right in both themes.
+  :not(pre) > code[class*="language-"]
+    background: $bg-elevated
+    color: $fg-code
+    text-shadow: none
+
   pre
     position: relative
     background: $bg-sunken

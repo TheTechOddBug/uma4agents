@@ -135,6 +135,29 @@ flow-check:
 assurance-check:
 	docker compose --profile test run --rm assurance-check
 
+## adapter: the U4A adapter as a service — the same shim Bob runs beside
+## Claude Code, reachable over the network so an agent that is not a local
+## process can use it. This is what lets an unmodified agent framework be
+## governed by Alice's policy; see docs/KAGENT.md.
+.PHONY: adapter adapter-down adapter-check
+adapter:
+	docker compose --profile adapter up -d agent-shim
+	@echo "==> adapter listening on agent-shim:9030/mcp (inside the lab network)"
+
+adapter-down:
+	docker compose --profile adapter stop agent-shim >/dev/null 2>&1 || true
+	docker compose --profile adapter rm -f agent-shim >/dev/null 2>&1 || true
+	@echo "==> adapter stopped"
+
+## adapter-check: an MCP client with no U4A code in it reaching Alice's things
+adapter-check: adapter
+	@printf "Waiting for the adapter"; \
+	for i in $$(seq 1 30); do \
+		docker compose logs agent-shim 2>/dev/null | grep -q "listening on" && break; \
+		printf "."; sleep 1; \
+	done; echo
+	docker compose --profile adapter run --rm adapter-check
+
 ## kwaai-check: the personal-AI binding — her device key alongside her portal
 ## session, both accepted, one ledger. See docs/KWAAI-BINDING.md.
 kwaai-check:

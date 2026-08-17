@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="#8cc2d4"/>
@@ -14,7 +14,7 @@
     </linearGradient>
   </defs>
 
-  <rect width="1200" height="660" fill="#0a0b0d"/>
+  <rect width="1200" height="700" fill="#0a0b0d"/>
 
   <!-- header -->
   <rect x="40" y="28" width="196" height="26" rx="9" fill="url(#mk)"/>
@@ -22,7 +22,7 @@
   <text x="252" y="46" font-size="14" fill="#a9aeb6">one namespace per party, and a mesh that keeps them apart</text>
 
   <!-- ═══ sterling-vance ═══ -->
-  <rect x="40" y="86" width="238" height="470" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <rect x="40" y="86" width="238" height="510" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
   <text x="159" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#a9aeb6" text-anchor="middle">STERLING &amp; VANCE</text>
   <text x="159" y="130" font-size="11.5" font-style="italic" fill="#6c727a" text-anchor="middle">the requesting party</text>
 
@@ -32,11 +32,26 @@
   <text x="80" y="212" font-size="11" fill="#6c727a">holds the ticket</text>
 
   <rect x="64" y="238" width="190" height="62" rx="9" fill="#121317" stroke="#24262c" stroke-width="1.6"/>
-  <text x="80" y="262" font-size="14" font-weight="620" fill="#ffffff">agent-operator ×2</text>
-  <text x="80" y="281" font-size="11" fill="#6c727a">CIMD · Web Bot Auth keys</text>
+  <text x="80" y="262" font-size="14" font-weight="620" fill="#ffffff">agent-operator &#215;2</text>
+  <text x="80" y="281" font-size="11" fill="#6c727a">CIMD &#183; Web Bot Auth keys</text>
+
+  <rect x="64" y="316" width="190" height="66" rx="9" fill="#121317" stroke="#5e8fa3" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <text x="80" y="340" font-size="14" font-weight="620" fill="#ffffff">U4A adapter</text>
+  <text x="80" y="358" font-size="11" fill="#6c727a">the shim, as a service</text>
+  <text x="80" y="374" font-size="11" fill="#6c727a">runs the grant for what is above</text>
+
+  <rect x="64" y="398" width="190" height="66" rx="9" fill="#121317" stroke="#bcdb2c" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <text x="80" y="422" font-size="14" font-weight="620" fill="#ffffff">kagent Agent</text>
+  <text x="80" y="440" font-size="11" fill="#6c727a">a framework, unmodified</text>
+  <text x="80" y="456" font-size="11" fill="#6c727a">sees ordinary MCP tools</text>
+
+  <path d="M159 398 V382" stroke="#bcdb2c" stroke-width="1.6" fill="none" marker-end="url(#g)"/>
+  <text x="168" y="392" font-size="10" fill="#6c727a">MCP</text>
+
+  <text x="159" y="486" font-size="10.5" fill="#5c6169" text-anchor="middle">dashed: opt-in &#8212; `make kagent`</text>
 
   <!-- ═══ edge ═══ -->
-  <rect x="302" y="86" width="112" height="470" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <rect x="302" y="86" width="112" height="510" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
   <text x="358" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#a9aeb6" text-anchor="middle">UMA-EDGE</text>
 
   <rect x="322" y="152" width="72" height="180" rx="9" fill="#121317" stroke="#8cc2d4" stroke-width="1.6"/>
@@ -50,7 +65,7 @@
   <text x="358" y="446" font-size="11" fill="#6c727a" text-anchor="middle">DNS</text>
 
   <!-- ═══ meridian ═══ -->
-  <rect x="438" y="86" width="330" height="470" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <rect x="438" y="86" width="330" height="510" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
   <text x="603" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#a9aeb6" text-anchor="middle">MERIDIAN WEALTH</text>
   <text x="603" y="130" font-size="11.5" font-style="italic" fill="#6c727a" text-anchor="middle">the resource server — holds the assets, enforces, never decides</text>
 
@@ -75,7 +90,7 @@
   <text x="478" y="417" font-size="11" fill="#6c727a">L7: /check* is the gateway’s alone</text>
 
   <!-- ═══ alice ═══ -->
-  <rect x="792" y="86" width="368" height="470" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <rect x="792" y="86" width="368" height="510" rx="12" fill="#121317" stroke="#24262c" stroke-width="1.6" stroke-dasharray="5 4"/>
   <text x="976" y="112" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="1.5" fill="#a9aeb6" text-anchor="middle">ALICE</text>
   <text x="976" y="130" font-size="11.5" font-style="italic" fill="#6c727a" text-anchor="middle">the resource owner — decides, and is usually asleep</text>
 

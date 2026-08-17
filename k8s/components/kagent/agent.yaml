@@ -1,0 +1,60 @@
+# Bob's agent, as an agent framework rather than a script.
+#
+# Everything else in this lab drives the grant from code we wrote: the demo
+# driver, the shim beside Claude Code, Alice's personal AI. This is the case
+# that matters most for adoption and least for the protocol — an agent platform
+# nobody modified, pointed at Alice's resources, and governed by her policy
+# anyway.
+#
+# It knows nothing about UMA. It sees three ordinary MCP tools. Everything that
+# makes those tools reachable — the challenge, the terms, the signed agreement,
+# the proof-of-possession key, the single-use grant — happens inside the
+# agent-shim it is pointed at, in Bob's namespace, holding Bob's key.
+#
+# That is the claim worth checking: the requesting side needs an adapter, not a
+# rewrite. See docs/KAGENT.md.
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: alice-vault-via-uma
+  namespace: sterling-vance
+spec:
+  description: >-
+    Alice's brokerage tools, reached through the U4A adapter. The adapter runs
+    the four-beat grant; this agent sees ordinary MCP.
+  protocol: STREAMABLE_HTTP
+  url: http://agent-shim.sterling-vance.svc.cluster.local:9030/mcp
+  timeout: 120s
+  # Alice's ask-me tier holds a request while she decides, which from an
+  # agent's side is simply a slow tool call.
+  sseReadTimeout: 300s
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: advisory-agent
+  namespace: sterling-vance
+spec:
+  type: Declarative
+  description: Sterling & Vance's advisory agent, acting for Bob.
+  declarative:
+    modelConfig: u4a-model
+    systemMessage: |
+      You are an advisory agent working for Bob at Sterling & Vance. Alice is
+      his client. You may look at her holdings and transactions, and you may
+      propose trades.
+
+      Her authorization server decides what you actually get, and it may take
+      time — a request that waits is normal, not an error. If a tool tells you
+      Alice declined or has not answered, say so plainly and stop. Never
+      attempt the same call again hoping for a different answer.
+
+      Use exactly one tool per question and report what it returned.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: alice-vault-via-uma
+          toolNames: [get_positions, get_transactions, execute_trade]

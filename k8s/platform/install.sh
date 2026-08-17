@@ -93,8 +93,9 @@ echo "  ready"
 
 step "kmcp $KMCP_VERSION (Alice's vault as a Kubernetes resource)"
 # The MCPServer type comes from kagent's CRD chart; the controller that acts
-# on it is a separate chart. kagent's own controller is opt-in
-# (k8s/components/kagent) because an Agent needs a model provider credential.
+# on it is a separate chart. kagent's own controller is opt-in — `make kagent`
+# installs it and applies k8s/components/kagent, because it brings a model with
+# it and that is a cost nobody should pay for a lab they only wanted to read.
 helm upgrade --install kagent-crds \
   oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
   --namespace kagent --create-namespace \

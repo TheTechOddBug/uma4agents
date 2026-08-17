@@ -282,6 +282,49 @@ services:
       - driver-keys:/driver/keys
     profiles: ["test"]
 
+  # The U4A adapter as a service: the same shim Bob runs beside Claude Code,
+  # reachable over the network so an agent that is not a local process can use
+  # it. Off by default; `make adapter` starts it.
+  agent-shim:
+    init: true
+    image: python:3.12-slim
+    entrypoint:
+      - /bin/bash
+      - -c
+      - pip install -q 'mcp>=2,<3' httpx 'pyjwt[crypto]' && exec python /shim/shim.py
+    environment:
+      UMA4A_SHIM_TRANSPORT: streamable-http
+      UMA4A_SHIM_HOST: 0.0.0.0
+      UMA4A_SHIM_PORT: "9030"
+      UMA4A_GATEWAY: https://gateway.uma.lab/mcp
+      UMA4A_CACERT: /certs/rootCA.pem
+      UMA4A_KEYSTORE: /keys/agent-key.pem
+      # No interactive client above it, so Alice's terms are decided by Bob's
+      # standing configuration — bounded, and set by a person in advance.
+      UMA4A_STANDING_MAX_EXPIRES: "604800"
+      PYTHONPATH: /shim/lib
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./clients/agent-shim/shim.py:/shim/shim.py:ro
+      - ./lib:/shim/lib:ro
+      - ./certs/rootCA.pem:/certs/rootCA.pem:ro
+      - driver-keys:/keys
+    profiles: ["adapter"]
+
+  adapter-check:
+    image: python:3.12-slim
+    entrypoint:
+      - /bin/bash
+      - -c
+      - pip install -q 'mcp>=2,<3' httpx && exec python /driver/adapter_check.py
+    environment:
+      UMA4A_SHIM_URL: http://agent-shim:9030/mcp
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./clients/demo-driver/adapter_check.py:/driver/adapter_check.py:ro
+      - ./certs/rootCA.pem:/driver/rootCA.pem:ro
+    profiles: ["adapter"]
+
   flow-check:
     image: python:3.12-slim
     entrypoint:

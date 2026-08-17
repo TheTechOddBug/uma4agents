@@ -10,12 +10,6 @@
 # owner API call it makes to approve is itself subject to her policy, and it
 # authenticates as her via Keycloak exactly as her portal does.
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: agent
-  namespace: sterling-vance
----
 apiVersion: batch/v1
 kind: Job
 metadata:

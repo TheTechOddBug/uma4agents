@@ -351,3 +351,35 @@ spec:
               - cluster.local/ns/uma-edge/sa/edge
               - cluster.local/ns/alice/sa/uma-as
               - cluster.local/ns/sterling-vance/sa/agent
+---
+# The U4A adapter, reachable by the agent framework that uses it.
+#
+# The adapter runs in Bob's namespace and holds Bob's key. What may call it is
+# therefore a question about *his* side of the boundary, not Alice's — and the
+# answer is deliberately narrow: the kagent controller, which reads its tool
+# list, and the agents that controller runs.
+#
+# Nothing here loosens anything on Alice's side. Whatever reaches the adapter
+# still has to negotiate the four beats with her authority like any other
+# agent, and the adapter is what does that negotiating. This rule decides who
+# may ask Bob's adapter to act, not what Alice will permit.
+#
+# It is also why `make k8s-adapter-check` passes without it: that Job runs
+# inside sterling-vance, and this is about crossing into it.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: agent-shim-callers
+  namespace: sterling-vance
+spec:
+  selector:
+    matchLabels: { app: agent-shim }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/sterling-vance/sa/agent
+              - cluster.local/ns/kagent/sa/kagent
+              - cluster.local/ns/kagent/sa/kagent-controller
+              - cluster.local/ns/sterling-vance/sa/advisory-agent

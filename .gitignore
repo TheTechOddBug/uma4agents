@@ -41,3 +41,7 @@ screenshots/U4A_Codespace_Demo.mp4
 site/node_modules/
 site/.cache/
 site/public/
+
+# Local secrets for a one-off test. Never committed.
+tmp.env
+*.env.local

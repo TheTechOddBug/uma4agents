@@ -1,0 +1,48 @@
+# Ask Bob's kagent Agent a question, and let Alice decide.
+#
+# Two things happen at once here, and only one of them is ours. The Job asks
+# the Agent over kagent's A2A endpoint — an agent framework doing what agent
+# frameworks do — while a simulated Alice answers her pending queue, because
+# a first contact from an agent she has never met is held for her.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kagent-ask
+  namespace: sterling-vance
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 900
+  template:
+    metadata:
+      labels: { app: kagent-ask }
+    spec:
+      restartPolicy: Never
+      serviceAccountName: agent
+      containers:
+        - name: ask
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              pip install -q httpx 2>/dev/null
+              exec python3 /driver/kagent_ask.py
+          env:
+            - name: UMA4A_CACERT
+              value: /certs/rootCA.pem
+            - name: KAGENT_A2A
+              value: http://kagent-controller.kagent.svc.cluster.local:8083/api/a2a/sterling-vance/advisory-agent
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - { name: driver, mountPath: /driver/kagent_ask.py, subPath: kagent_ask.py, readOnly: true }
+            - { name: ca, mountPath: /certs, readOnly: true }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+      volumes:
+        - name: driver
+          configMap: { name: demo-driver }
+        - name: ca
+          configMap: { name: uma-lab-ca-bundle }
