@@ -1,0 +1,91 @@
+<svg viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <!-- agent assurance: start at zero, earn each level by a check that ran, and
+       see what a level actually changes.
+       Colour: site/src/style/theme.js · brand direction 1b -->
+  <defs>
+    <marker id="tip" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#8cc2d4"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="560" fill="#0a0b0d"/>
+
+  <g transform="translate(40 24) scale(0.53125)">
+    <rect x="2.6" y="2.6" width="58.8" height="58.8" rx="15" fill="#0a0b0d" stroke="#8cc2d4" stroke-width="2.8"/>
+    <g fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 17 L11 33 A5.75 5.75 0 0 0 22.5 33 L22.5 17" stroke="#ffffff"/>
+      <path d="M34.5 17 L26.25 31 L37.75 31 M34.5 17 L34.5 39" stroke="#bcdb2c"/>
+      <path d="M41.5 39 L47.25 17 L53 39 M43.5 31.5 L51 31.5" stroke="#ffffff"/>
+    </g>
+  </g>
+  <text x="92" y="44" fill="#ffffff" font-size="21" font-weight="600">Agent assurance starts at zero</text>
+  <text x="92" y="66" fill="#757b83" font-size="14.5">Every level is earned by a check that ran and passed. Nothing is assumed, and no level ever grants access.</text>
+
+  <text x="48" y="120" fill="#8cc2d4" font-size="12.5" letter-spacing="1.6" font-weight="600">EACH STEP IS A CHECK HER AUTHORITY PERFORMED ITSELF</text>
+
+  <line x1="56" y1="176" x2="1090" y2="176" stroke="#2a2f36" stroke-width="2.5"/>
+  <path d="M1030 176 H1112" stroke="#8cc2d4" stroke-width="2.5" fill="none" marker-end="url(#tip)"/>
+  <g stroke="#8cc2d4" stroke-width="2.5" fill="#0a0b0d">
+    <circle cx="56" cy="176" r="11" stroke="#5d646c"/>
+    <circle cx="280" cy="176" r="11"/>
+    <circle cx="504" cy="176" r="11"/>
+    <circle cx="728" cy="176" r="11"/>
+    <circle cx="952" cy="176" r="11"/>
+  </g>
+
+  <text x="48" y="148" fill="#9aa2ab" font-size="13.5" font-weight="600">nothing yet</text>
+  <text x="48" y="208" fill="#5d646c" font-size="12" font-weight="600">binding 0 &#183; provenance 0</text>
+  <text x="48" y="225" fill="#5d646c" font-size="12" font-weight="600">accountability 0</text>
+  <text x="48" y="249" fill="#5d646c" font-size="11.5">an agent she has never seen</text>
+
+  <text x="272" y="148" fill="#ffffff" font-size="13.5" font-weight="600">signature verified</text>
+  <text x="272" y="208" fill="#8cc2d4" font-size="12" font-weight="600">binding 1</text>
+  <text x="272" y="232" fill="#757b83" font-size="11.5">the agreement checked out</text>
+  <text x="272" y="249" fill="#757b83" font-size="11.5">against a key this server can</text>
+  <text x="272" y="266" fill="#757b83" font-size="11.5">name &#8212; and will recognise</text>
+  <text x="272" y="283" fill="#757b83" font-size="11.5">next time</text>
+
+  <text x="496" y="148" fill="#ffffff" font-size="13.5" font-weight="600">issuer checked out</text>
+  <text x="496" y="208" fill="#8cc2d4" font-size="12" font-weight="600">provenance 1</text>
+  <text x="496" y="232" fill="#757b83" font-size="11.5">the credential carrying that</text>
+  <text x="496" y="249" fill="#757b83" font-size="11.5">key was signed by an issuer</text>
+  <text x="496" y="266" fill="#757b83" font-size="11.5">whose published keys verify it</text>
+
+  <text x="720" y="148" fill="#ffffff" font-size="13.5" font-weight="600">an operator answered</text>
+  <text x="720" y="208" fill="#8cc2d4" font-size="12" font-weight="600">accountability 1</text>
+  <text x="720" y="232" fill="#757b83" font-size="11.5">a metadata document resolved</text>
+  <text x="720" y="249" fill="#757b83" font-size="11.5">and claims the URL it was</text>
+  <text x="720" y="266" fill="#757b83" font-size="11.5">fetched from &#8212; still only the</text>
+  <text x="720" y="283" fill="#757b83" font-size="11.5">operator&#8217;s own word</text>
+
+  <text x="944" y="148" fill="#ffffff" font-size="13.5" font-weight="600">and vouched for this key</text>
+  <text x="944" y="208" fill="#8cc2d4" font-size="12" font-weight="600">accountability 2</text>
+  <text x="944" y="232" fill="#757b83" font-size="11.5">that operator&#8217;s own key</text>
+  <text x="944" y="249" fill="#757b83" font-size="11.5">directory holds this very key.</text>
+  <text x="944" y="266" fill="#757b83" font-size="11.5">She fetched it and looked; the</text>
+  <text x="944" y="283" fill="#757b83" font-size="11.5">agent could not have added it</text>
+
+  <line x1="48" y1="318" x2="1160" y2="318" stroke="#2a2f36" stroke-width="1"/>
+
+  <text x="48" y="350" fill="#bcdb2c" font-size="12.5" letter-spacing="1.6" font-weight="600">WHAT A LEVEL ACTUALLY CHANGES</text>
+  <text x="48" y="378" fill="#9aa2ab" font-size="12.5">One rule from her holdings tier, read against each step above:</text>
+  <text x="48" y="404" fill="#8cc2d4" font-size="12.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">{"when": ["assurance.accountability_below:1"], "then": "ask"}</text>
+
+  <g font-size="12" font-weight="600">
+    <rect x="48" y="424" width="196" height="28" rx="14" fill="#241c0e" stroke="#e2b23c" stroke-width="1.4"/>
+    <text x="66" y="443" fill="#e2b23c">it fires &#8212; she is asked</text>
+    <rect x="272" y="424" width="196" height="28" rx="14" fill="#241c0e" stroke="#e2b23c" stroke-width="1.4"/>
+    <text x="290" y="443" fill="#e2b23c">it fires &#8212; she is asked</text>
+    <rect x="496" y="424" width="196" height="28" rx="14" fill="#241c0e" stroke="#e2b23c" stroke-width="1.4"/>
+    <text x="514" y="443" fill="#e2b23c">it fires &#8212; she is asked</text>
+    <rect x="720" y="424" width="196" height="28" rx="14" fill="#151c0d" stroke="#bcdb2c" stroke-width="1.4"/>
+    <text x="738" y="443" fill="#bcdb2c">silent &#8212; granted quietly</text>
+    <rect x="944" y="424" width="196" height="28" rx="14" fill="#151c0d" stroke="#bcdb2c" stroke-width="1.4"/>
+    <text x="962" y="443" fill="#bcdb2c">silent &#8212; granted quietly</text>
+  </g>
+
+  <text x="48" y="482" fill="#757b83" font-size="12.5">This rule reads one axis, so binding and provenance move without changing its answer &#8212; which is what &#8220;never added up&#8221; means in practice.</text>
+  <text x="48" y="502" fill="#757b83" font-size="12.5">And notice the ceiling: at accountability 2 the rule has simply stopped firing. It has not granted anything her tier did not already allow.</text>
+  <text x="48" y="530" fill="#bcdb2c" font-size="13.5" font-weight="600">A lie can only cost the liar friction &#8212;</text>
+  <text x="330" y="530" fill="#757b83" font-size="13">an unresolvable claim scores what no claim scores, and a check that did not run counts as one that failed.</text>
+</svg>

@@ -281,6 +281,24 @@ class PostgresStore:
             "SET conn = jsonb_set(conn, '{last_access}', to_jsonb($2::text)) "
             "WHERE handle = $1", handle, when)
 
+    async def note_tier_grant(self, handle: str, tier_id: str) -> None:
+        # Append-if-absent in one statement, so two replicas granting at the
+        # same tier concurrently cannot lose each other's write.
+        await self._pool.execute(
+            "UPDATE connections SET conn = jsonb_set("
+            "  conn, '{tiers_granted}',"
+            "  COALESCE(conn->'tiers_granted', '[]'::jsonb) || to_jsonb($2::text))"
+            "WHERE handle = $1 AND NOT COALESCE(conn->'tiers_granted', '[]'::jsonb)"
+            "                        @> to_jsonb($2::text)", handle, tier_id)
+
+    async def note_tier_approval(self, handle: str, tier_id: str) -> None:
+        await self._pool.execute(
+            "UPDATE connections SET conn = jsonb_set("
+            "  conn, '{tiers_approved}',"
+            "  COALESCE(conn->'tiers_approved', '[]'::jsonb) || to_jsonb($2::text))"
+            "WHERE handle = $1 AND NOT COALESCE(conn->'tiers_approved', '[]'::jsonb)"
+            "                        @> to_jsonb($2::text)", handle, tier_id)
+
     async def revoke_connection(self, handle: str) -> int | None:
         async with self._pool.acquire() as conn:
             # One transaction: a revocation that flipped the connection and
@@ -289,7 +307,10 @@ class PostgresStore:
             async with conn.transaction():
                 row = await conn.fetchrow(
                     "UPDATE connections "
-                    "SET conn = jsonb_set(conn, '{status}', '\"revoked\"') "
+                    "SET conn = jsonb_set("
+                    "  jsonb_set(conn, '{status}', '\"revoked\"'),"
+                    "  '{revocations}',"
+                    "  to_jsonb(COALESCE((conn->>'revocations')::int, 0) + 1)) "
                     "WHERE handle = $1 RETURNING handle", handle)
                 if row is None:
                     return None
@@ -361,6 +382,23 @@ class PostgresStore:
     async def tiers(self) -> dict[str, dict]:
         rows = await self._pool.fetch("SELECT tier_id, tier FROM tiers")
         return {r["tier_id"]: json.loads(r["tier"]) for r in rows}
+
+    async def create_tier(self, tier_id: str, tier: dict) -> dict:
+        # ON CONFLICT DO NOTHING, then check what came back: the uniqueness
+        # test and the write are one statement, so two replicas cannot both
+        # believe they created it.
+        row = await self._pool.fetchrow(
+            "INSERT INTO tiers (tier_id, tier) VALUES ($1, $2) "
+            "ON CONFLICT (tier_id) DO NOTHING RETURNING tier_id",
+            tier_id, json.dumps(tier))
+        if row is None:
+            raise KeyError(tier_id)
+        return tier
+
+    async def delete_tier(self, tier_id: str) -> bool:
+        row = await self._pool.fetchrow(
+            "DELETE FROM tiers WHERE tier_id = $1 RETURNING tier_id", tier_id)
+        return row is not None
 
     async def update_tier(self, tier_id: str, patch: dict) -> dict:
         async with self._pool.acquire() as conn:

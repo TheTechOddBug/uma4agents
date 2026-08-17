@@ -139,10 +139,31 @@ class Store(Protocol):
     async def touch_connection(self, handle: str, when: str) -> None:
         """Record last access. Best-effort telemetry: never fails a call."""
 
+    async def note_tier_grant(self, handle: str, tier_id: str) -> None:
+        """Remember that this connection has now been granted at this tier.
+
+        Not telemetry: `standing.first_at_tier` is a policy input, so this is
+        the write that stops the second request at a tier from asking her
+        again. It appends rather than replacing, and a lost update under
+        concurrency costs an extra ask rather than skipping one — the only
+        direction a race here is allowed to fail in.
+        """
+
+    async def note_tier_approval(self, handle: str, tier_id: str) -> None:
+        """Remember that the owner *personally approved* something at this
+        tier — as distinct from this server having granted there.
+
+        The two are separate because only this one may relax a rule. Relaxing
+        on what the server granted would be circular: that grant may itself
+        have been automatic, so one automatic grant would justify the next.
+        """
+
     async def revoke_connection(self, handle: str) -> int | None:
         """Deactivate the connection and every live RPT issued under it, in
         one step. Returns how many tokens were killed, or ``None`` if the
-        connection is unknown.
+        connection is unknown. Also bumps the revocation count, which survives
+        a later re-connection: `standing.never_revoked` is worth nothing if
+        an agent can clear its record by asking again.
 
         One step because the two halves are the same decision: a revocation
         that flipped the connection and then failed to burn the tokens would
@@ -182,6 +203,19 @@ class Store(Protocol):
     async def update_tier(self, tier_id: str, patch: dict) -> dict:
         """Apply an owner edit and bump the template version atomically.
         Raises ``KeyError`` for an unknown tier."""
+
+    async def create_tier(self, tier_id: str, tier: dict) -> dict:
+        """Add a tier Alice wrote. Raises ``KeyError`` if the id is taken —
+        checked in the same step as the write, so two replicas cannot both
+        believe they created it."""
+
+    async def delete_tier(self, tier_id: str) -> bool:
+        """Remove a tier. False if it was not there.
+
+        Its resources become ungoverned, and an ungoverned resource is denied
+        rather than defaulted — deleting a tier withdraws access rather than
+        widening it, which is the only safe direction for a destructive edit.
+        """
 
     # --- fan-out to the owner's surface -------------------------------------
 

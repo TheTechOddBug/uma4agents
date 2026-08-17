@@ -140,11 +140,22 @@ class MemoryStore:
         if (conn := self._connections.get(handle)) is not None:
             conn["last_access"] = when
 
+    async def note_tier_grant(self, handle: str, tier_id: str) -> None:
+        if (conn := self._connections.get(handle)) is not None:
+            if tier_id not in conn.setdefault("tiers_granted", []):
+                conn["tiers_granted"].append(tier_id)
+
+    async def note_tier_approval(self, handle: str, tier_id: str) -> None:
+        if (conn := self._connections.get(handle)) is not None:
+            if tier_id not in conn.setdefault("tiers_approved", []):
+                conn["tiers_approved"].append(tier_id)
+
     async def revoke_connection(self, handle: str) -> int | None:
         conn = self._connections.get(handle)
         if conn is None:
             return None
         conn["status"] = "revoked"
+        conn["revocations"] = int(conn.get("revocations", 0)) + 1
         killed = 0
         for rec in self._rpts.values():
             if rec.get("handle") == handle and not rec["consumed"]:
@@ -196,6 +207,15 @@ class MemoryStore:
 
     async def tiers(self) -> dict[str, dict]:
         return copy.deepcopy(self._tiers)
+
+    async def create_tier(self, tier_id: str, tier: dict) -> dict:
+        if tier_id in self._tiers:
+            raise KeyError(tier_id)
+        self._tiers[tier_id] = copy.deepcopy(tier)
+        return copy.deepcopy(tier)
+
+    async def delete_tier(self, tier_id: str) -> bool:
+        return self._tiers.pop(tier_id, None) is not None
 
     async def update_tier(self, tier_id: str, patch: dict) -> dict:
         if tier_id not in self._tiers:

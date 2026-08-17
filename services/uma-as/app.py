@@ -15,6 +15,7 @@ State is in-memory by design: `make reset` rewinds the story.
 import asyncio
 import base64
 import hashlib
+import calendar
 import json
 import logging
 import os
@@ -30,6 +31,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse
 from jwt.algorithms import OKPAlgorithm
 
+import assurance
 import policy
 import store
 
@@ -1027,6 +1029,122 @@ def connection_handle(identity: dict, signer_jwk: dict) -> str:
     return jwk_thumbprint(signer_jwk)
 
 
+def standing_facts(conn: dict | None, tier_id: str) -> dict:
+    """What Alice's own authority has seen of this agent.
+
+    Kept apart from assurance because only these may relax a requirement —
+    they are the one kind of evidence here that the requesting side had no
+    hand in producing. `age_seconds` is None when she has never met it, which
+    the conditions read as "younger than everything, older than nothing".
+    """
+    if conn is None or conn.get("status") != "active":
+        return {"active": False, "age_seconds": None, "first_at_tier": True,
+                "approved_tiers": [],
+                "revocations": int((conn or {}).get("revocations", 0))}
+    age = None
+    if first_seen := conn.get("first_seen"):
+        try:
+            age = max(0, int(now() - calendar.timegm(
+                time.strptime(first_seen, "%Y-%m-%dT%H:%M:%SZ"))))
+        except ValueError:
+            age = None
+    return {
+        "active": True,
+        "age_seconds": age,
+        # What this server did.
+        "first_at_tier": tier_id not in (conn.get("tiers_granted") or []),
+        # What Alice decided. Only these may lower a requirement, so they are
+        # kept apart from the line above even though both are her side's.
+        "approved_tiers": list(conn.get("tiers_approved") or []),
+        "revocations": int(conn.get("revocations", 0)),
+    }
+
+
+# Cached, but not forever. An operator removing a key from its directory is
+# how it stops vouching for an agent, and a cache with no expiry would keep
+# attesting one it had disowned. Bounded as well as timed: the URL is named by
+# the requesting side, so an unbounded map is something an agent can grow.
+_DIRECTORY_TTL = float(os.environ.get("UMA_AS_DIRECTORY_TTL", "300"))
+_DIRECTORY_MAX = 256
+_DIRECTORY_CACHE: dict[str, tuple[float, list]] = {}
+
+
+def same_origin(a: str, b: str) -> bool:
+    from urllib.parse import urlparse
+
+    pa, pb = urlparse(a), urlparse(b)
+    return (pa.scheme, pa.netloc) == (pb.scheme, pb.netloc) and pa.scheme == "https"
+
+
+def operator_published_key(client_id: str, directory: str,
+                           signer_jwk: dict) -> bool:
+    """Did the operator named by `client_id` publish this signing key?
+
+    A Web Bot Auth key directory (draft-meunier-http-message-signatures-
+    directory) is a JWKS of the keys an operator's agents sign with. Fetching
+    it and looking for this key's RFC 7638 thumbprint is a check this server
+    performs itself, against a document the *operator* controls and the agent
+    does not.
+
+    Two things keep it honest:
+
+    * **Same origin as the client_id.** Otherwise an agent points at a
+      directory it runs and attests to itself, which is not an attestation.
+    * **Failure is not an accusation.** An unreachable directory leaves the
+      claim exactly where it was — self-asserted — rather than counting
+      against the agent. Availability of a third party is not evidence about
+      the agent, and treating it as such makes any operator's outage look
+      like an attack.
+    """
+    import httpx
+
+    if not same_origin(client_id, directory):
+        event("operator_directory.rejected", client_id=client_id,
+              directory=directory, reason="not same origin as client_id")
+        return False
+    def fetch() -> list:
+        r = httpx.get(directory, timeout=5.0, follow_redirects=False,
+                      verify=AGENT_ISSUER_CA or True)
+        r.raise_for_status()
+        keys = r.json().get("keys") or []
+        if len(_DIRECTORY_CACHE) >= _DIRECTORY_MAX:
+            _DIRECTORY_CACHE.pop(next(iter(_DIRECTORY_CACHE)), None)
+        _DIRECTORY_CACHE[directory] = (now(), keys)
+        return keys
+
+    try:
+        wanted = jwk_thumbprint(signer_jwk)
+
+        def holds(keys: list) -> bool:
+            for k in keys:
+                try:                   # a directory may hold key types we do
+                    if jwk_thumbprint(k) == wanted:   # not profile; skip them
+                        return True
+                except (KeyError, TypeError):
+                    continue
+            return False
+
+        # Only a *hit* may be served from cache. A miss is re-fetched, because
+        # the two errors are not the same size: a stale hit keeps attesting a
+        # key the operator has disowned, while a stale miss merely fails to
+        # recognise one it has just published — which is the common case, since
+        # an agent enrols and then immediately negotiates. So the TTL bounds
+        # how long a withdrawal takes to land, and a newly published key is
+        # picked up on the next request rather than in five minutes.
+        cached = _DIRECTORY_CACHE.get(directory)
+        fresh = cached is not None and now() - cached[0] < _DIRECTORY_TTL
+        found = fresh and holds(cached[1])
+        if not found:
+            found = holds(fetch())
+        event("operator_directory.checked", directory=directory,
+              published=found, from_cache=bool(fresh and found))
+        return found
+    except Exception as exc:                                       # noqa: BLE001
+        event("operator_directory.unresolved", directory=directory,
+              reason=str(exc)[:120])
+        return False
+
+
 _CIMD_CACHE: dict[str, dict] = {}
 
 
@@ -1104,9 +1222,26 @@ def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
     # never widen access. A resolution failure is not a contract failure.
     if client_id := header.get("client_id"):
         identity["client_metadata"] = resolve_client_id(client_id)
+        # And, if the agent names the operator's key directory, check whether
+        # that operator has published *this* key. That is the difference
+        # between "a firm says it operates this agent" and "that firm
+        # published this agent's key", and it is the only thing here that
+        # makes accountability more than self-assertion.
+        #
+        # The same-origin requirement is what makes it an attestation *by the
+        # named operator*: without it an agent could point at any directory it
+        # controls and attest to itself.
+        if directory := header.get("signature_agent"):
+            identity["operator_attested"] = operator_published_key(
+                client_id, directory, signer_jwk)
 
     key = OKPAlgorithm.from_jwk(json.dumps(signer_jwk))
     contract = jwt.decode(token, key, algorithms=["EdDSA"], audience=ISSUER)
+    # The signature verified against a key this server can name and will
+    # recognise again. Recorded rather than assumed: `assurance.assess` reads
+    # this, so the binding level is an observation and not a comment about the
+    # call path. See assurance.py.
+    identity["key_bound"] = True
 
     template = rec["template"]
     if contract.get("nonce") != template["nonce"]:
@@ -1296,7 +1431,48 @@ async def token(
     handle = connection_handle(contract["_identity"], signer_jwk)
     conn = await STORE.connection(handle)
     needs_connection = conn is None or conn["status"] != "active"
-    needs_operation_approval = tier["ask_me"]
+
+    # What her authority can establish about this agent, and what she has
+    # herself seen of it. Kept apart on purpose — see `assurance.py`.
+    axes = assurance.assess(contract["_identity"])
+    facts = {
+        "assurance": axes,
+        "standing": standing_facts(conn, rec["tier"]),
+        "request": {"expires_in": contract.get("expires_in", 0),
+                    "max_expires_in": tier["terms"]["expires_in"]},
+        "tier": rec["tier"],
+    }
+    requirement, reasons = policy.evaluate(tier, facts)
+    event("assurance.assessed", corr=family, **axes)
+
+    if requirement == policy.REFUSE:
+        event("policy.evaluated", corr=family, result="refused", tier=rec["tier"],
+              because=reasons)
+        await ledger_add("refused", family, {"tier": rec["tier"],
+                                             "because": reasons})
+        await close_negotiation(rec)
+        return JSONResponse({"error": "request_denied",
+                             "error_description": "; ".join(reasons)},
+                            status_code=403)
+
+    needs_operation_approval = requirement == policy.ASK
+
+    # Her attention has a depth limit, and only strangers spend it. An agent
+    # she already has standing with is never counted and never turned away for
+    # budget, so a flood of unknown agents cannot crowd out the ones she knows.
+    if needs_connection:
+        waiting = sum(1 for p in await STORE.pending_negotiations()
+                      if p.get("pending_kind") == "connection"
+                      and p["family"] != family)
+        if waiting >= policy.PEND_BUDGET:
+            event("policy.evaluated", corr=family, result="attention-budget",
+                  waiting=waiting, budget=policy.PEND_BUDGET)
+            await close_negotiation(rec)
+            return JSONResponse(
+                {"error": "request_denied",
+                 "error_description": "the owner is not accepting new agent "
+                                      "requests at the moment; try later"},
+                status_code=429)
 
     if needs_connection or needs_operation_approval:
         kind = "connection" if needs_connection else "operation"
@@ -1304,6 +1480,13 @@ async def token(
         rec["decision"] = None
         rec["pending_kind"] = kind
         rec["handle"] = handle
+        # Persisted on the negotiation, not only pushed over SSE: her portal
+        # lists pending requests with a plain GET after a reload, and a dialog
+        # that shows what was checked only to whoever was watching live is not
+        # much of a dialog.
+        rec["assurance"] = axes
+        rec["assurance_notes"] = assurance.describe(axes, contract["_identity"])
+        rec["because"] = reasons
         rotated = await new_ticket(rec)
         event("ticket.awaiting_owner", corr=family, tier=rec["tier"], kind=kind)
         await owner_notify(
@@ -1318,6 +1501,12 @@ async def token(
                 "prohibited": contract["prohibited"],
                 "identity": contract["_identity"],
                 "handle": handle,
+                # What her authority could and could not establish, in
+                # sentences rather than integers. A dialog that shows a level
+                # without saying what was checked teaches nothing.
+                "assurance": axes,
+                "assurance_notes": assurance.describe(axes, contract["_identity"]),
+                "because": reasons,
             }
         )
         event("owner.notified", corr=family, kind=kind)
@@ -1327,8 +1516,16 @@ async def token(
         )
 
     await STORE.touch_connection(handle, utcstamp())
+    await STORE.note_tier_grant(handle, rec["tier"])
     event("policy.evaluated", corr=family, result="auto-grant", tier=rec["tier"],
-          connection=handle)
+          connection=handle, because=reasons or None)
+    if reasons and requirement == policy.AUTO and tier.get("ask_me"):
+        # A rule she wrote lowered an ask-me tier to automatic. That is the
+        # one direction worth being able to audit after the fact, so it is a
+        # ledger entry and not only a log line.
+        await ledger_add("relaxed", family, {"tier": rec["tier"],
+                                             "handle": handle,
+                                             "because": reasons})
     granted = await issue_rpt(rec, contract_hash, signer_jwk, None)
     await close_negotiation(rec)
     return JSONResponse(granted)
@@ -1340,6 +1537,11 @@ async def pending_poll(rec: dict) -> JSONResponse:
         if rec.get("pending_kind") == "connection":
             handle = rec["handle"]
             identity = rec["contract"]["_identity"]
+            # A previously revoked agent that she admits again starts a new
+            # relationship, but not a clean record: `standing.never_revoked`
+            # would be worthless if a revocation could be cleared by asking a
+            # second time.
+            prior = await STORE.connection(handle) or {}
             await STORE.put_connection({
                 "handle": handle,
                 "identity": identity,
@@ -1347,7 +1549,15 @@ async def pending_poll(rec: dict) -> JSONResponse:
                 "status": "active",
                 "first_seen": utcstamp(),
                 "last_access": None,
-                "tiers": ["tier1", "tier2", "tier3"],
+                # Which tiers this connection has actually been granted at.
+                # Being admitted is not the same as being admitted everywhere:
+                # `standing.first_at_tier` reads this, so the first request at
+                # each new tier comes back to her.
+                "tiers_granted": [],
+                # Tiers she personally said yes at. Kept separate from the
+                # line above because only this one may ever relax a rule.
+                "tiers_approved": [],
+                "revocations": int(prior.get("revocations", 0)),
             })
             event("connection.approved", corr=family, handle=handle)
             await ledger_add("connected", family, {"handle": handle,
@@ -1356,6 +1566,11 @@ async def pending_poll(rec: dict) -> JSONResponse:
         # Tier policy still applies after connection: an ask-me tier needs its
         # per-operation approval, which Alice's single tap covered only if this
         # negotiation carried the operation (it did — the contract binds it).
+        if handle := rec.get("handle"):
+            await STORE.note_tier_grant(handle, rec["tier"])
+            # She answered this one herself. That is the only kind of fact a
+            # relaxation is allowed to rest on.
+            await STORE.note_tier_approval(handle, rec["tier"])
         granted = await issue_rpt(rec, rec["contract_hash"], rec["signer_jwk"],
                                   rec["contract"].get("operation"))
         await close_negotiation(rec)
@@ -1387,6 +1602,9 @@ async def owner_pending(request: Request) -> list:
             "prohibited": rec["contract"]["prohibited"],
             "identity": rec["contract"]["_identity"],
             "handle": rec.get("handle"),
+            "assurance": rec.get("assurance", {}),
+            "assurance_notes": rec.get("assurance_notes", []),
+            "because": rec.get("because", []),
         }
         for rec in await STORE.pending_negotiations()
     ]
@@ -1462,6 +1680,65 @@ async def owner_policies(request: Request) -> dict:
     return await STORE.tiers()
 
 
+@app.get("/owner/policy-vocabulary")
+async def owner_policy_vocabulary(request: Request) -> list:
+    """The conditions her rules may use, and which of them may relax.
+
+    Served so her portal can offer them as choices. One source of truth: a
+    surface that hard-coded this list would eventually offer her something
+    this server rejects.
+    """
+    await require_owner(request)
+    return policy.vocabulary()
+
+
+@app.post("/owner/policies")
+async def owner_create_policy(request: Request) -> dict:
+    """Alice writing a new tier: her terms, and which of her resources they
+    govern.
+
+    The resources have to be ones her authority already protects. That is not
+    a limitation so much as the direction of the whole design — a resource
+    server registers what it holds, and she attaches policy to it. She cannot
+    write terms over something nobody is protecting.
+    """
+    await require_owner(request)
+    spec = await request.json()
+    tier_id = (spec.get("id") or "").strip()
+    try:
+        tier = policy.new_tier(tier_id, spec, await STORE.tiers(), set(RESOURCES))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        created = await STORE.create_tier(tier_id, tier)
+    except KeyError:
+        raise HTTPException(status_code=409,
+                            detail=f"there is already a tier called {tier_id!r}")
+    event("policy.created", tier=tier_id, template_id=created["terms"]["template_id"],
+          resources=created["resources"])
+    await publish_terms(tier_id, created)
+    return created
+
+
+@app.delete("/owner/policies/{tier_id}")
+async def owner_delete_policy(tier_id: str, request: Request) -> dict:
+    """Remove a tier. Its resources become ungoverned, and an ungoverned
+    resource is *denied* — so this withdraws access rather than widening it,
+    which is the only safe direction for a destructive edit to fail in.
+
+    Published terms are not deleted with it. An agreement signed against them
+    stays checkable, which is the whole reason those documents are versioned
+    and persistent.
+    """
+    await require_owner(request)
+    tiers = await STORE.tiers()
+    orphaned = list(tiers.get(tier_id, {}).get("resources") or [])
+    if not await STORE.delete_tier(tier_id):
+        raise HTTPException(status_code=404, detail="unknown tier")
+    event("policy.deleted", tier=tier_id, ungoverned=orphaned)
+    return {"deleted": tier_id, "ungoverned": orphaned}
+
+
 @app.put("/owner/policies/{tier_id}")
 async def owner_update_policy(tier_id: str, request: Request) -> dict:
     await require_owner(request)
@@ -1470,6 +1747,11 @@ async def owner_update_policy(tier_id: str, request: Request) -> dict:
         updated = await STORE.update_tier(tier_id, patch)
     except KeyError:
         raise HTTPException(status_code=404, detail="unknown tier")
+    except ValueError as exc:
+        # A rule that could widen access on evidence the agent controls, or
+        # one whose argument will not parse. Her editor shows this text, so it
+        # has to say what is wrong rather than that something is.
+        raise HTTPException(status_code=400, detail=str(exc))
     event("policy.updated", tier=tier_id, template_id=updated["terms"]["template_id"])
     # Publish the new version immediately so its terms URI dereferences from
     # the moment it exists; earlier versions remain served (persistent record).
