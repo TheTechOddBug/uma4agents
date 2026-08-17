@@ -105,8 +105,33 @@ up() {
 
   bold "Bob's agent, as a kagent Agent"
   kubectl apply -f "$K8S/components/kagent/agent.yaml" >/dev/null
-  kubectl -n sterling-vance wait --for=condition=Accepted --timeout=300s \
-    agent/advisory-agent >/dev/null 2>&1 || true
+
+  # Order matters here, and getting it wrong fails in a way that looks like a
+  # bad model. An Agent reads its tool list once at start-up, so if its pod
+  # comes up before the RemoteMCPServer has been reconciled it has no tools at
+  # all — and the model, asked about a portfolio with nothing to call,
+  # cheerfully invents a function name. The symptom is "tool not found";
+  # the cause is a race.
+  printf '  waiting for the adapter to be discovered'
+  for _ in $(seq 1 60); do
+    if [ "$(kubectl -n sterling-vance get remotemcpserver alice-vault-via-uma \
+              -o jsonpath='{.status.conditions[0].status}' 2>/dev/null)" = True ]; then
+      break
+    fi
+    printf '.'; sleep 5
+  done; echo
+  tools=$(kubectl -n sterling-vance get remotemcpserver alice-vault-via-uma \
+            -o jsonpath='{.status.discoveredTools[*].name}' 2>/dev/null)
+  if [ -z "$tools" ]; then
+    echo "  the adapter's tools were never discovered — check:" >&2
+    echo "    kubectl -n sterling-vance describe remotemcpserver alice-vault-via-uma" >&2
+    exit 1
+  fi
+  echo "  tools discovered: $tools"
+
+  # Only now is it safe to have the Agent start, or restart into, a pod that
+  # will see them.
+  kubectl -n sterling-vance rollout restart deploy/advisory-agent >/dev/null 2>&1 || true
   kubectl -n sterling-vance rollout status deploy/advisory-agent --timeout=300s >/dev/null 2>&1 || true
   echo "  ready"
 

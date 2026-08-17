@@ -29,6 +29,11 @@ spec:
   # Alice's ask-me tier holds a request while she decides, which from an
   # agent's side is simply a slow tool call.
   sseReadTimeout: 300s
+  # The adapter is deliberately stateless — the continuity of a negotiation
+  # lives in the permission ticket at Alice's authority, not in a session on
+  # this hop. So there is no session to terminate, and a client that tries
+  # gets a 405 on an otherwise clean run. Tell it not to bother.
+  terminateOnClose: false
 ---
 apiVersion: kagent.dev/v1alpha2
 kind: Agent

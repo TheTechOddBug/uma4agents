@@ -72,7 +72,16 @@ which is also why the cloud manifest is a template rather than a committed
 file with a placeholder someone might fill in and commit.
 
 Small model, on purpose. This exists to show a framework negotiating with
-Alice's authority, not to demonstrate reasoning. Any tool-calling model works.
+Alice's authority, not to demonstrate reasoning. Any tool-calling model works —
+`qwen2.5:1.5b` is enough, and both it and Claude have been run against this
+end to end.
+
+If the agent answers without calling anything — "tool not found", or a fluent
+paragraph about a portfolio it never fetched — suspect the *order*, not the
+model. An Agent reads its tool list once at start-up, so a pod that came up
+before its `RemoteMCPServer` was reconciled has no tools and will invent a
+function name. `make kagent` waits for the tools to be discovered before
+rolling the agent, for exactly this reason.
 
 ## What it looks like
 
@@ -82,7 +91,15 @@ Alice's authority, not to demonstrate reasoning. Any tool-calling model works.
    question: What is in Alice's portfolio?
    it has one tool server: the U4A adapter. It knows nothing else.
    [alice] approving connection request for tier1
+
+== And on Alice's side ==
+   her ledger's `touched` rows: 2 before, 3 after
 ```
+
+That last pair is the assertion that matters. "The agent replied without
+erroring" is not evidence — a model that talks about a portfolio without
+calling anything produces a perfectly cheerful answer and proves nothing. A new
+`touched` row means the grant was issued and spent.
 
 The first contact is held for her, as it is for every agent she has never met —
 kagent's framework-ness earns it nothing. Her portal shows it beside Bob's
