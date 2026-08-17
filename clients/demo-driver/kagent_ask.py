@@ -33,6 +33,32 @@ def say(msg: str) -> None:
     print(f"   {msg}", flush=True)
 
 
+def owner_token(c: httpx.Client) -> str:
+    return c.post(
+        f"{KEYCLOAK}/realms/alice/protocol/openid-connect/token",
+        data={"grant_type": "password", "client_id": "alice-portal",
+              "username": "alice", "password": "alice-demo"},
+    ).json()["access_token"]
+
+
+def touched_count() -> int:
+    """How many times her resources have actually been reached.
+
+    This is the assertion that matters. "The agent replied without erroring"
+    is not evidence: a model that chats about portfolios without calling a
+    tool produces a perfectly cheerful answer and proves nothing. A new
+    `touched` row in her ledger means the grant was issued and spent.
+    """
+    ca = CA if os.path.exists(CA) else True
+    try:
+        with httpx.Client(verify=ca, timeout=20.0) as c:
+            h = {"Authorization": f"Bearer {owner_token(c)}"}
+            led = c.get(f"{AS_PUBLIC}/owner/ledger", headers=h).json()
+            return sum(1 for e in led if e.get("kind") == "touched")
+    except Exception:                                              # noqa: BLE001
+        return -1
+
+
 def simulate_alice(seconds: float) -> threading.Event:
     """Her side, with her own credential, exactly as her portal does it.
 
@@ -70,6 +96,7 @@ def main() -> int:
     if not A2A:
         print("KAGENT_A2A is not set"); return 1
 
+    before = touched_count()
     approving = simulate_alice(420)
     print("\n== An agent framework, asked a question ==")
     say(f"agent: sterling-vance/advisory-agent (kagent)")
@@ -102,13 +129,23 @@ def main() -> int:
         seen.add(part)
         print(f"   {part[:600]}")
 
-    ok = "error" not in body
-    print(f"\n{'PASS' if ok else 'FAIL'}: kagent asked, the adapter negotiated, and Alice's")
-    if ok:
-        print("      policy decided. The framework was not modified to do it.")
-        return 0
-    print(f"      run failed: {text[:300]}")
-    return 1
+    if "error" in body:
+        print(f"\nFAIL: the agent errored: {text[:300]}")
+        return 1
+
+    after = touched_count()
+    print(f"\n== And on Alice's side ==")
+    say(f"her ledger's `touched` rows: {before} before, {after} after")
+    if after <= before:
+        print("\nFAIL: the agent answered without ever reaching her resources.")
+        print("      A model that talks about a portfolio without calling a tool")
+        print("      proves nothing — the grant was never issued or never spent.")
+        return 1
+
+    print("\nPASS: kagent asked, the adapter negotiated, Alice's policy decided,")
+    print("      and her resources were actually reached. The framework was not")
+    print("      modified to do any of it.")
+    return 0
 
 
 def _texts(node) -> list:
