@@ -151,16 +151,46 @@ of her queue they can occupy at once**, so the control is a depth limit:
 > may be waiting for her at any moment. Past that they are refused, with a
 > reason, rather than queued.
 
-Three properties make this the right shape:
+### One queue was not enough
+
+The first version had a single queue and claimed that a flood could not crowd
+out the agents she knows. True, and it missed the case that matters:
+**Bob's agent is a stranger too, on first contact.** A flood of anonymous bots
+filled the only lane there was, and Bob could never become one of the agents
+she knows. The cap defended continuity and left onboarding wide open — which is
+the half that decides whether any of this is adoptable.
+
+So strangers queue by lane, split on the one level an agent cannot reach by its
+own say-so:
+
+| Lane | Who is in it | Default |
+|---|---|---|
+| unattributable | accountability < 2 — nobody checkable behind it, cheap to mint by the thousand | `UMA_AS_PEND_BUDGET`, 5 |
+| attributable | a named operator published *this agent's key* in its own directory | `UMA_AS_PEND_BUDGET_ATTRIBUTED`, 40 |
+
+A lane is not permission. Every request in it faces her policy unchanged — this
+is the same asymmetry as everywhere else, where better evidence buys less
+friction and never more access.
+
+And the point is not that the attributable lane is expensive to enter. It is
+that it is **attributable**: every agent minted that way is tied to one
+operator, so a flood there has a name on it and can be shut out in one action,
+while a flood in the other lane cannot reach it at all.
+
+What this does not claim: if she accepts anonymous strangers at all, they can
+fill the anonymous lane. Nothing here prevents that, and no scheme does without
+charging the requester something. What it guarantees is that the damage stays
+in that lane.
+
+Three properties survive the split:
 
 - **It is self-healing.** Every request she answers frees a slot. The cap is on
   the backlog, never on the relationship.
-- **A flood cannot crowd out the people she knows.** An agent with standing is
-  never counted and never refused for budget. The failure mode of an attack is
-  that strangers are turned away — not that Bob's agent stops working. That is
-  the assertion at the end of `make assurance-check`.
-- **It needs no new state.** The outstanding count is a read of the pending
-  queue her portal already lists.
+- **A flood crowds out neither the agents she knows nor a newcomer she could
+  put a name to.** Both are asserted at the end of `make assurance-check`,
+  against a queue deliberately filled with anonymous strangers.
+- **It needs no new state.** The counts are a read of the pending queue her
+  portal already lists.
 
 The refusal is honest rather than silent: `429`, and the agent is told the
 owner is not accepting new requests right now, which is true, and that it may
@@ -168,8 +198,9 @@ come back. Silence would be indistinguishable from a broken server and would
 push a legitimate agent into retrying — the behaviour the cap exists to
 prevent.
 
-Setting the budget to `0` makes her authority invitation-only: no agent without
-standing reaches her at all. That is a legitimate posture and it is one
+Setting the unattributable lane to `0` makes her authority
+introduce-yourself-first: an agent with nobody behind it does not reach her at
+all. That is a legitimate posture and it is one
 environment variable. It is not the default, because the whole argument of this
 profile is that a stranger can negotiate.
 
@@ -223,6 +254,34 @@ separately from `tiers_granted` (this server issued here). A relaxation that
 actually lowers an ask-me tier is written to her ledger as a `relaxed` entry
 naming the rule that fired, so an automatic grant that skipped her is a thing
 she can go and find afterwards rather than infer.
+
+## Blocking an operator, not an agent
+
+The lane split is what makes a flood attributable. This is what she does about
+one once it is.
+
+`POST /owner/operators/block` with an origin shuts out **every agent that
+operator runs**, in a single action, and revokes what is already connected in
+the same step — a block that stopped new requests and left live grants alone
+would leave her believing she had closed a door that was still open. Her portal
+lists operators under Connected agents, assembled from her connections rather
+than kept as a registry: an operator is not something she onboards, it is a
+name that turned up attached to agents she had already decided about.
+
+Blocking is a **restriction**, so by the asymmetry it can rest on what the agent
+claims about itself with no further ceremony. An agent that lies about its
+operator only ever lies itself into a refusal.
+
+Two limits worth stating plainly:
+
+- **It does not remove them from the internet.** Drop the `client_id` and the
+  same party is back as an anonymous stranger — no accountability, the small
+  lane, pending in front of her like anyone else. `make assurance-check`
+  demonstrates exactly that. Which is why the lane split matters more than the
+  block does: the block answers a named flood, the lanes contain an unnamed one.
+- **Unblocking is not the reverse of blocking.** It restores the right to
+  negotiate, not the access that was withdrawn; the connections the block
+  revoked stay revoked and must be established again.
 
 ## What is not here, and why
 

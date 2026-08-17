@@ -1069,6 +1069,23 @@ _DIRECTORY_MAX = 256
 _DIRECTORY_CACHE: dict[str, tuple[float, list]] = {}
 
 
+def operator_origin(identity: dict) -> str | None:
+    """The origin of the operator an agent names, or None if it names none.
+
+    Origin rather than the full client_id URL, because an operator publishing
+    two metadata documents is still one party — and because the origin is what
+    the key-directory check already has to match.
+    """
+    from urllib.parse import urlparse
+
+    meta = identity.get("client_metadata") or {}
+    client_id = meta.get("client_id")
+    if not client_id:
+        return None
+    p = urlparse(client_id)
+    return f"{p.scheme}://{p.netloc}" if p.scheme and p.netloc else None
+
+
 def same_origin(a: str, b: str) -> bool:
     from urllib.parse import urlparse
 
@@ -1434,6 +1451,28 @@ async def token(
 
     # What her authority can establish about this agent, and what she has
     # herself seen of it. Kept apart on purpose — see `assurance.py`.
+    # An operator she has shut out. Blocking is a *restriction*, so it can rest
+    # on what the agent claims about itself without any of the usual worry: an
+    # agent that lies about its operator only ever lies itself into a refusal.
+    #
+    # What blocking does not do is remove them from the internet. Drop the
+    # client_id and the same party is back as an anonymous stranger — with no
+    # accountability, in the small lane, pending in front of her like any
+    # other. That is the honest limit, and it is why the lane split matters
+    # more than the block does.
+    origin = operator_origin(contract["_identity"])
+    if origin and origin in await STORE.blocked_operators():
+        event("policy.evaluated", corr=family, result="operator-blocked",
+              operator=origin)
+        await ledger_add("refused", family, {"tier": rec["tier"],
+                                             "operator": origin,
+                                             "because": ["operator is blocked"]})
+        await close_negotiation(rec)
+        return JSONResponse(
+            {"error": "request_denied",
+             "error_description": f"the owner does not accept agents from {origin}"},
+            status_code=403)
+
     axes = assurance.assess(contract["_identity"])
     facts = {
         "assurance": axes,
@@ -1457,16 +1496,25 @@ async def token(
 
     needs_operation_approval = requirement == policy.ASK
 
-    # Her attention has a depth limit, and only strangers spend it. An agent
-    # she already has standing with is never counted and never turned away for
-    # budget, so a flood of unknown agents cannot crowd out the ones she knows.
+    # Her attention has a depth limit, and only strangers spend it. An agent she
+    # already has standing with is never counted at all.
+    #
+    # Strangers are counted per *lane*, and that split is the whole point: Bob's
+    # agent is a stranger too on first contact, so a single queue let a flood of
+    # anonymous bots keep him out of the relationship he needed to form. An
+    # agent whose named operator published its key queues against other
+    # attributable agents only, where a flood has somebody's name on it. See
+    # policy.py.
     if needs_connection:
-        waiting = sum(1 for p in await STORE.pending_negotiations()
-                      if p.get("pending_kind") == "connection"
-                      and p["family"] != family)
-        if waiting >= policy.PEND_BUDGET:
+        lane = policy.pend_lane(axes)
+        budget = policy.pend_budget(lane)
+        waiting = sum(
+            1 for p in await STORE.pending_negotiations()
+            if p.get("pending_kind") == "connection" and p["family"] != family
+            and policy.pend_lane(p.get("assurance") or {}) == lane)
+        if waiting >= budget:
             event("policy.evaluated", corr=family, result="attention-budget",
-                  waiting=waiting, budget=policy.PEND_BUDGET)
+                  lane=lane, waiting=waiting, budget=budget)
             await close_negotiation(rec)
             return JSONResponse(
                 {"error": "request_denied",
@@ -1649,6 +1697,87 @@ async def owner_revoke_resource_server(client_id: str, request: Request) -> dict
     event("resource_server.revoked", client_id=client_id)
     await ledger_add("revoked", "-", {"resource_server": client_id})
     return {"client_id": client_id, "status": "revoked"}
+
+
+@app.get("/owner/operators")
+async def owner_operators(request: Request) -> list:
+    """Operators she has met, and whether she has shut any of them out.
+
+    Assembled from her connections rather than kept as its own registry: an
+    operator is not a thing she onboards, it is a name that turned up attached
+    to agents she has already decided about.
+    """
+    await require_owner(request)
+    blocked = await STORE.blocked_operators()
+    seen: dict[str, dict] = {}
+    for conn in await STORE.connections():
+        origin = operator_origin(conn.get("identity") or {})
+        if origin is None:
+            continue
+        meta = (conn["identity"].get("client_metadata") or {})
+        row = seen.setdefault(origin, {
+            "origin": origin, "name": meta.get("client_name") or origin,
+            "agents": 0, "active": 0, "blocked": origin in blocked,
+            "blocked_at": (blocked.get(origin) or {}).get("blocked_at"),
+        })
+        row["agents"] += 1
+        row["active"] += 1 if conn.get("status") == "active" else 0
+    for origin, rec in blocked.items():          # blocked before ever connecting
+        seen.setdefault(origin, {"origin": origin, "name": origin, "agents": 0,
+                                 "active": 0, "blocked": True,
+                                 "blocked_at": rec.get("blocked_at")})
+    return sorted(seen.values(), key=lambda r: r["origin"])
+
+
+@app.post("/owner/operators/block")
+async def owner_block_operator(request: Request) -> dict:
+    """Shut out every agent of one operator, in one action.
+
+    This is the reason the pend queue's second lane is keyed on an operator
+    having *published this agent's key*: it makes a flood attributable, and an
+    attributable flood is one she can answer here rather than one connection at
+    a time.
+
+    Blocking revokes what is already connected, in the same step. A block that
+    stopped new requests and left live grants alone would leave her believing
+    she had shut a door that was still open.
+    """
+    await require_owner(request)
+    origin = ((await request.json()).get("origin") or "").strip().rstrip("/")
+    if not origin.startswith("https://"):
+        raise HTTPException(status_code=400,
+                            detail="an operator is named by its https origin")
+    await STORE.block_operator(origin, utcstamp())
+    revoked, tokens = 0, 0
+    for conn in await STORE.connections():
+        if conn.get("status") != "active":
+            continue
+        if operator_origin(conn.get("identity") or {}) != origin:
+            continue
+        killed = await STORE.revoke_connection(conn["handle"])
+        if killed is not None:
+            revoked, tokens = revoked + 1, tokens + killed
+    event("operator.blocked", operator=origin, connections_revoked=revoked,
+          rpts_deactivated=tokens)
+    await ledger_add("revoked", "-", {"operator": origin,
+                                      "connections_revoked": revoked,
+                                      "rpts_deactivated": tokens})
+    await owner_notify({"type": "decided", "family": "-", "decision": "revoked"})
+    return {"origin": origin, "connections_revoked": revoked,
+            "rpts_deactivated": tokens}
+
+
+@app.post("/owner/operators/unblock")
+async def owner_unblock_operator(request: Request) -> dict:
+    """Let them ask again. Deliberately not the reverse of blocking: the
+    connections it revoked stay revoked, so unblocking restores the right to
+    negotiate rather than the access that was withdrawn."""
+    await require_owner(request)
+    origin = ((await request.json()).get("origin") or "").strip().rstrip("/")
+    if not await STORE.unblock_operator(origin):
+        raise HTTPException(status_code=404, detail="that operator is not blocked")
+    event("operator.unblocked", operator=origin)
+    return {"origin": origin, "blocked": False}
 
 
 @app.get("/owner/resources")

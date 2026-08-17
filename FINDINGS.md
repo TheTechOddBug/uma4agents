@@ -508,8 +508,15 @@ rate limit does not:
 
 - it is self-healing — every answer frees a slot, so the cap is on the backlog
   and never on the relationship;
-- **a flood cannot crowd out the agents she already has standing with**, which
-  is the property that decides whether an attack is an annoyance or an outage;
+- **a flood crowds out neither the agents she has standing with nor a newcomer
+  that can be named**, which is the property that decides whether an attack is
+  an annoyance or an outage — and the second half is easy to miss. A single
+  queue protects continuity and leaves *onboarding* undefended, because the
+  agent you want to let in is a stranger too the first time. Split the queue on
+  something an agent cannot assert for itself (here: its named operator having
+  published its key), so a flood of the cheap kind cannot reach the lane where
+  new relationships form. A lane is not permission — everything in it still
+  faces the owner's policy unchanged;
 - it needs no new state, being a read of the pending queue she already has.
 
 Refuse past the cap rather than queueing, and say why: an honest 429 lets a
@@ -517,6 +524,15 @@ legitimate agent come back, where silence is indistinguishable from a broken
 server and provokes exactly the retry storm the cap exists to prevent. A cap of
 zero is a coherent posture (invitation-only) and should be expressible, but is
 the wrong default for a profile whose argument is that a stranger can negotiate.
+
+And say what the owner does about a flood once it *is* attributable, because
+one connection at a time is not an answer: a single action against the operator,
+which shuts out every agent it runs and revokes what is already connected in the
+same step. Blocking is a restriction, so it may rest on the agent's own claim —
+an agent that lies about its operator lies itself into a refusal. A spec should
+also be honest that this does not remove anyone from the internet: dropping the
+claim returns the same party as an anonymous stranger, which is precisely why
+the queue split matters more than the block.
 
 See [docs/ASSURANCE.md](docs/ASSURANCE.md) and `make assurance-check`.
 
