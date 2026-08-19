@@ -45,16 +45,6 @@ const figureScripts = {
       "On grant, her authority returns a receipt that embeds the agent's signed agreement and counter-signs it. Both sides now hold the same dually-signed record, and neither can produce a version the other cannot check.",
     ],
   },
-  "black-box": {
-    title: "Four requesting sides, one answer",
-    steps: [
-      "Four agents arrive, arranged four different ways: a bare key with no issuer anywhere, one carrying a credential from an agent identity service, one describing who operates it, one whose key is published in a directory.",
-      "Her authority takes all four. It needs only two things from any of them — something it can recognise again, and something they can sign with — and every one of these supplies both.",
-      "What comes back out is identical. The same terms, the same grant, the same authorization server. The differences between them never reached the decision.",
-      "One thing does move: the handle her connection is filed under. A pseudonymous agent is its key; an identified one rotates session keys, so it has to be filed under its verified issuer and subject instead. Her policy mentions neither.",
-    ],
-  },
-
   "identity-vs-authz": {
     title: "Identity is not authorization",
     steps: [

@@ -40,25 +40,6 @@ const nav = {
       ],
     },
     {
-      // Everything else in this section is organised by what the protocol
-      // *is* — four beats, single-use, revocation — which is the right order
-      // for a reader who has decided to understand it and the wrong one for a
-      // reader still deciding whether it applies to them. These four are the
-      // problem statements: each names a situation, says why the usual answer
-      // does not reach it, and routes into the material below.
-      //
-      // They sit after Start here rather than before it, because a problem
-      // page that has to define its own vocabulary as it goes is a worse
-      // problem page. Overview supplies the words; these use them.
-      group: "Problems this solves",
-      pages: [
-        { title: "Someone else's agent is asking", to: "/docs/overview/authorize-someone-elses-agent/" },
-        { title: "Agents you cannot pre-register", to: "/docs/overview/agents-you-cannot-pre-register/" },
-        { title: "Where policy lives", to: "/docs/overview/where-policy-lives/" },
-        { title: "The agent identity black box", to: "/docs/overview/agent-identity-black-box/" },
-      ],
-    },
-    {
       group: "The grant",
       pages: [
         { title: "The four beats", to: "/docs/overview/four-beats/" },
