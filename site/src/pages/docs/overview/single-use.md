@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Single-use means indivisible
+seoTitle: "Single-use tokens across replicas: making once mean indivisible"
 description: Once has to mean once across every replica, which makes it a property of how you write to the store rather than of the protocol.
 diagram: single-use-race
 diagramCaption: The same two callers, against a store that reads and writes separately and then against one that decides and records together.

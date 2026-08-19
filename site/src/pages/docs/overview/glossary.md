@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Glossary
+seoTitle: "AI agent authorization glossary: resource owner, requesting party, permission ticket"
 description: Terms as this documentation uses them, including the places where a word means something narrower here than it does elsewhere.
 next:
   - title: Wire contract

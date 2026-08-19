@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Identity stays where it is
+seoTitle: "Authorize AI agents without adopting their agent identity system"
 description: The owner never has to know how the asking agent is identified — checked against four identity regimes that produce one unchanged decision.
 next:
   - title: Identity is not authorization

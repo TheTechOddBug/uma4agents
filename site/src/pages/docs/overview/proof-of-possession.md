@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Proof-of-possession
+seoTitle: "Proof-of-possession tokens for AI agents: RFC 9421 and operation binding"
 description: A grant that names a key, and a request signed with it — so holding the token is not enough.
 diagram: proof-of-possession
 diagramCaption: Three callers, one grant. Only the one holding the private key gets through.

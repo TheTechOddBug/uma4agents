@@ -2,7 +2,7 @@
 templateKey: doc
 seoTitle: "Where should AI agent access policy live? The case for decentralizing it"
 title: Where policy lives
-description: Centralising agent authorization policy in one identity provider fails the moment the data's owner is not your user. What decentralized policy means concretely, and what it costs.
+description: Centralising AI agent authorization policy in one identity provider fails the moment the data's owner is not your user. What decentralized authorization means concretely, how it differs from Zero Trust, and what it costs.
 next:
   - title: Compared to policy engines
     to: /docs/overview/compare-policy-engines/
@@ -15,10 +15,27 @@ next:
 Almost every agent-authorization design on the table today puts policy in one
 place: an identity provider, a gateway, a central policy service. An
 administrator consents on behalf of an organisation, a token is minted, and the
-resource server downstream consumes it without a policy voice of its own.
+resource server downstream consumes it without a policy voice of its own. Cross
+App Access, ID-JAG, enterprise-managed agent authorization and the agent
+registries being proposed alongside them are all this shape.
 
 Inside one company that is not just acceptable, it is *correct*. It is also the
 special case.
+
+## This is not the thing Zero Trust already did
+
+Worth clearing up first, because the words overlap and the ideas do not.
+
+Zero Trust decentralised **where a decision is made**. Stop trusting the network,
+move the check to each resource, verify every request. That was right and it
+largely happened. What it never touched is **who wrote the rule being checked** —
+that stayed with the organisation running the infrastructure, because in the
+workloads Zero Trust was built for, the organisation was the party with standing
+to decide.
+
+An agent economy breaks that last assumption and nothing else. Every request is
+still verified at the resource. It is just that the party entitled to say yes
+does not work there.
 
 ## The assumption underneath centralised policy
 
@@ -68,6 +85,23 @@ how the requesting side identifies itself. See
 **It is not one authority per service.** It is one authority per *owner*, which
 is the axis that matters, and the reason the same policy can cover every
 resource server she has a relationship with.
+
+## The axis, named
+
+Most adjacent work is **identity-provider centric**: the IdP is where agents are
+registered, where authority is minted, and where policy about them lives. That
+is the correct design when the organisation running the IdP owns the data, which
+inside an enterprise it usually does.
+
+This is **resource-owner centric**. The authority sits with whoever the resource
+belongs to, and the resource server enforces for an authority it does not hold.
+No identity provider in the picture has standing to decide on Alice's behalf,
+because she is a customer of the brokerage rather than a member of it.
+
+Neither position is wrong, and an agent economy needs both — an enterprise IdP
+governing the agents an organisation runs, and something owner-side governing
+what those agents may reach that belongs to somebody else. The mistake is
+shipping the first and believing it covered the second.
 
 ## What it costs
 

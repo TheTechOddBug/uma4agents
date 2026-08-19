@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Terms as first-class
+seoTitle: "Machine-readable consent terms an AI agent signs (IEEE 7012 MyTerms)"
 description: The owner does not just decide — she states what she requires, and the agent signs it.
 diagram: terms-exchange
 diagramCaption: The owner proffers, the agent signs, her authority counter-signs. Both sides keep the same artifact.

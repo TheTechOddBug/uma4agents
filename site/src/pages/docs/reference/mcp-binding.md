@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: MCP binding
+seoTitle: "MCP authorization: carrying an owner's grant over Model Context Protocol"
 description: How the grant travels over Model Context Protocol — discovery channels, both challenge encodings, the pend, and what MCP's types cannot yet express.
 next:
   - title: Deviations from UMA 2.0

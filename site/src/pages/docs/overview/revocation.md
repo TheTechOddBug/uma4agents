@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Revocation and the ledger
+seoTitle: "Revoking AI agent access: atomic revocation and an audit ledger"
 description: What was promised, what was approved, what was touched — and what happens the moment the owner changes her mind.
 diagram: revoke-cascade
 diagramCaption: Ending the relationship and burning the grants behind it are one operation, not two.

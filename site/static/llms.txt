@@ -18,15 +18,15 @@ Concept pages explain one idea; guides walk a procedure end to end; the
 reference is the wire contract, the endpoints and the deviations from
 UMA 2.0. Listed in reading order.
 
-- [Overview · Someone else's agent is asking](https://u4a.ai/docs/overview/authorize-someone-elses-agent.md): Your resource server is being asked for a customer's data by an AI agent from a company you have no relationship with. Why enterprise SSO does not cover this case, and what does.
-- [Overview · Agents you cannot pre-register](https://u4a.ai/docs/overview/agents-you-cannot-pre-register.md): You cannot enumerate every AI agent that will ever ask for your users' data. How to write access policy that holds for the ten-thousandth stranger without maintaining a list.
-- [Overview · Where policy lives](https://u4a.ai/docs/overview/where-policy-lives.md): Centralising agent authorization policy in one identity provider fails the moment the data's owner is not your user. What decentralized policy means concretely, and what it costs.
-- [Overview · The agent identity black box](https://u4a.ai/docs/overview/agent-identity-black-box.md): Agent identity is contested and unsettled — enrolled, ephemeral, centralized, decentralized. You can authorize an agent without resolving any of it, and here is the test that proves it.
 - [Overview · Overview](https://u4a.ai/docs/overview.md): A working profile of UMA 2.0 for the case where the thing asking is someone else's AI agent, and the person who owns the resource is asleep.
 - [Overview · Why the owner decides](https://u4a.ai/docs/overview/why.md): What breaks when the party who owns a resource is not the party who configured access to it.
 - [Overview · Architecture](https://u4a.ai/docs/overview/architecture.md): Which party holds which responsibility, and why the boundaries between them are the design.
-- [Overview · Concepts](https://u4a.ai/docs/overview/concepts.md): The eight ideas the rest of the documentation assumes, each in a paragraph.
+- [Overview · Concepts](https://u4a.ai/docs/overview/concepts.md): Every idea the rest of the documentation assumes, each in a paragraph, in the order the pieces meet each other.
 - [Overview · Standards this composes](https://u4a.ai/docs/overview/standards.md): Every specification U4A builds on, what each one supplies, and where it appears in the flow.
+- [Overview · Someone else's agent is asking](https://u4a.ai/docs/overview/authorize-someone-elses-agent.md): A third-party AI agent is asking your resource server for a customer's data on behalf of a person who does not work for you. Why enterprise SSO, API keys and CIBA do not cover this case, and what does.
+- [Overview · Agents you cannot pre-register](https://u4a.ai/docs/overview/agents-you-cannot-pre-register.md): You cannot enumerate every AI agent that will ever ask for your users' data. How to write agent access policy that holds for the ten-thousandth stranger without an allow-list, a registry, or an onboarding step.
+- [Overview · Where policy lives](https://u4a.ai/docs/overview/where-policy-lives.md): Centralising AI agent authorization policy in one identity provider fails the moment the data's owner is not your user. What decentralized authorization means concretely, how it differs from Zero Trust, and what it costs.
+- [Overview · The agent identity black box](https://u4a.ai/docs/overview/agent-identity-black-box.md): AI agent identity is contested and unsettled — enrolled or ephemeral, centralized or decentralized. You can authorize an agent without resolving any of it, and here is the test that proves it.
 - [Overview · The four beats](https://u4a.ai/docs/overview/four-beats.md): Challenge, attempt, commit, grant — the whole negotiation, and what each exchange is for.
 - [Overview · The three parties](https://u4a.ai/docs/overview/parties.md): Owner, requesting party, requesting agent — and what it costs to treat the last two as one.
 - [Overview · Terms as first-class](https://u4a.ai/docs/overview/terms.md): The owner does not just decide — she states what she requires, and the agent signs it.
@@ -39,7 +39,7 @@ UMA 2.0. Listed in reading order.
 - [Overview · Agent assurance](https://u4a.ai/docs/overview/assurance.md): What the owner's own authority can verify about an agent asking for her things — and why nothing an agent says about itself can widen access.
 - [Overview · The owner's attention](https://u4a.ai/docs/overview/attention.md): The scarcest resource in an owner-decides design, why an unbounded pending queue is a denial-of-service surface, and how to cap it without shutting out the agent you wanted.
 - [Overview · Compared to UMA 2.0](https://u4a.ai/docs/overview/compare-uma.md): What this profile keeps, what it changes, and why each change was necessary rather than preferred.
-- [Overview · Compared to OAuth 2.0 and GNAP](https://u4a.ai/docs/overview/compare-oauth-gnap.md): Both can carry a negotiation. Neither, on its own, puts the deciding party anywhere but the service.
+- [Overview · Compared to OAuth 2.0 and GNAP](https://u4a.ai/docs/overview/compare-oauth-gnap.md): OAuth, CIBA-style asynchronous authorization and GNAP can all carry a negotiation. None of them, on its own, puts the deciding party anywhere but the service.
 - [Overview · Compared to policy engines](https://u4a.ai/docs/overview/compare-policy-engines.md): OPA, Cedar and AuthZEN decide well. They do not decide whose policy is being expressed, and the two compose.
 - [Overview · Compared to agent identity work](https://u4a.ai/docs/overview/compare-agent-identity.md): AAuth, Web Bot Auth, CIMD and enterprise-managed agent auth — what each answers, and what is left over.
 - [Overview · Glossary](https://u4a.ai/docs/overview/glossary.md): Terms as this documentation uses them, including the places where a word means something narrower here than it does elsewhere.
@@ -61,7 +61,7 @@ UMA 2.0. Listed in reading order.
 - [Reference · MCP binding](https://u4a.ai/docs/reference/mcp-binding.md): How the grant travels over Model Context Protocol — discovery channels, both challenge encodings, the pend, and what MCP's types cannot yet express.
 - [Reference · Configuration](https://u4a.ai/docs/reference/configuration.md): Every setting each component reads, its default, and the two settings people get wrong.
 - [Reference · Deviations from UMA 2.0](https://u4a.ai/docs/reference/deviations.md): The extension register — every place this profile departs from stock UMA, what the baseline says, and why each departure exists.
-- [Reference · Findings](https://u4a.ai/docs/reference/findings.md): What the build produced for the people writing the specifications — verdicts on each UMA 2.0 primitive, nine recommendations, and what was parked.
+- [Reference · Findings](https://u4a.ai/docs/reference/findings.md): What the build produced for the people writing the specifications — verdicts on each UMA 2.0 primitive, fourteen recommendations, and what was parked.
 
 ## Posts
 

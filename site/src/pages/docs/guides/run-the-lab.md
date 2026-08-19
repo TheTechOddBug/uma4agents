@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Run the lab
+seoTitle: "Run a decentralized agent authorization lab in your browser"
 description: A three-node deployment with one command, then the sequence that shows an owner deciding while she is the only one who can.
 next:
   - title: Choose an enforcement point

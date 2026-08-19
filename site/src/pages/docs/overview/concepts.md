@@ -1,7 +1,8 @@
 ---
 templateKey: doc
 title: Concepts
-description: The eight ideas the rest of the documentation assumes, each in a paragraph.
+seoTitle: "Core concepts of owner-authoritative AI agent authorization"
+description: Every idea the rest of the documentation assumes, each in a paragraph, in the order the pieces meet each other.
 next:
   - title: The four beats
     to: /docs/overview/four-beats/
@@ -11,9 +12,13 @@ next:
     blurb: Terms and their exact meanings.
 ---
 
-Eight ideas carry the design. Each gets a page of its own further down this
-section, starting at [the four beats](/docs/overview/four-beats/); this is the
-short form, in the order the pieces meet each other.
+This is the whole design in short form, in the order the pieces meet each other.
+Every idea below has a page of its own further down the section, starting at
+[the four beats](/docs/overview/four-beats/) — except the last, which is small
+enough to be finished here.
+
+No count, deliberately. A list that advertises how long it is has to be edited
+twice every time the design grows.
 
 ## The four beats
 
@@ -78,6 +83,25 @@ promised, what the owner personally approved, what was actually touched.
 Revoking a connection burns live grants in the same operation that ends it, so
 there is no window where the agent still holds what the owner just withdrew.
 [Read more →](/docs/overview/revocation/)
+
+## Assurance is verified, never attested
+
+What the owner's authority knows about an agent is what it **checked itself** —
+a signature against a key it can name, a credential against its issuer's
+published keys, an operator's own directory holding this very key. Three
+independent axes, never added into a total, because a total is how strong key
+binding comes to excuse an unknown operator. And the reading is one-way:
+evidence may only add friction, and only her own past decisions may remove it.
+[Read more →](/docs/overview/assurance/)
+
+## Her attention is attackable
+
+Keys are free, so an unbounded queue of first-contact requests turns "she
+decides" into a denial-of-service surface. The control is a depth limit rather
+than a rate limit, split into lanes so a flood of anonymous strangers cannot
+crowd out the newcomer she actually wanted to admit — who is a stranger too, the
+first time.
+[Read more →](/docs/overview/attention/)
 
 ## Tiers
 

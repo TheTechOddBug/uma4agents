@@ -2,7 +2,7 @@
 templateKey: doc
 seoTitle: "Authorizing AI agents you cannot pre-register or allow-list"
 title: Agents you cannot pre-register
-description: You cannot enumerate every AI agent that will ever ask for your users' data. How to write access policy that holds for the ten-thousandth stranger without maintaining a list.
+description: You cannot enumerate every AI agent that will ever ask for your users' data. How to write agent access policy that holds for the ten-thousandth stranger without an allow-list, a registry, or an onboarding step.
 next:
   - title: Agent assurance
     to: /docs/overview/assurance/
@@ -64,9 +64,32 @@ reachable behind it — and those rules still name no agent:
 {"when": ["assurance.accountability_below:1"], "then": "ask"}
 ```
 
-That holds for the next stranger too. The safety rule is that what an agent
-shows can only *add* friction; only decisions the owner made herself can remove
-any. See [agent assurance](/docs/overview/assurance/).
+That is a real rule from the lab's default policy, and read it closely: it names
+a property of *evidence*, not an identity system. No issuer, no scheme, no
+vendor. Swap out how agents prove things and the rule is unchanged — which is
+what stops client-facing policy from quietly reintroducing the list through the
+side door. See [the agent identity black
+box](/docs/overview/agent-identity-black-box/).
+
+The safety rule on top of it is asymmetric: what an agent shows can only *add*
+friction, and only decisions the owner made herself can remove any. See
+[agent assurance](/docs/overview/assurance/).
+
+## The one list that is left, and why it is safe
+
+Naming no agent is not the same as naming nobody. She can block an **operator**
+— the firm an agent says it belongs to — and every agent it runs is shut out in
+the same step, with live grants revoked alongside.
+
+That is a list, and it is the opposite of the one that does not scale, for two
+reasons. It is a **restriction**, so it may rest on the agent's own unverified
+claim: an agent that lies about its operator lies itself into a refusal. And it
+is written *in response to* something, not in anticipation of everything — you
+add a name when you have a reason, rather than maintaining a roster of everyone
+who might ever be legitimate.
+
+The direction is the whole trick. Lists that widen access have to be complete to
+work. Lists that narrow it work fine while empty.
 
 ## The first contact is still a decision
 

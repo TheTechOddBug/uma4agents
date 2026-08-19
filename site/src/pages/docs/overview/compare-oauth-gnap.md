@@ -1,7 +1,8 @@
 ---
 templateKey: doc
+seoTitle: "OAuth 2.0, CIBA and GNAP for AI agent authorization: what each leaves open"
 title: Compared to OAuth 2.0 and GNAP
-description: Both can carry a negotiation. Neither, on its own, puts the deciding party anywhere but the service.
+description: OAuth, CIBA-style asynchronous authorization and GNAP can all carry a negotiation. None of them, on its own, puts the deciding party anywhere but the service.
 next:
   - title: Compared to policy engines
     to: /docs/overview/compare-policy-engines/
@@ -37,9 +38,45 @@ either side keeps. Nothing is signed and nothing is checkable later.
 
 Extensions address parts of this. Rich Authorization Requests give a structured
 way to say what is being asked for. DPoP binds tokens to keys. Token exchange
-handles delegation between services. Each is useful and this profile uses ideas
-from all of them — but none moves the authority to the owner's side, because
-that is not what they were for.
+handles delegation between services. Backchannel authentication reaches a person
+who is not at the browser. Each is useful and this profile uses ideas from all of
+them — but none moves the authority to the owner's side, because that is not what
+they were for.
+
+## CIBA and asynchronous authorization
+
+The extension worth its own heading, because it looks like the whole answer and
+is half of one.
+
+Client-Initiated Backchannel Authentication decouples the party asking from the
+party approving. The client requests, the authorization server pushes to a
+person's device out of band, and the client polls until they respond. The
+asynchronous-authorization and human-in-the-loop features now shipping in agent
+platforms are built on it, and they solve the problem OAuth's redirect could
+not: **the human does not have to be in front of the browser that made the
+request.**
+
+That is real, and this profile needs the same capability. What CIBA supplies is
+a way to *reach* an absent person. What it does not supply is any of the
+following:
+
+- **A policy she wrote.** The rule deciding when she is disturbed lives in the
+  authorization server, which belongs to the service. She cannot author it,
+  read it, or make it stricter.
+- **Anything to state.** The push carries a decision request. There is nowhere
+  in it for her to proffer terms — a purpose, an expiry, a prohibition — that
+  the requester must accept and sign.
+- **A relationship.** Each push is an event. Nothing persists that she can see
+  listed, and nothing exists to revoke afterwards.
+- **A party boundary.** CIBA assumes the approving user is *the authorization
+  server's* user. When the person who must decide is a customer of a different
+  company from the one operating the agent, the model has no seat for her — it
+  has a notification channel and no authority behind it.
+
+So the honest relationship is compositional rather than competitive: a
+backchannel push is a good transport for the moment an owner-side authority
+decides it must ask her. It is the [approval
+path](/docs/guides/approval/), not the thing that decided to use it.
 
 ## GNAP
 

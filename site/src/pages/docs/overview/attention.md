@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: The owner's attention
+seoTitle: "Consent fatigue as a denial-of-service surface in agent authorization"
 description: The scarcest resource in an owner-decides design, why an unbounded pending queue is a denial-of-service surface, and how to cap it without shutting out the agent you wanted.
 next:
   - title: Agent assurance

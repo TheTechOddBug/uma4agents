@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Discovery, public and protected
+seoTitle: "RFC 9728 protected resource metadata for AI agent discovery"
 description: What a resource is can be public. Whose instances sit behind it cannot.
 diagram: discovery-layers
 diagramCaption: Both bands are served by the resource server, from one registry. Only the audience differs.

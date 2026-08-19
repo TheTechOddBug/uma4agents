@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Compared to policy engines
+seoTitle: "OPA, Cedar and AuthZEN vs UMA for Agents: whose policy decides"
 description: OPA, Cedar and AuthZEN decide well. They do not decide whose policy is being expressed, and the two compose.
 next:
   - title: Compared to agent identity work

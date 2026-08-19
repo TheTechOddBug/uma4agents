@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: FAQ
+seoTitle: "AI agent authorization FAQ: consent, allow-lists, CIBA and production readiness"
 description: The questions that come up first, answered directly, including the ones where the answer is that this does not do that.
 next:
   - title: Compare against UMA 2.0
@@ -40,6 +41,25 @@ they filled the roles cleanly and are worth showing, but every guide states the
 role first and the product second. The compose stack runs the same code with
 none of that, and the same enforcement core also runs embedded in the resource
 with no gateway at all.
+
+## Is this not just CIBA, or asynchronous authorization?
+
+No, and the difference is the whole point. Backchannel authentication reaches a
+person who is not at the browser, which is a genuine and necessary capability —
+this profile needs it too. What it does not change is whose policy decided to
+ask her, what she is allowed to say back, or whether a relationship exists
+afterwards that she can revoke. With a backchannel approval she has a button;
+what she does not have is authority. See
+[OAuth 2.0, CIBA and GNAP](/docs/overview/compare-oauth-gnap/).
+
+## We already let an admin consent on the organisation's behalf. Is that not enough?
+
+For data the organisation owns, yes — and enterprise-managed agent
+authorization, Cross App Access and ID-JAG handle that case well. The case here
+is the one where no admin anywhere has standing: Alice is a customer of the
+brokerage rather than an employee, her advisor works somewhere else again, and
+the data is hers. See
+[compared to agent identity work](/docs/overview/compare-agent-identity/).
 
 ## Does the owner have to be online?
 

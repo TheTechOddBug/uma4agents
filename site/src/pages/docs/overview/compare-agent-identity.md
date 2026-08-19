@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Compared to agent identity work
+seoTitle: "AAuth, Web Bot Auth, CIMD and enterprise agent authorization compared"
 description: AAuth, Web Bot Auth, CIMD and enterprise-managed agent auth — what each answers, and what is left over.
 next:
   - title: Identity is not authorization

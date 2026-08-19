@@ -4,7 +4,7 @@ seoTitle: "Do you need to know what an AI agent is to authorize it?"
 title: The agent identity black box
 diagram: black-box
 diagramCaption: "Four differently-arranged requesting sides. The terms, the grant and the answer come back identical; only the handle moves."
-description: Agent identity is contested and unsettled — enrolled, ephemeral, centralized, decentralized. You can authorize an agent without resolving any of it, and here is the test that proves it.
+description: AI agent identity is contested and unsettled — enrolled or ephemeral, centralized or decentralized. You can authorize an agent without resolving any of it, and here is the test that proves it.
 next:
   - title: Identity stays where it is
     to: /docs/overview/flow/
@@ -34,9 +34,21 @@ The owner's authority needs exactly two things from the requesting side:
    attributable and a token cannot simply be stolen and replayed.
 
 A bare public key satisfies both. So does a credential from an agent identity
-protocol. So, presumably, does whatever wins the argument in two years. None of
-those choices needs to reach the owner's policy, and in this profile none of
-them does.
+protocol. So, presumably, does whatever wins the argument in two years.
+
+None of those choices reaches the owner's policy, and the precise version of
+that claim matters, because the loose version is false. Her policy *can* read
+what her authority managed to verify — whether a signature checked out, whether
+a credential's issuer could be traced, whether anyone is named and reachable
+behind the request. What it cannot name is a scheme. There is no issuer in it,
+no credential type, no vendor, no thumbprint. The vocabulary is properties of
+**evidence**, so replacing the mechanism that produced the evidence leaves the
+policy untouched.
+
+And the reading is one-way: a gap can make a request stricter, and nothing an
+agent shows can make one easier. Only decisions the owner made herself do that.
+So a new identity protocol arriving does not widen anything — at most it lets an
+agent avoid friction that showing less would have cost.
 
 ## The claim, made falsifiable
 
@@ -51,7 +63,8 @@ directory. Then two things are asserted:
 - the terms, the grant and the authorization server's answer are **identical**
   across all four; and
 - **the owner's policy contains no identity vocabulary at all** — no issuer, no
-  thumbprint, no credential type, nothing.
+  thumbprint, no credential type, nothing. Grepping her policy document for the
+  names of the four regimes has to come back empty.
 
 The second assertion is what makes the first mean something. A system that
 ignored every identity signal would pass the first test too. If any signal ever

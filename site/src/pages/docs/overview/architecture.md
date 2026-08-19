@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Architecture
+seoTitle: "Agent authorization architecture: owner-side authority, resource-side enforcement"
 description: Which party holds which responsibility, and why the boundaries between them are the design.
 diagram: trust-boundary
 diagramCaption: The seam the profile exists to hold. Meridian enforces a policy it is refused permission to read.

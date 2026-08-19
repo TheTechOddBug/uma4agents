@@ -1,7 +1,8 @@
 ---
 templateKey: doc
 title: Findings
-description: What the build produced for the people writing the specifications — verdicts on each UMA 2.0 primitive, nine recommendations, and what was parked.
+seoTitle: "UMA 2.0 for AI agents: findings and recommendations to the working group"
+description: What the build produced for the people writing the specifications — verdicts on each UMA 2.0 primitive, fourteen recommendations, and what was parked.
 next:
   - title: Deviations from UMA 2.0
     to: /docs/reference/deviations/
@@ -54,7 +55,7 @@ authorizing trading. Classic scopes authorize classes of action.
 **The owner's own agent or app as the consent surface.** The 2010 out-of-band
 consent wireframes, with an interlocutor that finally exists.
 
-## The nine recommendations
+## The fourteen recommendations
 
 **1. A core grant specification, transport-agnostic.** Carry forward the party
 model — owner, requesting party, and reviving the 2010 term, *requesting agent*
@@ -122,6 +123,63 @@ authorization server was tacitly one process — and one process makes the
 question invisible. That is a property of the deployment, not of the design, and
 it does not survive the deployment changing. This build's own consume endpoint
 was check-then-act before it was fixed.
+
+**10. Say how the owner authenticates to her own authorization server.** UMA 2.0
+and FedAuthz are silent on it, which was reasonable in 2018 when an authorization
+server was tacitly a web application she logged in to. It stops being reasonable
+the moment the authority can be *personal* — on her laptop, or inside a personal
+AI — because the profile then requires her to stand up an identity provider
+before she can answer a single request. Two credential modes cost one code path,
+and the second reuses a verifier already present: a message signature over her
+request, checked against a key she enrolled. Specify **both at once**, each
+independently sufficient and independently revocable, with neither a fallback for
+the other.
+
+**11. A message-signature profile has to say which requests cover their body.**
+Method, authority and path say who is asking and what they are asking of. They
+say nothing about the bytes, and that is invisible until an endpoint carries its
+meaning in a body rather than a URL. The owner's decision endpoint does: with
+those components alone an intermediary can leave her signature untouched and
+invert her answer. Two rules, not one. A verifier must be able to **require** a
+content digest rather than merely accept one — optional coverage is not coverage.
+And verifying the signature and verifying the digest are **two obligations**: the
+signature base is built from the header field, and nothing in that says the
+header is true.
+
+**12. Identity levels are two, and description is not one of them.** The same
+negotiation against four requesting-side arrangements — a bare key, a verified
+issuer with rotating session keys, a metadata document, a published key directory
+— produces **two** connection handles. Either the key is the identity, or a
+verified issuer stands behind it; everything else is additive description. A core
+spec should say so, because the failure mode is attractive and quiet: an
+implementation that lets a directory lookup tip a decision has changed the trust
+model without changing the wire. The test that catches it is the negative one —
+the owner's policy contains no identity vocabulary at all.
+
+**13. Agent assurance should be decomposed, not scaled.** The recurring request
+is policy that faces the requesting side; the recurring fallback is an allow-list,
+which is an access-control list with extra steps. Identity assurance already ran
+this experiment — LOA 1–4 was one ordinal scale until SP 800-63-3 split it, because
+a single scale lets a strong showing on one axis compensate for a weak one on
+another. Agents make that worse: an agent can be perfectly recognisable and wholly
+unaccountable. So **three independent axes — binding, provenance, accountability —
+and no composite score**, plus the rule that makes client-facing policy safe at
+all: assurance may only tighten a requirement, and only the owner's own decisions
+may relax one. Its consequence belongs in a spec verbatim — **a lie can only cost
+the liar friction** — because that is what lets an authorization server read a
+self-asserted operator name without inheriting a trust framework that does not
+exist.
+
+**14. The owner's attention needs a budget, and the spec should say so.** UMA 2.0
+has a pending state and no opinion about how many of them a person can be made to
+hold. Keys are free, so an unbounded queue turns the property that justifies the
+profile into its own denial-of-service surface, and every one of those requests
+is individually well-formed. Rate limiting is the wrong instrument; a **depth**
+limit expresses the thing that matters, is self-healing, and needs no new state.
+Split the queue on something an agent cannot assert for itself, because a single
+queue defends continuity and leaves *onboarding* undefended — the agent you want
+to admit is a stranger too, the first time. Refuse past the cap rather than
+queueing, and say why.
 
 ## Parking lot
 

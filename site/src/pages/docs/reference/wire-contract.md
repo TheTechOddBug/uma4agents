@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Wire contract
+seoTitle: "AI agent authorization wire protocol: every message, in order"
 description: Every message that travels between the parties, in order, with the fields that carry meaning.
 diagram: wire-inspector
 diagramCaption: A quick index into the sections below, which carry the same messages in reading order with the detail around them.

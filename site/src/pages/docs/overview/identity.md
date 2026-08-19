@@ -1,6 +1,7 @@
 ---
 templateKey: doc
 title: Identity is not authorization
+seoTitle: "AI agent identity vs authorization: why knowing who is calling is not enough"
 description: Knowing which agent is calling tells you nothing about whether it may proceed. Both are needed, and they answer different questions.
 diagram: identity-vs-authz
 diagramCaption: The left column is what agent identity work gives you. The right column is what still has to be answered.
