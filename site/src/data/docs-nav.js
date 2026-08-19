@@ -30,6 +30,20 @@ const tabs = [
 const nav = {
   overview: [
     {
+      // Entry points, first in reading order on purpose. Everything below is
+      // organised by what the protocol *is*, which is right for someone
+      // already convinced and useless to someone arriving with a problem.
+      // These are the questions people actually turn up with; each one answers
+      // itself and then routes into the material below.
+      group: "Start with a question",
+      pages: [
+        { title: "Someone else's agent is asking", to: "/docs/overview/authorize-someone-elses-agent/" },
+        { title: "Agents you cannot pre-register", to: "/docs/overview/agents-you-cannot-pre-register/" },
+        { title: "Where policy lives", to: "/docs/overview/where-policy-lives/" },
+        { title: "The agent identity black box", to: "/docs/overview/agent-identity-black-box/" },
+      ],
+    },
+    {
       group: "Start here",
       pages: [
         { title: "Overview", to: "/docs/overview/" },

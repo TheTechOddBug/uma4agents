@@ -1273,6 +1273,128 @@ const identityScenes = scripted("identity-vs-authz", [
   },
 ]);
 
+
+// ---------------------------------------------------------------------------
+// The agent identity black box
+// ---------------------------------------------------------------------------
+
+const IN_ROWS = [
+  ["bare key", "no issuer anywhere"],
+  ["agent credential", "verified issuer, rotating keys"],
+  ["operator document", "says who runs it"],
+  ["published key", "findable in a directory"],
+];
+
+const BlackBox = () => (
+  <Frame title="Four requesting sides, one answer" viewBox="0 0 600 268">
+    <Markers />
+
+    <text x={20} y={20} fill="var(--ink-dim)" fontSize="11" fontFamily={MONO}>
+      REQUESTING SIDE
+    </text>
+    <text x={232} y={20} fill="var(--ink-dim)" fontSize="11" fontFamily={MONO}>
+      HER AUTHORITY
+    </text>
+    <text x={432} y={20} fill="var(--ink-dim)" fontSize="11" fontFamily={MONO}>
+      WHAT COMES BACK
+    </text>
+
+    {IN_ROWS.map(([name, sub], i) => (
+      <g className="bb-in" key={name}>
+        <Box x={20} y={34 + i * 56} w={168} h={44} stroke="var(--accent)" />
+        <text x={34} y={54 + i * 56} fill="var(--ink)" fontSize="12.5" fontWeight="600">
+          {name}
+        </text>
+        <text x={34} y={70 + i * 56} fill="var(--ink-dim)" fontSize="10.5">
+          {sub}
+        </text>
+        <path
+          className="bb-arrow"
+          d={`M188 ${56 + i * 56} H228`}
+          stroke="var(--accent)"
+          strokeWidth="1.6"
+          fill="none"
+          markerEnd="url(#arrow-accent)"
+        />
+      </g>
+    ))}
+
+    <g className="bb-auth">
+      <Box x={232} y={34} w={158} h={212} stroke="var(--accent)" fill="var(--sunken)" />
+      <text x={311} y={128} fill="var(--ink)" fontSize="13" fontWeight="650" textAnchor="middle">
+        her policy
+      </text>
+      <text x={311} y={148} fill="var(--ink-dim)" fontSize="11" textAnchor="middle">
+        names resources,
+      </text>
+      <text x={311} y={163} fill="var(--ink-dim)" fontSize="11" textAnchor="middle">
+        never an agent
+      </text>
+    </g>
+
+    {IN_ROWS.map((_, i) => (
+      <g className="bb-out" key={i}>
+        <path
+          d={`M390 ${56 + i * 56} H428`}
+          stroke="var(--green)"
+          strokeWidth="1.6"
+          fill="none"
+          markerEnd="url(#arrow-green)"
+        />
+        <Box x={432} y={34 + i * 56} w={148} h={44} stroke="var(--green)" />
+        <text x={446} y={54 + i * 56} fill="var(--ink)" fontSize="12" fontWeight="600">
+          same terms
+        </text>
+        <text x={446} y={70 + i * 56} fill="var(--ink-dim)" fontSize="10.5" fontFamily={MONO}>
+          same grant
+        </text>
+      </g>
+    ))}
+
+    <g className="bb-handle">
+      <text x={20} y={262} fill="var(--amber)" fontSize="11" fontFamily={MONO}>
+        the one thing that moved: the handle her connection is filed under
+      </text>
+    </g>
+  </Frame>
+);
+
+// `end` is the state a scene leaves behind, and scrubbing applies every
+// earlier scene's `end` in order — so each one has to restate what is still on
+// screen, not only what it changed. Leaving `.bb-in` out of scene 1 made the
+// requesting side vanish the moment anyone jumped to step 4.
+const BB_IN = { ".bb-in": { opacity: 1 } };
+const BB_AUTH = { ...BB_IN, ".bb-auth": { opacity: 1 } };
+const BB_OUT = { ...BB_AUTH, ".bb-out": { opacity: 1 } };
+
+const blackBoxScenes = scripted("black-box", [
+  {
+    reset: {
+      ".bb-in": { opacity: 0 },
+      ".bb-auth": { opacity: DIM },
+      ".bb-out": { opacity: 0 },
+      ".bb-handle": { opacity: 0 },
+    },
+    end: BB_IN,
+    play: (animate, $$) =>
+      animate($$(".bb-in"), { opacity: [0, 1], duration: 460, delay: (_, i) => i * 130 }),
+  },
+  {
+    end: BB_AUTH,
+    play: (animate, $$) => animate($$(".bb-auth"), { opacity: [DIM, 1], duration: 520 }),
+  },
+  {
+    end: BB_OUT,
+    play: (animate, $$) =>
+      animate($$(".bb-out"), { opacity: [0, 1], duration: 460, delay: (_, i) => i * 130 }),
+  },
+  {
+    hold: 4200,
+    end: { ...BB_OUT, ".bb-handle": { opacity: 1 } },
+    play: (animate, $$) => animate($$(".bb-handle"), { opacity: [0, 1], duration: 560 }),
+  },
+]);
+
 // ---------------------------------------------------------------------------
 // Revocation
 // ---------------------------------------------------------------------------
@@ -1953,6 +2075,11 @@ const diagrams = {
     Draw: PopKey,
     scenes: popScenes,
     title: "Proof-of-possession",
+  },
+  "black-box": {
+    Draw: BlackBox,
+    scenes: blackBoxScenes,
+    title: "Four requesting sides, one answer",
   },
   "identity-vs-authz": {
     Draw: IdentityVsAuthz,

@@ -18,6 +18,10 @@ Concept pages explain one idea; guides walk a procedure end to end; the
 reference is the wire contract, the endpoints and the deviations from
 UMA 2.0. Listed in reading order.
 
+- [Overview · Someone else's agent is asking](https://u4a.ai/docs/overview/authorize-someone-elses-agent.md): Your resource server is being asked for a customer's data by an AI agent from a company you have no relationship with. Why enterprise SSO does not cover this case, and what does.
+- [Overview · Agents you cannot pre-register](https://u4a.ai/docs/overview/agents-you-cannot-pre-register.md): You cannot enumerate every AI agent that will ever ask for your users' data. How to write access policy that holds for the ten-thousandth stranger without maintaining a list.
+- [Overview · Where policy lives](https://u4a.ai/docs/overview/where-policy-lives.md): Centralising agent authorization policy in one identity provider fails the moment the data's owner is not your user. What decentralized policy means concretely, and what it costs.
+- [Overview · The agent identity black box](https://u4a.ai/docs/overview/agent-identity-black-box.md): Agent identity is contested and unsettled — enrolled, ephemeral, centralized, decentralized. You can authorize an agent without resolving any of it, and here is the test that proves it.
 - [Overview · Overview](https://u4a.ai/docs/overview.md): A working profile of UMA 2.0 for the case where the thing asking is someone else's AI agent, and the person who owns the resource is asleep.
 - [Overview · Why the owner decides](https://u4a.ai/docs/overview/why.md): What breaks when the party who owns a resource is not the party who configured access to it.
 - [Overview · Architecture](https://u4a.ai/docs/overview/architecture.md): Which party holds which responsibility, and why the boundaries between them are the design.
