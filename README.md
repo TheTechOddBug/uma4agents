@@ -284,3 +284,5 @@ Two things worth reading there before you build on this:
 
 Brokerage figures are fixture data flowing through a real protocol path — no
 market data, real accounts, or real orders. "Meridian Wealth" is fictional.
+
+AI is used in this project for rapid iteration and prototyping. All output is open source and contributed back to the community. 
