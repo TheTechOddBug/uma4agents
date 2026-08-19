@@ -29,6 +29,15 @@ const IndexPage = () => {
 
   return (
     <Layout>
+      {/* The page's heading. It is presented as an animation rather than as
+          text, but it still *has* one — and a document with no h1 tells a
+          screen reader and a crawler the same unhelpful thing. The words are
+          the plain-English description of the thing, because that is what
+          someone searching for it would type. */}
+      <h1 className="visually-hidden">
+        UMA for Agents — User-Managed Access for AI agents, and decentralized
+        agent authorization the resource owner controls
+      </h1>
       <section className="stage-band" ref={stageRef}>
         <div className="stage-wrap">
         <svg className="stage" viewBox="0 175 1200 465" role="img"
@@ -348,8 +357,13 @@ const IndexPage = () => {
 
 export const Head = () => (
   <SEO
-    title="UMA for Agents — may your agent touch my stuff?"
-    description="Alice sets her terms once. Other people's agents negotiate against them — while she is offline. An animated explanation, and a lab you can run."
+    // Two different jobs. The <title> carries the words someone types into a
+    // search box — "User-Managed Access", "agent authorization" — because a
+    // page cannot rank for language it does not contain. The card keeps the
+    // line people actually remember.
+    title="User-Managed Access for AI agents — decentralized agent authorization"
+    socialTitle="UMA for Agents — may your agent touch my stuff?"
+    description="Decentralized agent authorization built on User-Managed Access (UMA 2.0): the resource owner sets her terms once, and other people's AI agents negotiate against them while she is offline. An animated explanation, and a lab you can run."
     pathname="/"
   />
 );

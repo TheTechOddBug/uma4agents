@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "Resource owner, requesting party, requesting agent: who decides"
 title: The three parties
 description: Owner, requesting party, requesting agent — and what it costs to treat the last two as one.
 diagram: who-answers

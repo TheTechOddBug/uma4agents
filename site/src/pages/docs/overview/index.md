@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "What is UMA for Agents? Decentralized agent authorization"
 title: Overview
 description: A working profile of UMA 2.0 for the case where the thing asking is someone else's AI agent, and the person who owns the resource is asleep.
 video: cxbUZndIBfg

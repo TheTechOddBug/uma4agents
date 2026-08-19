@@ -25,6 +25,10 @@ const mimeFor = (p) =>
 
 const SEO = ({
   title,
+  // What a link preview shows, when that should differ from the <title>.
+  // Search wants the words people type; a card wants the words people
+  // remember. Defaults to `title`, so only pages that care set it.
+  socialTitle,
   description,
   pathname,
   image,
@@ -40,6 +44,7 @@ const SEO = ({
   const imagePath = raster(image) || siteMetadata.image;
   const seo = {
     title: title || siteMetadata.title,
+    social: socialTitle || title || siteMetadata.title,
     description: description || siteMetadata.description,
     url: `${siteMetadata.siteUrl}${pathname || ""}`,
     image: `${siteMetadata.siteUrl}${imagePath}`,
@@ -147,7 +152,7 @@ const SEO = ({
         content="index, follow, max-image-preview:large, max-snippet:-1"
       />
 
-      <meta property="og:title" content={seo.title} />
+      <meta property="og:title" content={seo.social} />
       <meta property="og:description" content={seo.description} />
       <meta property="og:url" content={seo.url} />
       {/* `property=` alone, which is the form LinkedIn documents.
@@ -158,7 +163,7 @@ const SEO = ({
           all. The suggestion is boilerplate; the spec is the spec. */}
       <meta property="og:image" content={seo.image} />
       <meta property="og:image:type" content={mimeFor(imagePath)} />
-      <meta property="og:image:alt" content={seo.title} />
+      <meta property="og:image:alt" content={seo.social} />
       <meta property="og:type" content={article ? "article" : "website"} />
       <meta property="og:site_name" content="UMA for Agents" />
       <meta property="og:locale" content="en_US" />
@@ -180,7 +185,7 @@ const SEO = ({
         ))}
 
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={seo.title} />
+      <meta name="twitter:title" content={seo.social} />
       <meta name="twitter:description" content={seo.description} />
       <meta name="twitter:image" content={seo.image} />
       <meta name="twitter:image:alt" content={seo.title} />

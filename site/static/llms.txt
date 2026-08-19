@@ -1,6 +1,6 @@
 # UMA for Agents
 
-> Alice sets her terms once. Other people's agents negotiate against them — while she is offline. A working proof-of-concept carrying User-Managed Access into the agent era.
+> Decentralized agent authorization built on User-Managed Access (UMA 2.0). The resource owner sets her terms once, and other people's AI agents negotiate against them while she is offline. A working proof-of-concept, with a lab you can run.
 
 A working proof-of-concept, with Eve Maler, carrying User-Managed Access
 (UMA) 2.0 into the agent era: the resource owner sets policy once, and other

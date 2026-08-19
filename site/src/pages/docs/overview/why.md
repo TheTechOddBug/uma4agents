@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "Why the resource owner decides who her AI agents answer to"
 title: Why the owner decides
 description: What breaks when the party who owns a resource is not the party who configured access to it.
 next:

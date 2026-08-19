@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "How to implement decentralized agent authorization: the roles"
 title: The roles you must fill
 description: Six roles, what each one has to be able to do, and how to judge whether something in your stack can do it.
 diagram: roles-map

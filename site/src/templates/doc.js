@@ -155,7 +155,10 @@ export const Head = ({ data, location }) => {
   const sectionStart = here && allPages().find((p) => p.tab === here.tab);
   return (
     <SEO
-      title={`${page.frontmatter.title} | UMA for Agents docs`}
+      // `seoTitle` lets a page keep a short, voiced heading in the nav and
+      // still say what it is to someone searching. "The four beats" is a good
+      // heading and a hopeless search target.
+      title={`${page.frontmatter.seoTitle || page.frontmatter.title} | UMA for Agents docs`}
       description={page.frontmatter.description}
       pathname={location.pathname}
       docPage
@@ -183,6 +186,7 @@ export const pageQuery = graphql`
       }
       frontmatter {
         title
+        seoTitle
         description
         video
         videoTitle

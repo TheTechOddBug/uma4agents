@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "How agent authorization works: the four-beat grant"
 title: The four beats
 description: Challenge, attempt, commit, grant — the whole negotiation, and what each exchange is for.
 diagram: four-beats

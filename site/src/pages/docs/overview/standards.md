@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "Standards for agent authorization: UMA 2.0, RFC 9421, RFC 9728, MCP"
 title: Standards this composes
 description: Every specification U4A builds on, what each one supplies, and where it appears in the flow.
 diagram: standards-map

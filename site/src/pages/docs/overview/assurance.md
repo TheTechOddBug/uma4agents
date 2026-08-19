@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "Agent assurance: verifying an AI agent without trusting its claims"
 title: Agent assurance
 description: What the owner's own authority can verify about an agent asking for her things — and why nothing an agent says about itself can widen access.
 next:

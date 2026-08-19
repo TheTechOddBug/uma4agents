@@ -1,5 +1,6 @@
 ---
 templateKey: doc
+seoTitle: "UMA 2.0 vs UMA for Agents: what carries into the agent era"
 title: Compared to UMA 2.0
 description: What this profile keeps, what it changes, and why each change was necessary rather than preferred.
 diagram: compare-uma
