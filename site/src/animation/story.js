@@ -111,6 +111,14 @@ const VAULT_MARK = VAULT_CENTRE - 140;
 const VAULT_STEP = VAULT_MARK - 66;   // bounced back from the door
 const GROUND = 560;
 
+/* Camera marks. `WIDE` is the pull-back that reveals the other owners; `CAROL`
+   is the push-in onto one of them. Both are scales about the view box centre,
+   set in stage.css — the camera never translates, so a scene can cut between
+   them without the shot drifting. */
+const CAM_NEAR = 1;
+const CAM_WIDE = 0.62;
+const CAM_CAROL = 0.86;
+
 /* The stage before anything happens. Every property any scene ever touches
  * appears here, so that "put it back how it started" is a fact about this
  * object rather than a list of resets someone has to remember to update. */
@@ -141,6 +149,36 @@ const BASE = {
   '#alice-row':        { opacity: 0.25 },
   '#alice-row .own-row': { stroke: C.edge },
   '#question':         { x: VAULT_CENTRE, y: GROUND - 300, opacity: 0, scale: 1 },
+
+  // Act three. Same rule as everything above: a property the timeline writes
+  // has to have a resting value here, or scrubbing backwards past the scene
+  // that set it leaves the inline style behind and the frame is a lie.
+  '#camera':           { scale: CAM_NEAR },
+  '#world':            { opacity: 0 },
+  '#ground':           { opacity: 1 },
+  '#w-links':          { opacity: 0 },
+  '.w-cell':           { opacity: 0, scale: 1 },
+  '.w-cell .w-card':   { stroke: C.rest },
+  '.w-agent':          { opacity: 0, scale: 1 },
+  '.w-link':           { opacity: 0 },
+  '.w-ai':             { fill: C.own, opacity: 0.9 },
+  '.w-badge-tok':      { stroke: C.agent },
+  '.w-badge-dir':      { opacity: 1 },
+  '#w-carol .w-edge':  { stroke: C.own },
+  '#w-alice .w-host':  { stroke: C.rest },
+  '#w-loop':           { opacity: 0, scale: 1 },
+  '#w-inloop':         { opacity: 0, scale: 1 },
+  '#w-loop .w-dot--asked':   { scale: 1 },
+  '#w-inloop .w-dot--asked': { scale: 1 },
+  '#w-old':            { opacity: 0, scale: 1 },
+  '#w-old .w-old-row': { opacity: 1, stroke: C.rest },
+  '#w-old .w-old-box': { opacity: 1 },
+  '#w-old-eye':        { opacity: 0 },
+  '#w-old-queue':      { opacity: 0 },
+  '#w-old-out':        { opacity: 0 },
+  '#place-home':       { opacity: 1 },
+  '#place-as':         { opacity: 1 },
+  '#place-vault':      { opacity: 1 },
 
   // Act two. The story's cast and the machine share one stage, so each act
   // hides the other rather than the page swapping drawings.
@@ -430,11 +468,129 @@ export const SCENES = [
       animate(['#alice-ai', '#alice-ai-key'], { opacity: [1, 0], duration: 700, delay: 4600 });
     },
   },
+  /* ---- act three: the same shape, many times over ---------------------- */
   {
     at: 97000,
+    beat: 'Now do it a million times',
+    text: 'That is one owner. The server holding her money holds a thousand others — so pull back, and ask what the same four beats look like when every row has someone behind it.',
+    end: {
+      '#camera': { scale: CAM_WIDE },
+      '#place-home': { opacity: 0 }, '#place-nightstand': { opacity: 0 },
+      '#place-as': { opacity: 0 }, '#alice-ai': { opacity: 0 },
+      '#alice': { opacity: 0 }, '#world': { opacity: 1 },
+      // The ground line belongs to the near scene; at this distance it cuts
+      // straight through the fan.
+      '#ground': { opacity: 0 },
+      '#w-links': { opacity: 1 },
+      '#w-alice': { opacity: 1 }, '#w-link-alice': { opacity: 0.55 },
+    },
+    play() {
+      animate(['#place-home', '#place-nightstand', '#place-as', '#alice', '#alice-ai', '#ground'],
+              { opacity: [1, 0], duration: 700 });
+      animate('#w-links', { opacity: [0, 1], duration: 10 });
+      animate('#camera', { scale: [CAM_NEAR, CAM_WIDE], duration: 2200, ease: 'inOutQuad' });
+      animate('#world', { opacity: [0, 1], duration: 800, delay: 1200 });
+      animate('#w-alice', { opacity: [0, 1], scale: [0.9, 1], duration: 700, delay: 1600, ease: 'outBack' });
+      animate('#w-link-alice', { opacity: [0, 0.55], duration: 600, delay: 2100 });
+    },
+  },
+  {
+    at: 103400,
+    beat: 'Carol brings her own',
+    text: 'Carol banks here too. She points the server at an authorization server of her own, and it has never heard of her before — no secret was exchanged, because nobody was there to exchange one.',
+    end: { '#w-carol': { opacity: 1 }, '#w-link-carol': { opacity: 0.55 } },
+    play() {
+      animate('#w-carol', { opacity: [0, 1], scale: [0.9, 1], duration: 700, ease: 'outBack' });
+      animate('#w-carol .w-edge', { stroke: [C.rest, C.own], duration: 600, delay: 600 });
+      animate('#w-link-carol', {
+        opacity: [0, 0.55], strokeDashoffset: [180, 0], duration: 1200, delay: 800, ease: 'outQuad',
+      });
+      animate('#vault-yes', { opacity: [0, 1, 0], duration: 1400, delay: 1800 });
+    },
+  },
+  {
+    at: 109800,
+    beat: 'Her terms, not the firm’s',
+    text: 'Agents come asking for Carol’s row, and they are refused and sent to her server — which answers with her terms. The firm never wrote them and cannot read them.',
+    end: { '#w-a1': { opacity: 1 }, '#w-a2': { opacity: 1 } },
+    play() {
+      animate('#w-a1', { opacity: [0, 1], x: [30, 74], duration: 700, ease: 'outSine' });
+      animate('#w-a2', { opacity: [0, 1], x: [30, 74], duration: 700, delay: 300, ease: 'outSine' });
+      animate('#w-carol .w-ai', { opacity: [0.9, 0.3, 0.9], duration: 900, delay: 900, loop: 2 });
+    },
+  },
+  {
+    at: 116200,
+    beat: 'None of them arrive alike',
+    text: 'One holds a bare key. One carries a token from an issuer. One names an operator that publishes its keys. Her authority checks what each can actually show — and none of it buys access, only less friction.',
+    end: { '#w-a3': { opacity: 1 }, '#w-a4': { opacity: 1 } },
+    play() {
+      animate('#w-a3', { opacity: [0, 1], x: [30, 74], duration: 700, ease: 'outSine' });
+      animate('#w-a4', { opacity: [0, 1], x: [30, 74], duration: 700, delay: 250, ease: 'outSine' });
+      animate('.w-badge-tok', { stroke: [C.agent, C.granted], duration: 600, delay: 700 });
+      animate('.w-badge-dir', { opacity: [0.3, 1], duration: 600, delay: 900 });
+    },
+  },
+  {
+    at: 122600,
+    beat: 'Every one of them is Alice',
+    text: 'And there is no special one. Each owner has an authority, a personal AI that holds her key, and terms of her own — the same cell, repeated. Adding the next is copying it.',
+    end: {
+      '#w-o3': { opacity: 1 }, '#w-o4': { opacity: 1 },
+      '#w-o5': { opacity: 1 }, '#w-o6': { opacity: 1 },
+      '#w-link-o3': { opacity: 0.55 }, '#w-link-o4': { opacity: 0.55 },
+      '#w-link-o5': { opacity: 0.55 }, '#w-link-o6': { opacity: 0.55 },
+    },
+    play() {
+      ['o3', 'o4', 'o5', 'o6'].forEach((id, i) => {
+        animate(`#w-${id}`, { opacity: [0, 1], scale: [0.92, 1], duration: 600, delay: i * 260, ease: 'outBack' });
+        animate(`#w-link-${id}`, { opacity: [0, 0.55], duration: 500, delay: 300 + i * 260 });
+      });
+      animate('.w-ai', { opacity: [0.35, 0.9], duration: 700, delay: 1400 });
+    },
+  },
+  {
+    at: 129000,
+    beat: 'Hers runs where she keeps it',
+    text: 'Alice’s authority is hosted for her. Carol’s is a box on her own shelf. Nothing on the wire can tell the difference — which is the whole point: where it runs is hers to choose, not the firm’s to grant.',
+    end: { '#camera': { scale: CAM_CAROL } },
+    play() {
+      animate('#camera', { scale: [CAM_WIDE, CAM_CAROL], duration: 1600, ease: 'inOutQuad' });
+      animate('#w-carol .w-edge', {
+        stroke: [C.own, C.granted, C.own], duration: 1400, delay: 1400,
+      });
+      animate('#w-alice .w-host', {
+        stroke: [C.rest, C.granted, C.rest], duration: 1400, delay: 1400,
+      });
+      animate('#w-link-carol', { strokeDashoffset: [120, 0], duration: 1200, delay: 1600 });
+    },
+  },
+  {
+    at: 135400,
+    beat: 'Over the loop, not in it',
+    text: 'Now count the interruptions. Standing terms answer nearly everything, so almost nobody is woken. Put a person in the loop instead and every one of these becomes a tap somebody owes — which is the thing that does not scale.',
+    end: { '#camera': { scale: CAM_WIDE }, '#w-loop': { opacity: 1 }, '#w-inloop': { opacity: 1 } },
+    play() {
+      animate('#camera', { scale: [CAM_CAROL, CAM_WIDE], duration: 1200, ease: 'inOutQuad' });
+      animate('#w-loop', { opacity: [0, 1], scale: [0.96, 1], duration: 700, delay: 800, ease: 'outBack' });
+      animate('#w-inloop', { opacity: [0, 1], scale: [0.96, 1], duration: 700, delay: 1100, ease: 'outBack' });
+      animate('#w-loop .w-dot--asked', {
+        scale: [1, 1.6, 1], duration: 800, delay: 1900,
+      });
+      animate('#w-inloop .w-dot--asked', {
+        scale: [1, 1.5, 1], duration: 900, delay: 2200, loop: 2,
+      });
+    },
+  },
+  {
+    at: 141800,
     beat: 'The architecture',
     text: 'That is the protocol. This is the machine it runs on — and the four beats are the same four beats.',
     end: {
+      // Back to the near shot and strike the wider world: this act draws on
+      // its own stage, and the camera would otherwise still be pulled back.
+      '#camera': { scale: CAM_NEAR }, '#world': { opacity: 0 },
+      '#ground': { opacity: 1 },
       '#story': { opacity: 0 }, '#arch': { opacity: 1 },
       '#ns-bob': { opacity: 1 }, '#ns-edge': { opacity: 1 },
       '#ns-meridian': { opacity: 1 }, '#ns-alice': { opacity: 1 },
@@ -449,7 +605,7 @@ export const SCENES = [
     },
   },
   {
-    at: 103000,
+    at: 148200,
     beat: 'The parties',
     text: 'Each party is its own boundary. Bob’s firm, the brokerage that holds the assets, and Alice — who owns them and is not either of the others.',
     end: {
@@ -469,7 +625,7 @@ export const SCENES = [
     },
   },
   {
-    at: 109400,
+    at: 154600,
     beat: 'The mesh',
     text: 'Every connection between them is mutually authenticated, and every box has a cryptographic name rather than an address.',
     end: { '#arch-mesh': { opacity: 1 } },
@@ -481,7 +637,7 @@ export const SCENES = [
     },
   },
   {
-    at: 114600,
+    at: 161000,
     beat: 'Beat 1 · challenge',
     text: 'The agent arrives at the front door like anyone else, and the enforcement point in front of the vault refuses it — with a ticket.',
     end: { '#beat-1': { opacity: 1 } },
@@ -494,7 +650,7 @@ export const SCENES = [
     },
   },
   {
-    at: 119800,
+    at: 167400,
     beat: 'Beats 2 and 3',
     text: 'The ticket takes it past the resource server entirely, to Alice’s own authorization server — three of them, agreeing through one database.',
     end: { '#beat-2': { opacity: 1 }, '#arch-scale': { opacity: 1 } },
@@ -508,7 +664,7 @@ export const SCENES = [
     },
   },
   {
-    at: 125600,
+    at: 173800,
     beat: 'Beat 4 · grant',
     text: 'What comes back is scoped to what was agreed, and the enforcement point spends it once. A second attempt with the same grant is refused.',
     end: { '#beat-4': { opacity: 1 } },
@@ -525,7 +681,7 @@ export const SCENES = [
     },
   },
   {
-    at: 131200,
+    at: 180200,
     beat: 'The boundary',
     text: 'And there is no shortcut. Bob’s side cannot reach Alice’s at all — not because nobody wrote the address down, but because the mesh refuses it.',
     end: { '#arch-denied': { opacity: 1 } },
@@ -537,8 +693,118 @@ export const SCENES = [
       });
     },
   },
+  /* ---- the close: why the old shape cannot hold this ------------------- */
   {
-    at: 137000,
+    at: 186600,
+    beat: 'The shape we had',
+    text: 'Put that world into the arrangement we already had, and the authority is one service the operator runs. Every owner is a row inside it. Whose policy it is becomes a column in somebody else’s table.',
+    end: {
+      '#arch': { opacity: 0 }, '#story': { opacity: 1 },
+      '#camera': { scale: CAM_WIDE }, '#world': { opacity: 1 },
+      '#ground': { opacity: 0 },
+      // The fan comes down for this. The old shape is an alternative to it,
+      // not something drawn on top of it — overlaid, the two just collide.
+      //
+      // Hidden by the same ids the act turned on, not by `.w-cell`: the
+      // accumulated state is applied in key order, and the class key comes
+      // from BASE — so it is written before the per-owner ids and loses to
+      // them however late the scene that sets it runs.
+      '#w-alice': { opacity: 0 },
+      '#w-carol': { opacity: 0 },
+      '#w-o3': { opacity: 0 },
+      '#w-o4': { opacity: 0 },
+      '#w-o5': { opacity: 0 },
+      '#w-o6': { opacity: 0 },
+      '#w-a1': { opacity: 0 },
+      '#w-a2': { opacity: 0 },
+      '#w-a3': { opacity: 0 },
+      '#w-a4': { opacity: 0 },
+      '#w-links': { opacity: 0 }, '#w-loop': { opacity: 0 }, '#w-inloop': { opacity: 0 },
+      '#w-old': { opacity: 1 }, '#place-vault': { opacity: 0.18 },
+      '#place-home': { opacity: 0 }, '#place-as': { opacity: 0 },
+    },
+    play() {
+      // Tight on purpose. Struck sequentially this left the stage empty for
+      // over a second while a four-line caption sat under it, which reads as
+      // a bug rather than a beat: the old shape has to arrive as the fan
+      // goes, not after it.
+      animate('#arch', { opacity: [1, 0], duration: 250 });
+      animate('#story', { opacity: [0, 1], duration: 250, delay: 120 });
+      // The whole transition happens here, not in `end`. `end` is the state
+      // the *next* scene starts from; this scene arrives from the
+      // architecture act, where the camera is near, the world is hidden and
+      // the near places are lit. Leaving those to `end` is what left the
+      // stage empty for the length of the caption.
+      animate('#camera', { scale: [CAM_NEAR, CAM_WIDE], duration: 500, delay: 120, ease: 'inOutQuad' });
+      animate('#world', { opacity: [0, 1], duration: 10, delay: 120 });
+      animate(['#place-home', '#place-as', '#ground'],
+              { opacity: [1, 0], duration: 250, delay: 120 });
+      animate(['.w-cell', '.w-agent', '#w-links', '#w-loop', '#w-inloop'],
+              { opacity: [1, 0], duration: 10, delay: 120 });
+      animate('#place-vault', { opacity: [1, 0.18], duration: 400, delay: 300 });
+      animate('#w-old', { opacity: [0, 1], scale: [0.96, 1], duration: 520, delay: 320, ease: 'outBack' });
+      animate('#w-old .w-old-row', {
+        opacity: [0.15, 1], duration: 320, delay: (el, i) => 520 + i * 100,
+      });
+    },
+  },
+  {
+    at: 193000,
+    beat: 'Where it breaks',
+    text: 'Then it is the operator who can read every owner’s terms, the operator an agent must be enrolled with, and the operator who has to be awake. One outage, one policy change, one breach — and it is everybody’s.',
+    end: {},
+    play() {
+      // Three claims, three beats, in the order the caption makes them.
+      // 1 — one party reads every row.
+      animate('#w-old .w-old-row', {
+        stroke: [C.rest, C.pending], duration: 500, delay: (el, i) => 200 + i * 90,
+      });
+      animate('#w-old-eye', { opacity: [0, 1], duration: 500, delay: 200 });
+      animate('#w-old-eye .w-old-sight', {
+        strokeDashoffset: [60, 0], duration: 900, delay: 400,
+      });
+      // 2 — and every agent has to enrol with it, not with an owner.
+      animate('#w-old-queue', { opacity: [0, 1], duration: 500, delay: 1900 });
+      animate('#w-old-queue .w-old-funnel', {
+        strokeDashoffset: [80, 0], opacity: [0, 0.7], duration: 800, delay: 2100,
+      });
+      animate('#w-old-queue .w-old-bot', {
+        opacity: [0.3, 1], duration: 400, delay: (el, i) => 2100 + i * 140,
+      });
+      // 3 — so when it stops, it stops for all of them at once.
+      animate('#w-old-out', { opacity: [0, 1], duration: 500, delay: 4100 });
+      animate('#w-old .w-old-box', { opacity: [1, 0.35], duration: 500, delay: 4100 });
+    },
+  },
+  {
+    at: 199400,
+    beat: 'The shape that holds',
+    text: 'Centre the owner instead and none of that is shared. Her terms, her authority, her record — one each, and the firm keeps only what it always had: the assets, and an enforcement point that can read none of it.',
+    end: {
+      '#w-old': { opacity: 0 }, '#place-vault': { opacity: 1 },
+      '#w-old-eye': { opacity: 0 }, '#w-old-queue': { opacity: 0 },
+      '#w-old-out': { opacity: 0 }, '#w-old .w-old-box': { opacity: 1 },
+      '#w-links': { opacity: 1 },
+      '#w-alice': { opacity: 1 },
+      '#w-carol': { opacity: 1 },
+      '#w-o3': { opacity: 1 },
+      '#w-o4': { opacity: 1 },
+      '#w-o5': { opacity: 1 },
+      '#w-o6': { opacity: 1 },
+    },
+    play() {
+      animate('#w-old', { opacity: [1, 0], scale: [1, 0.94], duration: 700 });
+      animate('#place-vault', { opacity: [0.18, 1], duration: 700, delay: 500 });
+      animate('.w-cell', { opacity: [0, 1], duration: 700, delay: 700 });
+      animate('#w-links', { opacity: [0, 1], duration: 700, delay: 900 });
+      animate('.w-cell .w-card', {
+        stroke: [C.rest, C.own, C.rest], duration: 900, delay: (el, i) => 900 + i * 130,
+      });
+      animate('.w-ai', { fill: [C.own, C.granted, C.own], duration: 1200, delay: 1600 });
+    },
+  },
+  {
+    at: 205800,
     text: '',
     // Strike the machine behind the curtain, exactly as act one does, so the
     // loop opens on the first frame rather than cutting to it.
@@ -550,9 +816,19 @@ export const SCENES = [
       '#vault-spokes': { rotate: 0 },
       '#alice-row': { opacity: 0.25 }, '#alice-row .own-row': { stroke: C.edge },
       '#arch': { opacity: 0 }, '#story': { opacity: 1 },
+      // Act three, struck: camera back to the near shot, the wider world and
+      // both loop panels away, and the places it hid restored.
+      '#camera': { scale: CAM_NEAR }, '#world': { opacity: 0 },
+      '#w-old': { opacity: 0 }, '#w-loop': { opacity: 0 }, '#w-inloop': { opacity: 0 },
+      '#place-home': { opacity: 1 }, '#place-as': { opacity: 1 },
+      '#place-vault': { opacity: 1 }, '#w-links': { opacity: 0 },
+      '#ground': { opacity: 1 },
     },
     play() {
       animate('#titlecard', { opacity: [0, 1], duration: 900 });
+      animate('#world', { opacity: [1, 0], duration: 500, delay: 900 });
+      animate('#camera', { scale: [CAM_WIDE, CAM_NEAR], duration: 10, delay: 1400 });
+      animate(['#place-home', '#place-as', '#ground'], { opacity: [0, 1], duration: 10, delay: 1400 });
       animate('#arch', { opacity: [1, 0], duration: 500, delay: 1200 });
       animate('#story', { opacity: [0, 1], duration: 500, delay: 1700 });
       animate('#alice', { opacity: [0, 1], x: [OFFSTAGE_L, HOME], duration: 10, delay: 1800 });
@@ -567,7 +843,7 @@ export const SCENES = [
   },
 ];
 
-const TOTAL = 143000;
+const TOTAL = 212200;
 
 /* ---- the machine --------------------------------------------------------- */
 

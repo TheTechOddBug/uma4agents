@@ -95,7 +95,14 @@ const IndexPage = () => {
             which is the sort of list that is right the day it is written and
             wrong the day something is added to it. */}
         <g id="story">
-        <path d="M40 560 H1160" className="ground"/>
+        {/* The camera. Every place and actor lives inside it, so pulling back
+             to show the other owners is one transform on one group rather
+             than a separate move for each of a dozen props. Its pivot is set
+             in stage.css against the view box, not its own bounding box —
+             the bounding box grows when the wider world fades in, and a
+             pivot that moved with it would slide the shot sideways. */}
+        <g id="camera">
+        <path id="ground" d="M40 560 H1160" className="ground"/>
 
               {/* ===================== PLACES (they don't move) ==================== */}
 
@@ -291,15 +298,285 @@ const IndexPage = () => {
                 <g className="ledger-row"><text x="-182" y="56">approved</text><text x="50" y="56" className="ledger-v">the one trade</text></g>
               </g>
 
+
+              {/* ================== THE WIDER WORLD (act three) ==================
+                   Drawn in the space the camera reveals when it pulls back. Every
+                   owner is the same cell: an authority, a personal AI, a line to
+                   the one resource server. What differs between them is only where
+                   the authority runs — a box of her own, or one hosted for her —
+                   and nothing in the fan can tell which from the outside. */}
+              {/* ================== THE WIDER WORLD (act three) ==================
+                   Drawn in the space the camera reveals when it pulls back. Every
+                   owner is the same cell: an authority, a personal AI, a line to
+                   the one resource server. What differs between them is only where
+                   the authority runs — a box of her own, or one hosted for her —
+                   and nothing in the fan can tell which from the outside.
+
+                   Everything the timeline moves sits inside a plain positioning
+                   group and carries no transform of its own. anime composes a
+                   whole transform from the properties it animates, so a translate
+                   written as an attribute here would be thrown away the first time
+                   the element scaled — putting it at the origin. Same reason the
+                   laptop lid hinges on an inner group. */}
+              <g id="world" opacity="0">
+                <g id="w-links">
+                  <path id="w-link-alice" className="w-link" opacity="0" d="M540 95 C 720 95, 820 446, 946 446"/>
+                  <path id="w-link-carol" className="w-link" opacity="0" d="M540 187 C 720 187, 820 446, 946 446"/>
+                  <path id="w-link-o3" className="w-link" opacity="0" d="M540 279 C 720 279, 820 446, 946 446"/>
+                  <path id="w-link-o4" className="w-link" opacity="0" d="M540 371 C 720 371, 820 446, 946 446"/>
+                  <path id="w-link-o5" className="w-link" opacity="0" d="M540 463 C 720 463, 820 446, 946 446"/>
+                  <path id="w-link-o6" className="w-link" opacity="0" d="M540 555 C 720 555, 820 446, 946 446"/>
+                </g>
+                <g transform="translate(430 95)">
+                  <g id="w-alice" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">ALICE</text>
+                    <text x="14" y="16" className="w-sub">hosted for her</text>
+                  </g>
+                </g>
+                <g transform="translate(430 187)">
+                  <g id="w-carol" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">CAROL</text>
+                    <text x="14" y="16" className="w-sub">on her own box</text>
+                  </g>
+                </g>
+                <g transform="translate(430 279)">
+                  <g id="w-o3" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">DEV</text>
+                    <text x="14" y="16" className="w-sub">a phone in a drawer</text>
+                  </g>
+                </g>
+                <g transform="translate(430 371)">
+                  <g id="w-o4" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">PRIYA</text>
+                    <text x="14" y="16" className="w-sub">hosted for her</text>
+                  </g>
+                </g>
+                <g transform="translate(430 463)">
+                  <g id="w-o5" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">SAM</text>
+                    <text x="14" y="16" className="w-sub">on her own box</text>
+                  </g>
+                </g>
+                <g transform="translate(430 555)">
+                  <g id="w-o6" className="w-cell" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
+                    <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
+                    <circle cx="-14" cy="0" r="9" className="w-ai"/>
+                    <text x="14" y="-4" className="w-name">JUN</text>
+                    <text x="14" y="16" className="w-sub">hosted for him</text>
+                  </g>
+                </g>
+                <g transform="translate(150 120)">
+                  <g id="w-a1" className="w-agent" opacity="0">
+                    <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
+                    <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <circle cx="8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <rect x="-16" y="10" width="32" height="24" rx="7" className="w-bot-body"/>
+                    <g transform="translate(0 46)"><circle cx="0" cy="0" r="6" className="w-badge-key"/><path d="M6 0 H18 M14 0 V6" className="w-badge-key-b"/></g>
+                    <text x="0" y="66" className="w-agent-label">a bare key</text>
+                  </g>
+                </g>
+                <g transform="translate(150 270)">
+                  <g id="w-a2" className="w-agent" opacity="0">
+                    <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
+                    <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <circle cx="8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <rect x="-16" y="10" width="32" height="24" rx="7" className="w-bot-body"/>
+                    <g transform="translate(0 46)"><rect x="-9" y="-6" width="26" height="12" rx="6" className="w-badge-tok"/></g>
+                    <text x="0" y="66" className="w-agent-label">an issued token</text>
+                  </g>
+                </g>
+                <g transform="translate(150 420)">
+                  <g id="w-a3" className="w-agent" opacity="0">
+                    <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
+                    <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <circle cx="8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <rect x="-16" y="10" width="32" height="24" rx="7" className="w-bot-body"/>
+                    <g transform="translate(0 46)"><path d="M-8 -7 H10 M-8 0 H10 M-8 7 H4" className="w-badge-dir"/></g>
+                    <text x="0" y="66" className="w-agent-label">an operator that vouches</text>
+                  </g>
+                </g>
+                <g transform="translate(150 570)">
+                  <g id="w-a4" className="w-agent" opacity="0">
+                    <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
+                    <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <circle cx="8" cy="-11" r="3.4" className="w-bot-eye"/>
+                    <rect x="-16" y="10" width="32" height="24" rx="7" className="w-bot-body"/>
+                    <g transform="translate(0 46)"><circle cx="0" cy="0" r="6" className="w-badge-key"/><path d="M6 0 H18 M14 0 V6" className="w-badge-key-b"/></g>
+                    <text x="0" y="66" className="w-agent-label">a bare key</text>
+                  </g>
+                </g>
+
+                {/* One dot per request. Which of them a person has to answer is
+                     the whole difference, and it is a picture rather than a
+                     statistic — the shape is the claim, not a measured rate. */}
+                <g transform="translate(360 700)">
+                  <g id="w-loop" opacity="0">
+                    <rect x="-190" y="-52" width="380" height="104" rx="10" className="w-card"/>
+                    <text x="-166" y="-24" className="w-loop-k">HUMAN OVER THE LOOP</text>
+                    <text x="-166" y="0" className="w-loop-v">her terms answer; she is asked at first contact</text>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-138" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-110" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-82" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-54" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-26" cy="30" r="5"/>
+                    <circle className="w-dot" cx="2" cy="30" r="5"/>
+                    <circle className="w-dot" cx="30" cy="30" r="5"/>
+                    <circle className="w-dot" cx="58" cy="30" r="5"/>
+                    <circle className="w-dot" cx="86" cy="30" r="5"/>
+                    <circle className="w-dot" cx="114" cy="30" r="5"/>
+                    <circle className="w-dot" cx="142" cy="30" r="5"/>
+                    <circle className="w-dot" cx="-166" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="50" r="5"/>
+                    <circle className="w-dot" cx="-110" cy="50" r="5"/>
+                    <circle className="w-dot" cx="-82" cy="50" r="5"/>
+                    <circle className="w-dot" cx="-54" cy="50" r="5"/>
+                    <circle className="w-dot" cx="-26" cy="50" r="5"/>
+                    <circle className="w-dot" cx="2" cy="50" r="5"/>
+                    <circle className="w-dot" cx="30" cy="50" r="5"/>
+                    <circle className="w-dot" cx="58" cy="50" r="5"/>
+                    <circle className="w-dot" cx="86" cy="50" r="5"/>
+                    <circle className="w-dot" cx="114" cy="50" r="5"/>
+                    <circle className="w-dot" cx="142" cy="50" r="5"/>
+                  </g>
+                </g>
+                <g transform="translate(820 700)">
+                  <g id="w-inloop" opacity="0">
+                    <rect x="-190" y="-52" width="380" height="104" rx="10" className="w-card w-card--warn"/>
+                    <text x="-166" y="-24" className="w-loop-k w-loop-k--warn">HUMAN IN THE LOOP</text>
+                    <text x="-166" y="0" className="w-loop-v">every request waits for a person</text>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-110" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-82" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-54" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-26" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="2" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="30" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="58" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="86" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="114" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="142" cy="30" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-110" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-82" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-54" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-26" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="2" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="30" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="58" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="86" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="114" cy="50" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="142" cy="50" r="5"/>
+                  </g>
+                </g>
+
+                {/* The old shape, for the close: one authority the operator owns,
+                     with every owner a row inside it. */}
+                <g transform="translate(600 400)">
+                  <g id="w-old" opacity="0">
+                    <rect x="-320" y="-150" width="640" height="300" rx="14" className="w-old-box"/>
+                    <text x="0" y="-118" className="w-old-title">ONE AUTHORITY, OWNED BY THE OPERATOR</text>
+
+                    {/* The three things the caption claims, drawn. Without
+                         them this scene is a still frame under a long
+                         paragraph, and a reader has to take the argument on
+                         trust. */}
+
+                    {/* 1. One party reads every row. */}
+                    <g id="w-old-eye" opacity="0">
+                      <path d="M-34 -172 q34 -26 68 0 q-34 26 -68 0 z" className="w-old-eye-shape"/>
+                      <circle cx="0" cy="-172" r="9" className="w-old-eye-iris"/>
+                      <path className="w-old-sight" d="M0 -158 L-150 -80 M0 -158 L-70 -38 M0 -158 L-20 4
+                                                       M0 -158 L40 46 M0 -158 L110 88 M0 -158 L180 130"/>
+                    </g>
+
+                    {/* 2. Every agent enrols with the operator, not with an
+                           owner — one door for all of them. */}
+                    <g id="w-old-queue" opacity="0">
+                      <path className="w-old-funnel" d="M-430 -80 L-330 0 M-430 -26 L-330 0
+                                                        M-430 28 L-330 0 M-430 82 L-330 0"/>
+                      <rect x="-336" y="-26" width="18" height="52" rx="4" className="w-old-gate"/>
+                      <g className="w-old-bot" transform="translate(-460 -80)">
+                        <rect x="-15" y="-11" width="30" height="22" rx="7"/><circle cx="-5" cy="-1" r="2.4"/><circle cx="5" cy="-1" r="2.4"/>
+                      </g>
+                      <g className="w-old-bot" transform="translate(-460 -26)">
+                        <rect x="-15" y="-11" width="30" height="22" rx="7"/><circle cx="-5" cy="-1" r="2.4"/><circle cx="5" cy="-1" r="2.4"/>
+                      </g>
+                      <g className="w-old-bot" transform="translate(-460 28)">
+                        <rect x="-15" y="-11" width="30" height="22" rx="7"/><circle cx="-5" cy="-1" r="2.4"/><circle cx="5" cy="-1" r="2.4"/>
+                      </g>
+                      <g className="w-old-bot" transform="translate(-460 82)">
+                        <rect x="-15" y="-11" width="30" height="22" rx="7"/><circle cx="-5" cy="-1" r="2.4"/><circle cx="5" cy="-1" r="2.4"/>
+                      </g>
+                    </g>
+
+                    <rect className="w-old-row" x="-266" y="-96" width="532" height="32" rx="6"/>
+                    <text x="-248" y="-75" className="w-old-who">ALICE</text>
+                    <text x="-150" y="-75" className="w-old-cell">her terms, in the operator’s table</text>
+                    <rect className="w-old-row" x="-266" y="-54" width="532" height="32" rx="6"/>
+                    <text x="-248" y="-33" className="w-old-who">CAROL</text>
+                    <text x="-150" y="-33" className="w-old-cell">her terms, in the operator’s table</text>
+                    <rect className="w-old-row" x="-266" y="-12" width="532" height="32" rx="6"/>
+                    <text x="-248" y="9" className="w-old-who">DEV</text>
+                    <text x="-150" y="9" className="w-old-cell">her terms, in the operator’s table</text>
+                    <rect className="w-old-row" x="-266" y="30" width="532" height="32" rx="6"/>
+                    <text x="-248" y="51" className="w-old-who">PRIYA</text>
+                    <text x="-150" y="51" className="w-old-cell">her terms, in the operator’s table</text>
+                    <rect className="w-old-row" x="-266" y="72" width="532" height="32" rx="6"/>
+                    <text x="-248" y="93" className="w-old-who">SAM</text>
+                    <text x="-150" y="93" className="w-old-cell">her terms, in the operator’s table</text>
+                    <rect className="w-old-row" x="-266" y="114" width="532" height="32" rx="6"/>
+                    <text x="-248" y="135" className="w-old-who">JUN</text>
+                    <text x="-150" y="135" className="w-old-cell">her terms, in the operator’s table</text>
+
+                    {/* 3. And when it stops, it stops for all of them. */}
+                    <g id="w-old-out" opacity="0">
+                      <rect x="-320" y="-150" width="640" height="300" rx="14" className="w-old-blackout"/>
+                      <text x="0" y="8" className="w-old-outage">ONE OUTAGE · EVERYBODY’S</text>
+                    </g>
+                  </g>
+                </g>
               </g>
+              </g>
+        </g>
 
         <ArchitectureStage />
 
         <g id="titlecard" opacity="0">
                 <rect x="0" y="175" width="1200" height="465" className="curtain"/>
                 <g transform="translate(600 380)">
-                  <rect x="-25" y="-104" width="50" height="50" rx="13" fill="url(#mark)"/>
-                  <text x="0" y="-68" className="mark-glyph">U</text>
+                  {/* The real mark, not a stand-in: the same paths the navbar
+                       renders, from src/style/marks.js, so the title card and
+                       the site header cannot drift apart. Scaled from the
+                       64-unit grid onto the 54px chip this card wants. */}
+                  <g transform="translate(-27 -106) scale(0.844)" className="titlecard-mark">
+                    <rect x="2.6" y="2.6" width="58.8" height="58.8" rx="15"
+                          className="tm-frame"/>
+                    <g className="tm-letters">
+                      <path d="M11 17 L11 33 A5.75 5.75 0 0 0 22.5 33 L22.5 17" className="tm-ink"/>
+                      <path d="M34.5 17 L26.25 31 L37.75 31 M34.5 17 L34.5 39" className="tm-four"/>
+                      <path d="M41.5 39 L47.25 17 L53 39 M43.5 31.5 L51 31.5" className="tm-ink"/>
+                    </g>
+                    <path d="M20 46.5 L44 46.5" className="tm-bar"/>
+                  </g>
                   <text x="0" y="6" className="title">UMA for Agents</text>
                   <text x="0" y="54" className="subtitle">She isn’t online. Her policy is.</text>
                 </g>

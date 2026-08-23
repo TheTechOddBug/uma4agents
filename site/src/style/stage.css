@@ -49,6 +49,14 @@
 }
 circle.head { fill: var(--card); }
 
+/* The camera pivots about the middle of the view box, not about its own
+   contents: the wider world fades in below and to the left, and a fill-box
+   pivot would recentre on it mid-move and slide the shot. */
+#camera {
+  transform-box: view-box;
+  transform-origin: 600px 407px;
+}
+
 /* Anything the timeline rotates or scales needs to say where its pivot is.
    `fill-box` makes the origin relative to the element's own geometry, which
    is the only frame that stays correct while its parent is being moved. */
@@ -396,3 +404,100 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
 
 /* Anything act two scales needs a pivot of its own. */
 #arch-denied g, #arch-scale { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* ---- the wider world (act three) --------------------------------------
+   Every owner is the same cell, so there is one set of rules and the only
+   thing that varies between them is which glyph says where her authority
+   runs. A reader should not be able to find a "primary" owner in here. */
+.w-card {
+  fill: var(--card);
+  stroke: var(--edge);
+  stroke-width: 1.6;
+}
+.w-card--warn { stroke: var(--amber); }
+
+.w-host      { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.w-host-roof { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; }
+/* An authority on something she owns. Same weight as the hosted one on
+   purpose: it is not a lesser deployment, it is a different address. */
+.w-edge      { fill: none; stroke: var(--primary); stroke-width: 2.2; }
+.w-edge-foot { fill: none; stroke: var(--primary); stroke-width: 2.2; stroke-linecap: round; }
+
+.w-ai   { fill: var(--primary); opacity: 0.9; }
+.w-name { fill: var(--ink); font-size: 17px; font-weight: 650; letter-spacing: 0.02em; }
+.w-sub  { fill: var(--ink-3); font-size: 13.5px; }
+
+.w-link {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-dasharray: 5 7;
+  opacity: 0.55;
+}
+
+.w-bot-head, .w-bot-body {
+  fill: var(--card-2);
+  stroke: var(--agent);
+  stroke-width: 2.2;
+}
+.w-bot-eye { fill: var(--agent); }
+/* Three ways of being identifiable, drawn differently so the fan reads as
+   "these do not all arrive the same way" without a word of caption. */
+.w-badge-key   { fill: none; stroke: var(--agent); stroke-width: 2.2; }
+.w-badge-key-b { fill: none; stroke: var(--agent); stroke-width: 2.2; stroke-linecap: round; }
+.w-badge-tok   { fill: none; stroke: var(--green); stroke-width: 2.2; }
+.w-badge-dir   { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; }
+.w-agent-label { fill: var(--ink-3); font-size: 15px; text-anchor: middle; }
+
+.w-loop-k { fill: var(--green); font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; }
+.w-loop-k--warn { fill: var(--amber); }
+.w-loop-v { fill: var(--ink-2); font-size: 14px; }
+.w-loop-s { fill: var(--green); font-size: 13px; font-weight: 650; }
+.w-loop-s--warn { fill: var(--amber); }
+
+.w-old-box  { fill: none; stroke: var(--amber); stroke-width: 2; stroke-dasharray: 8 6; }
+.w-old-title { fill: var(--amber); font-size: 13px; font-weight: 700;
+               letter-spacing: 0.1em; text-anchor: middle; }
+.w-old-row  { fill: var(--card-2); stroke: var(--edge); stroke-width: 1.2; }
+.w-old-note { fill: var(--ink-3); font-size: 14px; text-anchor: middle; }
+
+/* One dot per request. Quiet by default; amber only where somebody had to
+   stop what they were doing and answer. */
+.w-dot { fill: var(--accent); opacity: 0.28; }
+.w-dot--asked { fill: var(--amber); opacity: 1; }
+#w-loop .w-dot, #w-inloop .w-dot {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* Scaled by the timeline, so each needs its own pivot. These sit inside plain
+   positioning groups, which is what keeps the scale from discarding a
+   translate written as an attribute. */
+.w-cell, .w-agent, #w-loop, #w-inloop, #w-old {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.w-old-who  { fill: var(--ink-2); font-size: 13px; font-weight: 650; letter-spacing: 0.06em; }
+.w-old-cell { fill: var(--ink-3); font-size: 12.5px; }
+
+/* "Where it breaks" — the three claims, drawn rather than asserted. */
+.w-old-eye-shape { fill: none; stroke: var(--amber); stroke-width: 2; }
+.w-old-eye-iris  { fill: var(--amber); }
+.w-old-sight     { fill: none; stroke: var(--amber); stroke-width: 1.2;
+                   stroke-dasharray: 4 6; opacity: 0.6; }
+.w-old-funnel    { fill: none; stroke: var(--amber); stroke-width: 1.6; opacity: 0.7; }
+.w-old-gate      { fill: var(--card-2); stroke: var(--amber); stroke-width: 2; }
+.w-old-bot rect  { fill: var(--card-2); stroke: var(--agent); stroke-width: 2; }
+.w-old-bot circle { fill: var(--agent); }
+.w-old-blackout  { fill: var(--bg); opacity: 0.82; }
+.w-old-outage    { fill: var(--amber); font-size: 17px; font-weight: 700;
+                   letter-spacing: 0.16em; text-anchor: middle; }
+
+/* The U4A monogram on the title card. Geometry from src/style/marks.js —
+   the same paths the navbar draws — and colour from the theme, so it
+   follows a light/dark switch like every other mark on the page. */
+.tm-frame { fill: var(--bg); stroke: var(--accent); stroke-width: 2.8; }
+.tm-letters { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.tm-ink { stroke: var(--ink); }
+.tm-four { stroke: var(--primary); }
+.tm-bar { fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round; }
