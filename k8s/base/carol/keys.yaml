@@ -1,0 +1,121 @@
+# Carol's keys, generated once into Secrets in her own namespace.
+#
+# Two of them, and the split is the point. `uma-as-signing-key` is her
+# authority's: it signs the tokens it issues, and it is the key an agent
+# verifies a grant against. `owner-device-key` is hers: the private half goes
+# to whatever she runs as her own AI, the public half to her authority, and
+# no part of it is ever held by the firm holding her account.
+#
+# The script is k8s/scripts/keygen.py, loaded here as a ConfigMap by
+# Makefile.k8s. It creates a Secret only if one is absent, so re-applying the
+# lab never rotates a key underneath a running pod.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keygen
+  namespace: carol
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keygen
+  namespace: carol
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    # get to check, create to make. Deliberately no update or delete: this
+    # job must never be able to replace a key that already exists.
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keygen
+  namespace: carol
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keygen
+subjects:
+  - kind: ServiceAccount
+    name: keygen
+    namespace: carol
+# The keygen ConfigMap is not here. It is one script, in
+# k8s/scripts/keygen.py, loaded into each namespace that needs it by
+# Makefile.k8s — three copies of the same forty lines in three manifests is
+# how one of them quietly stops matching the others.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: uma-as-keygen
+  namespace: carol
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: { app: keygen }
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: keygen
+      containers:
+        - name: keygen
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["python3", "/script/keygen.py", "uma-as-signing-key", "uma-as-ed25519.pem"]
+          env:
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          volumeMounts:
+            - { name: script, mountPath: /script, readOnly: true }
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 192Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: script
+          configMap: { name: keygen-script }
+---
+# Alice's device key. The private half is mounted into her personal AI; the
+# public half into her authorization server, which verifies her signature
+# against it. She is the only party that ever holds the private one.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: owner-keygen
+  namespace: carol
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: { app: keygen }
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: keygen
+      containers:
+        - name: keygen
+          image: localhost:5001/u4a/uma-as:dev
+          imagePullPolicy: Always
+          command: ["python3", "/script/keygen.py", "owner-device-key",
+                    "owner-ed25519.pem", "owner-ed25519.pub"]
+          env:
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          volumeMounts:
+            - { name: script, mountPath: /script, readOnly: true }
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 192Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: script
+          configMap: { name: keygen-script }

@@ -1,0 +1,50 @@
+{
+  "realm": "carol",
+  "enabled": true,
+  "displayName": "Carol's own identity provider",
+  "registrationAllowed": false,
+  "users": [
+    {
+      "username": "carol",
+      "enabled": true,
+      "firstName": "Carol",
+      "lastName": "Owner",
+      "email": "carol@uma.lab",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "carol-demo",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "meridian-portal",
+      "name": "Alice's Portal",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "https://carol-portal.uma.lab/*",
+        "http://localhost:9011/*"
+      ],
+      "webOrigins": [
+        "+"
+      ]
+    },
+    {
+      "clientId": "uma-as",
+      "name": "UMA-for-agents service",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "secret": "uma-as-demo-secret"
+    }
+  ]
+}

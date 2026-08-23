@@ -170,6 +170,64 @@ async def test_resource_server_revocation_is_visible(store) -> None:
           "revoking an unknown client reported success")
 
 
+async def test_a_resource_server_registers_and_waits(store) -> None:
+    """The other way a resource server comes to hold protection access: it
+    registers itself, and the record it creates opens nothing until the owner
+    changes it.
+
+    Worth a storage test rather than only an end-to-end one, because
+    ``pending -> active`` is the gate, and where that transition is a
+    read-then-write it is a race two portals can both win.
+    """
+    cid = "https://gateway.example/registered"
+    await store.put_resource_server(cid, {
+        "secret": "", "name": "a resource server that introduced itself",
+        "status": "pending", "consented": None, "last_pat_issued": None,
+        "resource_uri": f"{cid}/mcp/alice", "auth": "origin_signature",
+    })
+    rs = await store.resource_server(cid)
+    check("registration: the record is readable and pending",
+          rs is not None and rs["status"] == "pending", f"{rs}")
+    check("registration: it carries no secret to fall back on",
+          rs is not None and not rs.get("secret"), f"{rs}")
+    check("registration: it appears in the owner's registry",
+          cid in await store.resource_servers())
+
+    check("registration: approving a pending server reports success",
+          await store.approve_resource_server(cid, "2026-01-01T00:00:00Z") is True)
+    rs = await store.resource_server(cid)
+    check("registration: and the approval is readable afterwards",
+          rs is not None and rs["status"] == "active" and rs["consented"],
+          f"{rs}")
+    check("registration: the rest of the record survived the approval",
+          rs is not None and rs["resource_uri"] == f"{cid}/mcp/alice"
+          and rs["auth"] == "origin_signature", f"{rs}")
+
+    # The race. Only one of these may be an approval; a read-then-write
+    # implementation reports success twice and the second one is a lie.
+    check("registration: approving twice does not approve twice",
+          await store.approve_resource_server(cid, "2026-01-02T00:00:00Z") is False,
+          "a second approval reported success")
+    check("registration: approving something unregistered is not-found",
+          await store.approve_resource_server("nobody", "2026-01-01T00:00:00Z") is False)
+
+    # Withdrawal, and asking again. Re-registering must return it to pending
+    # and never restore it, or asking again is a way to undo her answer.
+    check("registration: she can withdraw it",
+          await store.revoke_resource_server(cid) is True)
+    check("registration: approving a revoked server is not-found",
+          await store.approve_resource_server(cid, "2026-01-03T00:00:00Z") is False,
+          "a revoked server was approved without registering again")
+    await store.put_resource_server(cid, {
+        "secret": "", "name": "asking again", "status": "pending",
+        "consented": None, "last_pat_issued": None,
+        "resource_uri": f"{cid}/mcp/alice", "auth": "origin_signature",
+    })
+    rs = await store.resource_server(cid)
+    check("registration: re-registering lands in pending, not active",
+          rs is not None and rs["status"] == "pending", f"{rs}")
+
+
 async def test_terms_versions_are_immutable(store) -> None:
     """A published terms version's content never changes — that is what lets
     an agreement signed against it be checked later."""
@@ -456,6 +514,7 @@ TESTS = [
     test_owner_decides_once,
     test_revoke_burns_live_grants,
     test_resource_server_revocation_is_visible,
+    test_a_resource_server_registers_and_waits,
     test_terms_versions_are_immutable,
     test_tier_edits_bump_the_version,
     test_tier_grants_and_approvals_are_kept_apart,
@@ -471,14 +530,149 @@ TESTS = [
 ]
 
 
-async def run_against(label: str, store) -> None:
+async def test_owners_cannot_see_each_other(backing) -> None:
+    """The property the whole partition exists for.
+
+    Every accessor is checked, not a representative sample, because the
+    failure mode of a missed one is Carol reading Alice's ledger — and a
+    partition that holds for nineteen of twenty tables is not a partition.
+    """
+    a = backing.owner("alice")
+    c = backing.owner("carol")
+    await a.seed()
+    await c.seed()
+
+    # policy
+    await a.create_tier("secret-tier", {"name": "Alice only", "resources": [],
+                                        "ask_me": True, "rules": [],
+                                        "terms": {"template_id": "alice/x/v1"}})
+    check("isolation: a tier of Alice's is invisible to Carol",
+          "secret-tier" not in (await c.tiers()),
+          "Carol can see Alice's tiers")
+
+    # standing relationships
+    await a.put_connection({"handle": "jkt:alice-agent", "first_seen": "t0",
+                            "status": "active"})
+    check("isolation: a connection of Alice's is invisible to Carol",
+          await c.connection("jkt:alice-agent") is None,
+          "Carol can read Alice's connection")
+    check("isolation: Carol's connection list excludes Alice's",
+          all(x["handle"] != "jkt:alice-agent" for x in await c.connections()),
+          "Alice's connection is in Carol's list")
+
+    # the audit trail
+    await a.ledger_add("promised", "fam_a", "2026-01-01T00:00:00Z",
+                       {"note": "alice"}, handle="jkt:alice-agent")
+    check("isolation: Alice's ledger rows are invisible to Carol",
+          len(await c.ledger()) == 0, "Carol sees Alice's ledger")
+    check("isolation: trajectory does not count another owner's rows",
+          (await c.trajectory("jkt:alice-agent", "2020-01-01T00:00:00Z"))["calls"] == 0,
+          "Carol's trajectory counted Alice's rows")
+
+    # operators
+    await a.block_operator("https://bad.example", "t0")
+    await a.claim_operator("https://mine.example", "t0")
+    check("isolation: a block of Alice's does not block for Carol",
+          "https://bad.example" not in (await c.blocked_operators()),
+          "Carol inherited Alice's block")
+    check("isolation: an origin Alice claims is not Carol's",
+          "https://mine.example" not in (await c.owned_operators()),
+          "Carol inherited Alice's claim")
+
+    # terms
+    await a.publish_terms({"template_id": "alice/advisor-tier1/v9",
+                           "terms_uri": "https://alice-as/terms/x"})
+    check("isolation: Alice's terms documents are invisible to Carol",
+          await c.terms_doc("alice/advisor-tier1/v9") is None,
+          "Carol can dereference Alice's terms")
+
+    # single-use, across owners
+    ticket = await a.mint_ticket(negotiation("fam_cross"), 300)
+    check("isolation: Carol cannot spend a ticket minted for Alice",
+          await c.consume_ticket(ticket) is None,
+          "Carol consumed Alice's ticket")
+    check("isolation: and the ticket still works for Alice afterwards",
+          (await a.consume_ticket(ticket)) is not None,
+          "Carol's attempt burned Alice's ticket")
+
+    await a.record_rpt("rpt_cross", "fam_cross", "jkt:alice-agent", None)
+    check("isolation: Carol cannot burn an RPT issued by Alice",
+          await c.consume_rpt("rpt_cross") is None,
+          "Carol burned Alice's grant")
+    check("isolation: and Alice can still burn it",
+          await a.consume_rpt("rpt_cross") == "fam_cross",
+          "Carol's attempt burned it")
+
+    # decisions
+    rec = negotiation("fam_decide_cross")
+    rec["state"] = "awaiting-owner"
+    await a.mint_ticket(rec, 300)
+    check("isolation: Carol cannot decide a negotiation of Alice's",
+          await c.decide("fam_decide_cross", "approved") is False,
+          "Carol decided Alice's request")
+
+    # Resource servers. Compared before and after rather than against
+    # "active": an earlier test in this suite revokes Alice's copy, and
+    # asserting on an absolute value would be asserting on test order.
+    before = (await a.resource_server("meridian-gateway"))["status"]
+    revoked = await c.revoke_resource_server("meridian-gateway")
+    after = (await a.resource_server("meridian-gateway"))["status"]
+    check("isolation: Carol has her own registration of the same RS",
+          revoked is True, "Carol had no registration to revoke")
+    check("isolation: revoking it for Carol does not touch Alice's",
+          before == after,
+          f"Alice's registration went {before} -> {after}")
+    check("isolation: and Carol's is the one that changed",
+          (await c.resource_server("meridian-gateway"))["status"] == "revoked",
+          "Carol's registration was not revoked")
+
+    # A resource server that registers itself. One gateway serves both owners
+    # from one origin, so the client_id is deliberately the same string: the
+    # two relationships still have to be separate, or one owner's yes is
+    # everybody's.
+    shared = "https://gateway.example/shared"
+    await a.put_resource_server(shared, {
+        "secret": "", "name": "one origin, two owners", "status": "pending",
+        "consented": None, "last_pat_issued": None,
+        "resource_uri": f"{shared}/mcp/alice", "auth": "origin_signature"})
+    check("isolation: a registration with Alice is not one with Carol",
+          await c.resource_server(shared) is None,
+          "Carol's registry holds a resource server that registered with Alice")
+    check("isolation: Carol cannot approve what registered with Alice",
+          await c.approve_resource_server(shared, "t0") is False,
+          "Carol approved Alice's resource server")
+    check("isolation: and it is still pending for Alice",
+          (await a.resource_server(shared))["status"] == "pending",
+          "Carol's attempt changed Alice's record")
+
+    # the event feed
+    seen: list[dict] = []
+
+    async def listen():
+        async for item in a.subscribe():
+            seen.append(item)
+            return
+
+    task = asyncio.ensure_future(listen())
+    await asyncio.sleep(0.05)
+    await c.notify({"kind": "carol-only"})
+    await asyncio.sleep(0.25)
+    check("isolation: Carol's events do not reach Alice's stream",
+          seen == [], f"Alice received {seen}")
+    task.cancel()
+
+
+async def run_against(label: str, backing) -> None:
     print(f"\n{label}")
-    await store.start()
+    await backing.start()
     try:
+        owner = backing.owner("alice")
+        await owner.seed()
         for test in TESTS:
-            await test(store)
+            await test(owner)
+        await test_owners_cannot_see_each_other(backing)
     finally:
-        await store.close()
+        await backing.close()
 
 
 async def main() -> int:
@@ -493,6 +687,7 @@ async def main() -> int:
         pg = PostgresStore(dsn)
         await _truncate(dsn)
         await run_against(f"postgres store ({dsn.rsplit('@', 1)[-1]})", pg)
+        await test_an_older_database_is_refused(dsn)
     else:
         print("\npostgres store — skipped (set UMA_AS_TEST_DSN to include it)")
 
@@ -506,6 +701,79 @@ async def main() -> int:
     return 0
 
 
+async def test_an_older_database_is_refused(dsn: str) -> None:
+    """A database from before multi-owner is refused at startup, by name.
+
+    schema.sql adds the owner column to an existing database but deliberately
+    does not rebuild its primary keys, so such a database comes up looking
+    fine and fails on the first upsert with a 42P10 naming an ON CONFLICT
+    clause. The guard turns that into one startup error that says to recreate
+    the database.
+
+    Both halves are asserted, and the second is the one that regressed once
+    already: the file has to *apply* to an old database at all. An index
+    naming the owner column above the ALTER that adds it fails on the first
+    statement, and the connect-retry loop then reports a perfectly reachable
+    database as unreachable thirty times over.
+    """
+    import asyncpg
+    from store_postgres import PostgresStore, SchemaTooOld
+
+    base, _, _ = dsn.rpartition("/")
+    scratch = f"{base}/u4a_upgrade_probe"
+    admin = await asyncpg.connect(dsn)
+    try:
+        await admin.execute("DROP DATABASE IF EXISTS u4a_upgrade_probe")
+        await admin.execute("CREATE DATABASE u4a_upgrade_probe")
+    finally:
+        await admin.close()
+
+    # The shape this schema had before owners: single-column primary keys,
+    # and tickets keyed into negotiations by family alone. Three tables rather
+    # than all eleven, but the three that matter — one plain, one that another
+    # table has a foreign key into, and one the seeder writes to on every
+    # start. schema.sql creates the rest correctly, so the guard below should
+    # name exactly these.
+    conn = await asyncpg.connect(scratch)
+    try:
+        await conn.execute("""
+            CREATE TABLE negotiations (family text PRIMARY KEY, state text,
+                                       decision text, expires double precision,
+                                       rec jsonb NOT NULL);
+            CREATE TABLE tickets (ticket text PRIMARY KEY, family text NOT NULL,
+                                  FOREIGN KEY (family)
+                                      REFERENCES negotiations(family)
+                                      ON DELETE CASCADE);
+            CREATE TABLE tiers (tier_id text PRIMARY KEY, tier jsonb NOT NULL);
+        """)
+    finally:
+        await conn.close()
+
+    try:
+        await PostgresStore(scratch).start()
+        check("upgrade: an older database is refused", False,
+              "it started, and would have failed on the first upsert")
+    except SchemaTooOld as exc:
+        named = {t for t in ("negotiations", "tickets", "tiers") if t in str(exc)}
+        check("upgrade: an older database is refused at startup, by name",
+              named == {"negotiations", "tickets", "tiers"}, str(exc)[:160])
+        check("upgrade: and only the tables that actually predate it",
+              "connections" not in str(exc) and "rpts" not in str(exc),
+              "a table schema.sql just created correctly was reported stale")
+    except Exception as exc:                                       # noqa: BLE001
+        # Anything else means the file did not even apply — which is the
+        # regression this test exists for, and it does not look like one
+        # unless it is named.
+        check("upgrade: schema.sql applies to a database that predates it",
+              False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    admin = await asyncpg.connect(dsn)
+    try:
+        await admin.execute("DROP DATABASE IF EXISTS u4a_upgrade_probe")
+    finally:
+        await admin.close()
+
+
 async def _truncate(dsn: str) -> None:
     """Start each Postgres run from an empty database; the suite asserts on
     seeded defaults it would otherwise inherit from the previous run."""
@@ -516,7 +784,7 @@ async def _truncate(dsn: str) -> None:
         await conn.execute(
             "DROP TABLE IF EXISTS tickets, negotiations, rpts, connections, "
             "resource_servers, ledger, terms_docs, tiers, owner_events, "
-            "blocked_operators CASCADE")
+            "blocked_operators, owned_operators CASCADE")
     finally:
         await conn.close()
 
