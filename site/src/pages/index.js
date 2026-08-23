@@ -320,14 +320,14 @@ const IndexPage = () => {
                    laptop lid hinges on an inner group. */}
               <g id="world" opacity="0">
                 <g id="w-links">
-                  <path id="w-link-alice" className="w-link" opacity="0" d="M540 95 C 720 95, 820 446, 946 446"/>
-                  <path id="w-link-carol" className="w-link" opacity="0" d="M540 187 C 720 187, 820 446, 946 446"/>
-                  <path id="w-link-o3" className="w-link" opacity="0" d="M540 279 C 720 279, 820 446, 946 446"/>
-                  <path id="w-link-o4" className="w-link" opacity="0" d="M540 371 C 720 371, 820 446, 946 446"/>
-                  <path id="w-link-o5" className="w-link" opacity="0" d="M540 463 C 720 463, 820 446, 946 446"/>
-                  <path id="w-link-o6" className="w-link" opacity="0" d="M540 555 C 720 555, 820 446, 946 446"/>
+                  <path id="w-link-alice" className="w-link" opacity="0" d="M540 80 C 720 80, 820 446, 946 446"/>
+                  <path id="w-link-carol" className="w-link" opacity="0" d="M540 172 C 720 172, 820 446, 946 446"/>
+                  <path id="w-link-o3" className="w-link" opacity="0" d="M540 264 C 720 264, 820 446, 946 446"/>
+                  <path id="w-link-o4" className="w-link" opacity="0" d="M540 356 C 720 356, 820 446, 946 446"/>
+                  <path id="w-link-o5" className="w-link" opacity="0" d="M540 448 C 720 448, 820 446, 946 446"/>
+                  <path id="w-link-o6" className="w-link" opacity="0" d="M540 540 C 720 540, 820 446, 946 446"/>
                 </g>
-                <g transform="translate(430 95)">
+                <g transform="translate(430 80)">
                   <g id="w-alice" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
@@ -336,7 +336,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">hosted for her</text>
                   </g>
                 </g>
-                <g transform="translate(430 187)">
+                <g transform="translate(430 172)">
                   <g id="w-carol" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
@@ -345,7 +345,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">on her own box</text>
                   </g>
                 </g>
-                <g transform="translate(430 279)">
+                <g transform="translate(430 264)">
                   <g id="w-o3" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
@@ -354,7 +354,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">a phone in a drawer</text>
                   </g>
                 </g>
-                <g transform="translate(430 371)">
+                <g transform="translate(430 356)">
                   <g id="w-o4" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
@@ -363,7 +363,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">hosted for her</text>
                   </g>
                 </g>
-                <g transform="translate(430 463)">
+                <g transform="translate(430 448)">
                   <g id="w-o5" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-15" width="46" height="30" rx="5" className="w-edge"/><path d="M-74 8 H-48" className="w-edge-foot"/>
@@ -372,7 +372,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">on her own box</text>
                   </g>
                 </g>
-                <g transform="translate(430 555)">
+                <g transform="translate(430 540)">
                   <g id="w-o6" className="w-cell" opacity="0">
                     <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-card"/>
                     <rect x="-84" y="-13" width="46" height="28" rx="3" className="w-host"/><path d="M-84 -13 L-61 -27 L-38 -13 Z" className="w-host-roof"/>
@@ -381,7 +381,7 @@ const IndexPage = () => {
                     <text x="14" y="16" className="w-sub">hosted for him</text>
                   </g>
                 </g>
-                <g transform="translate(150 120)">
+                <g transform="translate(150 110)">
                   <g id="w-a1" className="w-agent" opacity="0">
                     <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
                     <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
@@ -391,7 +391,7 @@ const IndexPage = () => {
                     <text x="0" y="66" className="w-agent-label">a bare key</text>
                   </g>
                 </g>
-                <g transform="translate(150 270)">
+                <g transform="translate(150 250)">
                   <g id="w-a2" className="w-agent" opacity="0">
                     <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
                     <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
@@ -401,7 +401,7 @@ const IndexPage = () => {
                     <text x="0" y="66" className="w-agent-label">an issued token</text>
                   </g>
                 </g>
-                <g transform="translate(150 420)">
+                <g transform="translate(150 390)">
                   <g id="w-a3" className="w-agent" opacity="0">
                     <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
                     <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
@@ -411,7 +411,7 @@ const IndexPage = () => {
                     <text x="0" y="66" className="w-agent-label">an operator that vouches</text>
                   </g>
                 </g>
-                <g transform="translate(150 570)">
+                <g transform="translate(150 530)">
                   <g id="w-a4" className="w-agent" opacity="0">
                     <rect x="-22" y="-24" width="44" height="30" rx="9" className="w-bot-head"/>
                     <circle cx="-8" cy="-11" r="3.4" className="w-bot-eye"/>
@@ -425,66 +425,66 @@ const IndexPage = () => {
                 {/* One dot per request. Which of them a person has to answer is
                      the whole difference, and it is a picture rather than a
                      statistic — the shape is the claim, not a measured rate. */}
-                <g transform="translate(360 700)">
+                <g transform="translate(360 655)">
                   <g id="w-loop" opacity="0">
-                    <rect x="-190" y="-52" width="380" height="104" rx="10" className="w-card"/>
-                    <text x="-166" y="-24" className="w-loop-k">HUMAN OVER THE LOOP</text>
-                    <text x="-166" y="0" className="w-loop-v">her terms answer; she is asked at first contact</text>
-                    <circle className="w-dot w-dot--asked" cx="-166" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-138" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-110" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-82" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-54" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-26" cy="30" r="5"/>
-                    <circle className="w-dot" cx="2" cy="30" r="5"/>
-                    <circle className="w-dot" cx="30" cy="30" r="5"/>
-                    <circle className="w-dot" cx="58" cy="30" r="5"/>
-                    <circle className="w-dot" cx="86" cy="30" r="5"/>
-                    <circle className="w-dot" cx="114" cy="30" r="5"/>
-                    <circle className="w-dot" cx="142" cy="30" r="5"/>
-                    <circle className="w-dot" cx="-166" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-138" cy="50" r="5"/>
-                    <circle className="w-dot" cx="-110" cy="50" r="5"/>
-                    <circle className="w-dot" cx="-82" cy="50" r="5"/>
-                    <circle className="w-dot" cx="-54" cy="50" r="5"/>
-                    <circle className="w-dot" cx="-26" cy="50" r="5"/>
-                    <circle className="w-dot" cx="2" cy="50" r="5"/>
-                    <circle className="w-dot" cx="30" cy="50" r="5"/>
-                    <circle className="w-dot" cx="58" cy="50" r="5"/>
-                    <circle className="w-dot" cx="86" cy="50" r="5"/>
-                    <circle className="w-dot" cx="114" cy="50" r="5"/>
-                    <circle className="w-dot" cx="142" cy="50" r="5"/>
+                    <rect x="-190" y="-44" width="380" height="88" rx="10" className="w-card"/>
+                    <text x="-166" y="-20" className="w-loop-k">HUMAN OVER THE LOOP</text>
+                    <text x="-166" y="2" className="w-loop-v">her terms answer; she is asked at first contact</text>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-138" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-110" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-82" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-54" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-26" cy="20" r="5"/>
+                    <circle className="w-dot" cx="2" cy="20" r="5"/>
+                    <circle className="w-dot" cx="30" cy="20" r="5"/>
+                    <circle className="w-dot" cx="58" cy="20" r="5"/>
+                    <circle className="w-dot" cx="86" cy="20" r="5"/>
+                    <circle className="w-dot" cx="114" cy="20" r="5"/>
+                    <circle className="w-dot" cx="142" cy="20" r="5"/>
+                    <circle className="w-dot" cx="-166" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="38" r="5"/>
+                    <circle className="w-dot" cx="-110" cy="38" r="5"/>
+                    <circle className="w-dot" cx="-82" cy="38" r="5"/>
+                    <circle className="w-dot" cx="-54" cy="38" r="5"/>
+                    <circle className="w-dot" cx="-26" cy="38" r="5"/>
+                    <circle className="w-dot" cx="2" cy="38" r="5"/>
+                    <circle className="w-dot" cx="30" cy="38" r="5"/>
+                    <circle className="w-dot" cx="58" cy="38" r="5"/>
+                    <circle className="w-dot" cx="86" cy="38" r="5"/>
+                    <circle className="w-dot" cx="114" cy="38" r="5"/>
+                    <circle className="w-dot" cx="142" cy="38" r="5"/>
                   </g>
                 </g>
-                <g transform="translate(820 700)">
+                <g transform="translate(820 655)">
                   <g id="w-inloop" opacity="0">
-                    <rect x="-190" y="-52" width="380" height="104" rx="10" className="w-card w-card--warn"/>
-                    <text x="-166" y="-24" className="w-loop-k w-loop-k--warn">HUMAN IN THE LOOP</text>
-                    <text x="-166" y="0" className="w-loop-v">every request waits for a person</text>
-                    <circle className="w-dot w-dot--asked" cx="-166" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-138" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-110" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-82" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-54" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-26" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="2" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="30" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="58" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="86" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="114" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="142" cy="30" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-166" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-138" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-110" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-82" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-54" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="-26" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="2" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="30" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="58" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="86" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="114" cy="50" r="5"/>
-                    <circle className="w-dot w-dot--asked" cx="142" cy="50" r="5"/>
+                    <rect x="-190" y="-44" width="380" height="88" rx="10" className="w-card w-card--warn"/>
+                    <text x="-166" y="-20" className="w-loop-k w-loop-k--warn">HUMAN IN THE LOOP</text>
+                    <text x="-166" y="2" className="w-loop-v">every request waits for a person</text>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-110" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-82" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-54" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-26" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="2" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="30" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="58" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="86" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="114" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="142" cy="20" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-166" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-138" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-110" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-82" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-54" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="-26" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="2" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="30" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="58" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="86" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="114" cy="38" r="5"/>
+                    <circle className="w-dot w-dot--asked" cx="142" cy="38" r="5"/>
                   </g>
                 </g>
 
