@@ -111,13 +111,13 @@ const VAULT_MARK = VAULT_CENTRE - 140;
 const VAULT_STEP = VAULT_MARK - 66;   // bounced back from the door
 const GROUND = 560;
 
-/* Camera marks. `WIDE` is the pull-back that reveals the other owners; `CAROL`
-   is the push-in onto one of them. Both are scales about the view box centre,
-   set in stage.css — the camera never translates, so a scene can cut between
-   them without the shot drifting. */
+/* Camera marks. One pull-back, and that is deliberately all of them: the
+   pivot is the view box centre and the camera never translates, so any push-in
+   crops symmetrically — and at six cells in a 465-tall frame, it crops an
+   owner off the top. Beats that want to single one out dim the others. */
 const CAM_NEAR = 1;
 const CAM_WIDE = 0.62;
-const CAM_CAROL = 0.86;
+
 
 /* The stage before anything happens. Every property any scene ever touches
  * appears here, so that "put it back how it started" is a fact about this
@@ -488,10 +488,10 @@ export const SCENES = [
       animate(['#place-home', '#place-nightstand', '#place-as', '#alice', '#alice-ai', '#ground'],
               { opacity: [1, 0], duration: 700 });
       animate('#w-links', { opacity: [0, 1], duration: 10 });
-      animate('#camera', { scale: [CAM_NEAR, CAM_WIDE], duration: 2200, ease: 'inOutQuad' });
-      animate('#world', { opacity: [0, 1], duration: 800, delay: 1200 });
-      animate('#w-alice', { opacity: [0, 1], scale: [0.9, 1], duration: 700, delay: 1600, ease: 'outBack' });
-      animate('#w-link-alice', { opacity: [0, 0.55], duration: 600, delay: 2100 });
+      animate('#camera', { scale: [CAM_NEAR, CAM_WIDE], duration: 1500, ease: 'inOutQuad' });
+      animate('#world', { opacity: [0, 1], duration: 400, delay: 350 });
+      animate('#w-alice', { opacity: [0, 1], scale: [0.9, 1], duration: 600, delay: 600, ease: 'outBack' });
+      animate('#w-link-alice', { opacity: [0, 0.55], duration: 600, delay: 1000 });
     },
   },
   {
@@ -553,25 +553,44 @@ export const SCENES = [
     at: 129000,
     beat: 'Hers runs where she keeps it',
     text: 'Alice’s authority is hosted for her. Carol’s is a box on her own shelf. Nothing on the wire can tell the difference — which is the whole point: where it runs is hers to choose, not the firm’s to grant.',
-    end: { '#camera': { scale: CAM_CAROL } },
+    end: {
+      '#w-o3': { opacity: 0.22 }, '#w-o4': { opacity: 0.22 },
+      '#w-o5': { opacity: 0.22 }, '#w-o6': { opacity: 0.22 },
+      '#w-a1': { opacity: 0.22 }, '#w-a2': { opacity: 0.22 },
+      '#w-a3': { opacity: 0.22 }, '#w-a4': { opacity: 0.22 },
+    },
     play() {
-      animate('#camera', { scale: [CAM_WIDE, CAM_CAROL], duration: 1600, ease: 'inOutQuad' });
+      // Isolate rather than zoom. Pushing in cropped the top owner out of
+      // frame — a centred scale cannot enlarge six cells and still fit them
+      // in a 465-tall view box — and losing an owner is the wrong thing to
+      // lose on the beat about every owner being the same.
+      animate(['#w-o3', '#w-o4', '#w-o5', '#w-o6',
+               '#w-a1', '#w-a2', '#w-a3', '#w-a4'],
+              { opacity: [1, 0.22], duration: 700, ease: 'outQuad' });
       animate('#w-carol .w-edge', {
-        stroke: [C.own, C.granted, C.own], duration: 1400, delay: 1400,
+        stroke: [C.own, C.granted, C.own], duration: 1400, delay: 800,
       });
       animate('#w-alice .w-host', {
-        stroke: [C.rest, C.granted, C.rest], duration: 1400, delay: 1400,
+        stroke: [C.rest, C.granted, C.rest], duration: 1400, delay: 800,
       });
-      animate('#w-link-carol', { strokeDashoffset: [120, 0], duration: 1200, delay: 1600 });
+      animate('#w-link-carol', { strokeDashoffset: [120, 0], duration: 1200, delay: 900 });
     },
   },
   {
     at: 135400,
     beat: 'Over the loop, not in it',
     text: 'Now count the interruptions. Standing terms answer nearly everything, so almost nobody is woken. Put a person in the loop instead and every one of these becomes a tap somebody owes — which is the thing that does not scale.',
-    end: { '#camera': { scale: CAM_WIDE }, '#w-loop': { opacity: 1 }, '#w-inloop': { opacity: 1 } },
+    end: {
+      '#w-loop': { opacity: 1 }, '#w-inloop': { opacity: 1 },
+      '#w-o3': { opacity: 1 }, '#w-o4': { opacity: 1 },
+      '#w-o5': { opacity: 1 }, '#w-o6': { opacity: 1 },
+      '#w-a1': { opacity: 1 }, '#w-a2': { opacity: 1 },
+      '#w-a3': { opacity: 1 }, '#w-a4': { opacity: 1 },
+    },
     play() {
-      animate('#camera', { scale: [CAM_CAROL, CAM_WIDE], duration: 1200, ease: 'inOutQuad' });
+      animate(['#w-o3', '#w-o4', '#w-o5', '#w-o6',
+               '#w-a1', '#w-a2', '#w-a3', '#w-a4'],
+              { opacity: [0.22, 1], duration: 600 });
       animate('#w-loop', { opacity: [0, 1], scale: [0.96, 1], duration: 700, delay: 800, ease: 'outBack' });
       animate('#w-inloop', { opacity: [0, 1], scale: [0.96, 1], duration: 700, delay: 1100, ease: 'outBack' });
       animate('#w-loop .w-dot--asked', {
