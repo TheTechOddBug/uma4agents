@@ -190,6 +190,14 @@ const SEO = ({
       <meta name="twitter:image" content={seo.image} />
       <meta name="twitter:image:alt" content={seo.title} />
 
+      {/* Two icons on purpose. Browsers that understand SVG take the second
+          and get a mark that stays sharp at any size; Google's search results
+          take the first. Google looks for a raster it can resize to 48px and
+          will not use an SVG-only declaration, which is why the result row
+          showed a generic globe while the site had a perfectly good icon.
+          The .ico carries 16/32/48/64/128/256 so both needs are met from one
+          file. Order matters: the SVG comes last so it wins where supported. */}
+      <link rel="icon" href="/favicon.ico" sizes="48x48" />
       <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       <script type="application/ld+json">
         {JSON.stringify(ld, (_k, v) => (v === undefined ? undefined : v))}
