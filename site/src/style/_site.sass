@@ -385,7 +385,7 @@ a
 .site-footer__people
   display: flex
   flex-wrap: wrap
-  gap: 1.25rem
+  gap: 1.25rem 2.25rem
   a
     display: inline-flex
     align-items: center
@@ -395,6 +395,25 @@ a
     font-size: 0.9rem
     &:hover
       color: $fg
+
+// A person and the company they run, stacked. The column keeps the two links
+// associated with each other when the row wraps on a narrow screen — as one
+// flat row they would reflow into the wrong pairs.
+.site-footer__person
+  display: flex
+  flex-direction: column
+  gap: 0.4rem
+
+.site-footer__org
+  font-size: 0.82rem
+  color: $fg-dim
+
+.icon-org
+  width: 16px
+  height: 16px
+  flex: 0 0 auto
+  border-radius: 3px
+  object-fit: contain
 
 .site-footer__qr
   text-align: center

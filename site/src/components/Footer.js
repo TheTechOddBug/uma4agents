@@ -37,16 +37,39 @@ const Footer = () => (
           <p className="site-footer__label">The people behind it</p>
           <div className="site-footer__people">
             {people.map((p) => (
-              <a
-                key={p.name}
-                href={p.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${p.name} on LinkedIn`}
-              >
-                <LinkedInIcon className="icon-li" />
-                <span>{p.name}</span>
-              </a>
+              <div className="site-footer__person" key={p.name}>
+                <a
+                  href={p.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${p.name} on LinkedIn`}
+                >
+                  <LinkedInIcon className="icon-li" />
+                  <span>{p.name}</span>
+                </a>
+                {p.org && (
+                  <a
+                    className="site-footer__org"
+                    href={p.org.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* Their own mark rather than a generic glyph, and a
+                        plain <img> rather than an inline component: these
+                        are two other companies' brands, so they are assets
+                        we serve, not shapes we redraw. */}
+                    <img
+                      className="icon-org"
+                      src={p.org.icon}
+                      alt=""
+                      width="16"
+                      height="16"
+                      loading="lazy"
+                    />
+                    <span>{p.org.name}</span>
+                  </a>
+                )}
+              </div>
             ))}
           </div>
         </div>

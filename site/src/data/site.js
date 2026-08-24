@@ -2,9 +2,28 @@
 
 export const repo = "https://github.com/nickgamb/uma4agents";
 
+// Each person, and the company they run. The company sits under the person
+// rather than in a separate list: this block credits the two people who built
+// U4A, and where they work is part of who they are — not a sponsor row.
 export const people = [
-  { name: "Nick Gamb", linkedin: "https://www.linkedin.com/in/nickgamb/" },
-  { name: "Eve Maler", linkedin: "https://www.linkedin.com/in/evemaler/" },
+  {
+    name: "Nick Gamb",
+    linkedin: "https://www.linkedin.com/in/nickgamb/",
+    org: {
+      name: "MindGarden",
+      url: "https://mindgardenai.com",
+      icon: "/img/orgs/mindgarden.png",
+    },
+  },
+  {
+    name: "Eve Maler",
+    linkedin: "https://www.linkedin.com/in/evemaler/",
+    org: {
+      name: "Venn Factory",
+      url: "https://www.vennfactory.com",
+      icon: "/img/orgs/vennfactory.svg",
+    },
+  },
 ];
 
 export const navLinks = [
