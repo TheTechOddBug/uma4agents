@@ -488,6 +488,24 @@ const IndexPage = () => {
                   </g>
                 </g>
 
+                {/* One owner's authority stops. Drawn over her cell rather than
+                     by hiding it: she is still there and still an owner — what
+                     changed is that nothing of hers answers, and the point is
+                     how little else moves. */}
+                <g transform="translate(430 264)">
+                  <g id="w-down" opacity="0">
+                    <rect x="-108" y="-40" width="216" height="80" rx="10" className="w-down-veil"/>
+                    <path d="M-92 -24 L-76 -8 M-76 -24 L-92 -8" className="w-down-x"/>
+                    <text x="14" y="5" className="w-down-tag">AUTHORITY DOWN</text>
+                  </g>
+                </g>
+                <g transform="translate(430 620)">
+                  <g id="w-blast" opacity="0">
+                    <text x="0" y="0" className="w-blast-line">one authority down</text>
+                    <text x="0" y="24" className="w-blast-sub">the other five never noticed</text>
+                  </g>
+                </g>
+
                 {/* The old shape, for the close: one authority the operator owns,
                      with every owner a row inside it. */}
                 <g transform="translate(600 400)">

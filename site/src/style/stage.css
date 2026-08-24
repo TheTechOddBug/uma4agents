@@ -501,3 +501,11 @@ footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; 
 .tm-ink { stroke: var(--ink); }
 .tm-four { stroke: var(--primary); }
 .tm-bar { fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round; }
+
+/* One owner's authority stopping. Her cell is veiled rather than removed —
+   she is still an owner; nothing of hers is answering. */
+.w-down-veil { fill: var(--bg); opacity: 0.9; stroke: var(--amber); stroke-width: 1.6; }
+.w-down-x    { fill: none; stroke: var(--amber); stroke-width: 2.4; stroke-linecap: round; }
+.w-down-tag  { fill: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; }
+.w-blast-line { fill: var(--amber); font-size: 17px; font-weight: 650; text-anchor: middle; }
+.w-blast-sub  { fill: var(--ink-3); font-size: 14px; text-anchor: middle; }

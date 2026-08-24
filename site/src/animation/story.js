@@ -176,6 +176,8 @@ const BASE = {
   '#w-old-eye':        { opacity: 0 },
   '#w-old-queue':      { opacity: 0 },
   '#w-old-out':        { opacity: 0 },
+  '#w-down':           { opacity: 0 },
+  '#w-blast':          { opacity: 0 },
   '#place-home':       { opacity: 1 },
   '#place-as':         { opacity: 1 },
   '#place-vault':      { opacity: 1 },
@@ -824,6 +826,27 @@ export const SCENES = [
   },
   {
     at: 205800,
+    beat: 'And when one stops',
+    text: 'Not failover — there is nothing shared to fail over from. One owner’s authority goes down, and hers is the only row that stops. Nobody else is having an incident, because nobody else was depending on it.',
+    end: {
+      '#w-down': { opacity: 1 }, '#w-blast': { opacity: 1 },
+      '#w-o3': { opacity: 0.45 }, '#w-link-o3': { opacity: 0.12 },
+    },
+    play() {
+      animate('#w-link-o3', { opacity: [0.55, 0.12], stroke: [C.rest, C.pending], duration: 600 });
+      animate('#w-o3', { opacity: [1, 0.45], duration: 600 });
+      animate('#w-down', { opacity: [0, 1], duration: 500, delay: 400 });
+      // The other five keep flowing, which is the whole claim. A looped dash
+      // offset rather than a colour change: traffic is a motion, and what a
+      // reader should see is that these did not so much as flicker.
+      animate(['#w-link-alice', '#w-link-carol', '#w-link-o4',
+               '#w-link-o5', '#w-link-o6'],
+              { strokeDashoffset: [24, 0], duration: 900, loop: 4, delay: 700 });
+      animate('#w-blast', { opacity: [0, 1], duration: 600, delay: 1500 });
+    },
+  },
+  {
+    at: 212200,
     text: '',
     // Strike the machine behind the curtain, exactly as act one does, so the
     // loop opens on the first frame rather than cutting to it.
@@ -839,6 +862,7 @@ export const SCENES = [
       // both loop panels away, and the places it hid restored.
       '#camera': { scale: CAM_NEAR }, '#world': { opacity: 0 },
       '#w-old': { opacity: 0 }, '#w-loop': { opacity: 0 }, '#w-inloop': { opacity: 0 },
+      '#w-down': { opacity: 0 }, '#w-blast': { opacity: 0 },
       '#place-home': { opacity: 1 }, '#place-as': { opacity: 1 },
       '#place-vault': { opacity: 1 }, '#w-links': { opacity: 0 },
       '#ground': { opacity: 1 },
@@ -862,7 +886,7 @@ export const SCENES = [
   },
 ];
 
-const TOTAL = 212200;
+const TOTAL = 218600;
 
 /* ---- the machine --------------------------------------------------------- */
 
