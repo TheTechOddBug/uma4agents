@@ -271,11 +271,26 @@ class PostgresOwnerStore:
         return json.loads(row["rec"]) if row else None
 
     async def save_negotiation(self, rec: dict) -> None:
+        """Store this negotiation, whether or not it has been seen before.
+
+        An UPDATE here for as long as every negotiation began at `/perm` with
+        a ticket, which inserted the row. One does not: a request over a
+        jointly held resource is created when another owner's tally asks
+        about it, and there is no ticket at this authority to have made a row.
+        The UPDATE matched nothing, the pending request never reached her
+        portal, and the negotiation waited out its timeout — on Postgres only,
+        because the in-memory store writes the key either way. Two backends
+        that disagree about what a method does is the bug; `make store-test`
+        now asserts they do not.
+        """
         await self._pool.execute(
-            "UPDATE negotiations SET state = $2, decision = $3, rec = $4 "
-            "WHERE family = $1 AND owner = $5",
-            rec["family"], rec["state"], rec.get("decision"), json.dumps(rec),
-            self._o)
+            "INSERT INTO negotiations (owner, family, expires, state, decision, rec) "
+            "VALUES ($6, $1, $2, $3, $4, $5) "
+            "ON CONFLICT (owner, family) DO UPDATE SET "
+            "  expires = EXCLUDED.expires, state = EXCLUDED.state, "
+            "  decision = EXCLUDED.decision, rec = EXCLUDED.rec",
+            rec["family"], rec.get("expires", time.time() + 3600),
+            rec["state"], rec.get("decision"), json.dumps(rec), self._o)
 
     async def close_negotiation(self, family: str | None) -> None:
         if not family:
@@ -631,6 +646,31 @@ class PostgresOwnerStore:
     async def clear_organization(self) -> bool:
         row = await self._pool.fetchrow(
             "DELETE FROM organizations WHERE owner = $1 RETURNING owner", self._o)
+        return row is not None
+
+    # --- resources held jointly -----------------------------------------------
+
+    async def mandates(self) -> dict[str, dict]:
+        rows = await self._pool.fetch(
+            "SELECT account, record FROM mandates WHERE owner = $1", self._o)
+        return {r["account"]: json.loads(r["record"]) for r in rows}
+
+    async def mandate(self, account: str) -> dict | None:
+        row = await self._pool.fetchrow(
+            "SELECT record FROM mandates WHERE owner = $1 AND account = $2",
+            self._o, account)
+        return json.loads(row["record"]) if row else None
+
+    async def set_mandate(self, account: str, record: dict) -> None:
+        await self._pool.execute(
+            "INSERT INTO mandates (owner, account, record) VALUES ($1, $2, $3) "
+            "ON CONFLICT (owner, account) DO UPDATE SET record = EXCLUDED.record",
+            self._o, account, json.dumps(record))
+
+    async def clear_mandate(self, account: str) -> bool:
+        row = await self._pool.fetchrow(
+            "DELETE FROM mandates WHERE owner = $1 AND account = $2 "
+            "RETURNING account", self._o, account)
         return row is not None
 
     # --- fan-out ---------------------------------------------------------------

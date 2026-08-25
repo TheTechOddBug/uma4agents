@@ -45,6 +45,7 @@ from urllib.parse import urlencode
 
 from uma4a_http_sig import VerifyError, verify
 from uma4a_http_sig import sign as http_sign
+from uma4a_joint import tally as joint_tally
 from uma4a_org import claims_match, envelope_breach
 
 
@@ -57,6 +58,17 @@ from uma4a_org import claims_match, envelope_breach
 # Nothing here can extend a grant beyond it — the member's authority stops
 # issuing at once, and this only affects whether a challenge is offered.
 MEMBERSHIP_TTL_S = float(os.environ.get("UMA_PEP_MEMBERSHIP_TTL_S", "10"))
+
+
+# The trust anchor for fetching a co-owner's published keys. Every other
+# call this library makes is to a service it was configured with, over the
+# internal network; verifying a holder's verdict means reaching her authority
+# at its public name, which is the one place here that needs a bundle.
+CA_BUNDLE = os.environ.get("UMA4A_CA_BUNDLE")
+# How long the electorate of a jointly held resource may be reused.
+# Short: a holder leaving should stop counting in seconds, not at a
+# restart.
+MANDATE_TTL_S = float(os.environ.get("UMA_PEP_MANDATE_TTL_S", "30"))
 
 
 class Pending(Exception):
@@ -178,6 +190,7 @@ class Enforcer:
         org_issuer: str = "",
         org_internal: str = "",
         org_token: str = "",
+        joint_issuer: str = "",
         event=None,
     ) -> None:
         self.owner = owner
@@ -223,9 +236,17 @@ class Enforcer:
         self.org_issuer = org_issuer.rstrip("/")
         self.org_internal = (org_internal or org_issuer).rstrip("/")
         self.org_token = org_token
+        # A tally this resource server accepts grants from, for resources
+        # held jointly. Named rather than inferred: a grant is checked
+        # against the mandate inside it, and accepting one from any issuer
+        # that happened to embed a plausible mandate would be accepting the
+        # electorate from the party that assembled it.
+        self.joint_issuer = joint_issuer.rstrip("/")
         self.event = event or (lambda *a, **k: None)
         self._pat: dict[str, Any] = {"token": None, "expires": 0}
         self._membership: tuple[float, dict] = (0.0, {})
+        self._holder_jwks: dict[str, tuple[float, list]] = {}
+        self._mandates: dict[str, tuple[float, dict]] = {}
 
     # --- Protection API client ------------------------------------------
 
@@ -493,6 +514,119 @@ class Enforcer:
         except httpx.HTTPError:
             pass
 
+    async def joint_breach(self, info: dict, rid: str) -> str | None:
+        """Whether a grant over a jointly held resource is actually backed by
+        its holders.
+
+        This is the check that makes the tally an untrusted party rather than
+        one more thing to believe. Each verdict is verified against the keys
+        *that holder's own authorization server* publishes, checked to be
+        about this negotiation and this exact agreement, and the count is run
+        again. A tally that fabricated a yes, or replayed an old one, fails
+        at this line.
+
+        The mandate is read from where the tally **publishes** it, never from
+        the grant. Counting against the copy inside the token would leave the
+        electorate in the gift of the party being checked: a tally could ship
+        one genuine verdict beside a mandate saying one is enough, and the
+        arithmetic here would agree with it. The published document is the one
+        the holders saw and can check, so it is the one the count runs on, and
+        an unreadable one is a refusal rather than a fallback to the token's.
+
+        What this deliberately does not do is decide anything. It re-derives
+        the same arithmetic from the same signed inputs, and if it disagrees
+        with the issuer, the issuer is wrong.
+        """
+        joint = info.get("joint")
+        if not joint:
+            return None
+        mandate = await self.published_mandate(joint.get("account") or "")
+        if mandate is None:
+            return ("this resource is held jointly and its mandate could not "
+                    "be read, so who was entitled to a say is not known here")
+        if not mandate.get("holders"):
+            return "that mandate names no holders to have agreed to it"
+        by_owner = {h["owner"]: h for h in mandate["holders"]}
+        verdicts: dict[str, str] = {}
+        for jws in joint.get("verdicts") or []:
+            try:
+                unverified = jwt.decode(jws, options={"verify_signature": False})
+            except jwt.InvalidTokenError:
+                return "a verdict in this grant is not a token"
+            holder = by_owner.get(unverified.get("holder") or "")
+            if holder is None:
+                return (f"a verdict is signed for {unverified.get('holder')!r}, "
+                        f"who is not a holder of this resource")
+            claims = await self._verified_verdict(jws, holder)
+            if claims is None:
+                return (f"the verdict attributed to {holder['owner']} is not "
+                        f"signed by the authority that holder names")
+            if claims.get("contract") != info.get("contract"):
+                return (f"{holder['owner']}'s verdict is about a different "
+                        f"agreement than this grant was issued for")
+            if claims.get("resource_id") != rid:
+                return (f"{holder['owner']}'s verdict is about a different "
+                        f"resource")
+            if claims.get("effect") == "allow":
+                verdicts[holder["owner"]] = "allow"
+        result = joint_tally(mandate, verdicts)
+        if result["effect"] != "allow":
+            return (f"this grant claims the holders agreed, and the verdicts "
+                    f"inside it carry {result['for']} of the "
+                    f"{result['threshold']} it takes")
+        return None
+
+    async def published_mandate(self, account: str) -> dict | None:
+        """Who is entitled to be counted over this account, from the tally's
+        published document rather than from a grant.
+
+        Cached briefly for the hot path. Unreachable returns None, and the
+        caller refuses — a jointly held resource whose electorate cannot be
+        established is not one this side can let through.
+        """
+        if not account or not self.joint_issuer:
+            return None
+        cached = self._mandates.get(account)
+        if cached and cached[0] > time.time():
+            return cached[1]
+        try:
+            async with httpx.AsyncClient(verify=CA_BUNDLE or True,
+                                         timeout=5.0) as client:
+                r = await client.get(f"{self.joint_issuer}/mandate/{account}")
+                r.raise_for_status()
+                doc = r.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            self.event("joint.mandate_unreadable", account=account,
+                       error=str(exc)[:160])
+            return cached[1] if cached else None
+        self._mandates[account] = (time.time() + MANDATE_TTL_S, doc)
+        return doc
+
+    async def _verified_verdict(self, jws: str, holder: dict) -> dict | None:
+        """One verdict, against the issuing holder's published keys."""
+        issuer = (holder.get("issuer") or "").rstrip("/")
+        cached = self._holder_jwks.get(issuer)
+        if not cached or cached[0] < time.time():
+            try:
+                async with httpx.AsyncClient(verify=CA_BUNDLE or True,
+                                             timeout=5.0) as client:
+                    r = await client.get(f"{issuer}/jwks")
+                    r.raise_for_status()
+                cached = (time.time() + 300, r.json()["keys"])
+                self._holder_jwks[issuer] = cached
+            except (httpx.HTTPError, KeyError, ValueError) as exc:
+                self.event("joint.jwks_unreachable", issuer=issuer,
+                           error=str(exc)[:160])
+                return None
+        for jwk_dict in cached[1]:
+            try:
+                return jwt.decode(jws, OKPAlgorithm.from_jwk(json.dumps(jwk_dict)),
+                                  algorithms=["EdDSA"], issuer=issuer,
+                                  options={"verify_aud": False})
+            except jwt.InvalidTokenError:
+                continue
+        return None
+
     def issued_by_organization(self, rpt: str) -> bool:
         """Whose grant this is, from the token itself.
 
@@ -628,6 +762,21 @@ class Enforcer:
                        detail=breach)
             return Decision(outcome="deny", status=403,
                             error="organization_envelope_exceeded",
+                            description=breach)
+
+        # 2b. If this resource is held jointly, do the holders' own signed
+        #     verdicts actually add up to what the grant claims? Re-derived
+        #     here from the mandate and the signatures rather than taken from
+        #     the party that issued the token, which is the whole reason that
+        #     party does not have to be trusted.
+        #
+        #     Not a re-challenge, for the same reason the ceiling above is
+        #     not: negotiating again reproduces it exactly.
+        if breach := await self.joint_breach(info, rid):
+            self.event("access.denied", reason="joint-verdicts", tool=f.tool,
+                       detail=breach)
+            return Decision(outcome="deny", status=403,
+                            error="joint_mandate_unsatisfied",
                             description=breach)
 
         # 3. Proof of possession. Covering the Authorization header is what
