@@ -24,6 +24,15 @@ export const people = [
       icon: "/img/orgs/vennfactory.svg",
     },
   },
+  {
+    name: "Matt Teeple",
+    linkedin: "https://www.linkedin.com/in/matt-teeple-059ab8174/",
+    org: {
+      name: "Multiplier Partners",
+      url: "https://multiplierpartners.ai",
+      icon: "/img/orgs/multiplierpartners.svg",
+    },
+  },
 ];
 
 export const navLinks = [
