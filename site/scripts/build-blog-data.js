@@ -317,6 +317,12 @@ const llms = [
   "- [docs/PROTOCOL.md](https://github.com/nickgamb/uma4agents/blob/main/docs/PROTOCOL.md): The wire contract, including where this profile deviates from UMA 2.0 and why.",
   "- [docs/KUBERNETES.md](https://github.com/nickgamb/uma4agents/blob/main/docs/KUBERNETES.md): The deployed reference architecture and a fifteen-minute demo guide.",
   "",
+  "## Partners",
+  "",
+  `- [MindGarden](https://mindgardenai.com)`,
+  `- [Venn Factory](https://www.vennfactory.com)`,
+  `- [Multiplier Partners](https://multiplierpartners.ai)`,
+  "",
 ].join("\n");
 
 fs.writeFileSync(LLMS_OUT, llms);
