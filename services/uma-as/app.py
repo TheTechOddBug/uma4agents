@@ -171,6 +171,27 @@ PAT_TTL = 3600
 # a MyTerms-shaped profile for agentic access terms, not a claim of
 # conformance to the IEEE document's schema.
 AGREEMENT_FORMAT = "urn:uma4agents:format:myterms-agreement-v1+jws"
+
+# The enterprise half, when a member's organization federates identity.
+#
+# An ID-JAG (draft-ietf-oauth-identity-assertion-authz-grant, also called
+# Cross App Access) is an identity provider's assertion that a named employee
+# is behind a named application, and that an administrator approved that
+# application reaching a named resource. It is not an access token and it
+# carries no entitlement — which is exactly why it can be a *claim* here
+# rather than a competing grant. It answers the question this server cannot
+# answer for itself, and then stops.
+ID_JAG_FORMAT = "urn:ietf:params:oauth:token-type:id-jag"
+ID_JAG_TYP = "oauth-id-jag+jwt"
+ID_JAG_CLAIM = "urn:ietf:params:oauth:token-type:id-jag"
+# What the agent should name as the resource when it goes to get one. The
+# same value the resource server publishes as its own identifier.
+RS_RESOURCE_URI = os.environ.get("UMA_AS_RS_RESOURCE_URI",
+                                 "https://gateway.uma.lab/mcp")
+# Spent assertions, by `jti`, until they expire. An ID-JAG is minted for one
+# negotiation and one authorization server; replaying one is not a thing a
+# well-behaved client does.
+_ID_JAG_SPENT: dict[str, float] = {}
 AGREEMENT_CLAIM = "urn:uma4agents:claim:myterms-agreement"
 TICKET_TTL = 300
 # How long a held "ask-me" ticket stays valid. The demo's own premise is that
@@ -1956,6 +1977,329 @@ async def terms_template_for(rec: dict, tier_id: str, tier: dict, family: str) -
     return template
 
 
+def federated_provider(envelope: dict | None, resource_id: str) -> dict | None:
+    """The identity provider to ask about this resource, or None.
+
+    Two conditions, and both matter. The organization has to have named a
+    provider in its charter — federating identity is something a member
+    agreed to when she read the charter, not a default. And the resource has
+    to be one the organization actually reaches: `org.reaches` already
+    subtracts what she holds jointly with somebody else, so an enterprise
+    provider is never consulted about a resource that is not the
+    organization's to speak for. Her own accounts never reach this line.
+    """
+    if not envelope or not org.reaches(resource_id, envelope):
+        return None
+    idp = envelope.get("identity_provider") or None
+    return idp if idp and idp.get("issuer") else None
+
+
+# What a key of each type is allowed to have signed with. Asymmetric only —
+# a provider publishing a symmetric key in a public JWKS has published its
+# signing secret, and this profile will not treat that as a key.
+_ALGS_BY_KTY = {
+    "OKP": ["EdDSA"],
+    "RSA": ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512"],
+    "EC": ["ES256", "ES384", "ES512"],
+}
+
+
+def algs_for(jwk_dict: dict) -> list:
+    """The algorithms this key may have signed with."""
+    if declared := jwk_dict.get("alg"):
+        # A key that names its own algorithm is taken at its word, provided
+        # the word is one its type could have said.
+        return [declared] if declared in _ALGS_BY_KTY.get(
+            jwk_dict.get("kty"), []) else []
+    return _ALGS_BY_KTY.get(jwk_dict.get("kty"), [])
+
+
+_PROVIDER_TRUST: str | None = None
+
+
+def provider_trust() -> str | bool:
+    """What to verify an identity provider's TLS against.
+
+    Everywhere else in this server the lab CA *replaces* the trust store,
+    which is deliberate: a peer inside the lab should not be trusted because
+    some public authority vouched for it. An identity provider is the one
+    party that may legitimately be outside — a real tenant has an ordinary
+    public certificate — so here the lab CA is *added to* the public roots
+    rather than swapped for them.
+
+    Getting this the wrong way round fails in a way that reads like the
+    provider being down: discovery returns nothing and the keys never load.
+    """
+    global _PROVIDER_TRUST
+    if _PROVIDER_TRUST is not None:
+        return _PROVIDER_TRUST
+    lab = org.CA_BUNDLE
+    if not lab or not os.path.exists(lab):
+        _PROVIDER_TRUST = True          # public roots only
+        return _PROVIDER_TRUST
+    try:
+        import certifi
+        combined = "/tmp/u4a-provider-trust.pem"
+        with open(combined, "w") as out:
+            out.write(open(certifi.where()).read())
+            out.write("\n")
+            out.write(open(lab).read())
+        _PROVIDER_TRUST = combined
+    except Exception:                                           # noqa: BLE001
+        # No public roots available; the lab CA alone still serves a provider
+        # hosted inside the lab, which is the shipped arrangement.
+        _PROVIDER_TRUST = lab
+    return _PROVIDER_TRUST
+
+
+_PROVIDER_META: dict[str, tuple[float, dict]] = {}
+_PROVIDER_JWKS: dict[str, tuple[float, list]] = {}
+
+
+def provider_metadata(issuer: str) -> dict:
+    """An identity provider's own description of itself.
+
+    Fetched rather than constructed, because the endpoints are not derivable.
+    A real tenant's token endpoint is `/oauth2/v1/token` under the org, not
+    `{issuer}/token` — so an authority that built the URL itself would send
+    every agent to a 404 and the failure would look like the agent's.
+    """
+    import httpx
+
+    cached = _PROVIDER_META.get(issuer)
+    if cached and cached[0] > now():
+        return cached[1]
+    base = issuer.rstrip("/")
+    doc = {}
+    with httpx.Client(verify=provider_trust(), timeout=5.0) as client:
+        for url in (f"{base}/.well-known/openid-configuration",
+                    f"{base}/.well-known/oauth-authorization-server"):
+            try:
+                r = client.get(url)
+                if r.status_code == 200 and r.json().get("issuer"):
+                    doc = r.json()
+                    break
+            except Exception:                                   # noqa: BLE001
+                continue
+    _PROVIDER_META[issuer] = (now() + 300, doc)
+    return doc
+
+
+def provider_keys(issuer: str, fresh: bool = False) -> list:
+    """An identity provider's signing keys.
+
+    Discovery first, `{issuer}/jwks` only as a fallback. The fallback is this
+    lab's own convention and nothing else publishes keys there; a real tenant
+    advertises `jwks_uri` in its OpenID metadata and will not have heard of
+    it. Getting this the right way round is the difference between the
+    profile working against an actual identity provider and working only
+    against the one shipped beside it.
+    """
+    import httpx
+
+    cached = _PROVIDER_JWKS.get(issuer)
+    if cached and cached[0] > now() and not fresh:
+        return cached[1]
+    base = issuer.rstrip("/")
+    keys = []
+    with httpx.Client(verify=provider_trust(), timeout=5.0) as client:
+        if jwks_uri := provider_metadata(issuer).get("jwks_uri"):
+            try:
+                doc = client.get(jwks_uri)
+                doc.raise_for_status()
+                keys = doc.json().get("keys") or []
+            except Exception:                                   # noqa: BLE001
+                keys = []
+        if not keys:
+            doc = client.get(f"{base}/jwks")
+            doc.raise_for_status()
+            keys = doc.json().get("keys") or []
+    _PROVIDER_JWKS[issuer] = (now() + 300, keys)
+    return keys
+
+
+def verify_id_jag(assertion: str, idp: dict, owner: str, resource_id: str) -> dict:
+    """An identity provider's assertion about who an agent acts for.
+
+    What is checked here is *only* identity and reach. Nothing in an ID-JAG
+    decides anything about the resource — that is the next beat, and it is
+    this owner's to decide.
+    """
+    issuer = idp["issuer"]
+    try:
+        head = jwt.get_unverified_header(assertion)
+    except jwt.InvalidTokenError as exc:
+        raise ValueError(f"that is not an assertion: {exc}")
+    # A plain JWT signed by the same provider is not an identity assertion,
+    # and treating one as if it were would accept any token the provider ever
+    # issued for any purpose. The media type is the difference.
+    if head.get("typ") != ID_JAG_TYP:
+        raise ValueError(
+            f"expected an ID-JAG (typ {ID_JAG_TYP}), got typ {head.get('typ')!r}")
+
+    # A provider nobody can reach is a provider that has not vouched for
+    # anybody. Refused rather than raised: the resource is the organization's,
+    # and the direction to fail in is the same one an unreadable ceiling fails
+    # in — see `organization_blocks`.
+    try:
+        keys = provider_keys(issuer)
+        kid = head.get("kid")
+        if kid and not any(k.get("kid") == kid for k in keys):
+            keys = provider_keys(issuer, fresh=True)  # rotated, not forged
+    except Exception as exc:                                    # noqa: BLE001
+        raise ValueError(
+            f"{issuer} could not be reached to check the assertion") from exc
+    # Signature first, claims second, and reported separately.
+    #
+    # Folding them together is tempting and costs hours: an assertion minted
+    # for a different audience then reports as "does not verify against the
+    # provider", which sends whoever is debugging it to the keys — the one
+    # thing that was never wrong.
+    claims = None
+    signature_error = None
+    for jwk_dict in keys:
+        if kid and jwk_dict.get("kid") != kid:
+            continue
+        try:
+            # Whatever the provider actually signs with — an RSA tenant and
+            # an Ed25519 one are the same code path here.
+            #
+            # The permitted algorithms come from the *key*, never from the
+            # token's own header: a token that nominated its own algorithm
+            # would be choosing how it gets checked.
+            key = jwt.PyJWK(jwk_dict)
+            claims = jwt.decode(
+                assertion, key.key, algorithms=algs_for(jwk_dict),
+                options={"verify_aud": False, "verify_iss": False})
+            break
+        except jwt.InvalidTokenError as exc:
+            signature_error = exc
+            continue
+    if claims is None:
+        raise ValueError(
+            f"the assertion's signature does not verify against {issuer}"
+            + (f": {signature_error}" if signature_error else ""))
+
+    if claims.get("iss") != issuer:
+        raise ValueError(
+            f"the assertion is from {claims.get('iss')!r}, and this "
+            f"organization federates to {issuer!r}")
+    # The audience check is what stops an assertion minted for one member's
+    # authority being spent at another's. The provider audiences each one
+    # deliberately; honouring that is the whole of this server's side of the
+    # bargain.
+    aud = claims.get("aud")
+    audiences = [aud] if isinstance(aud, str) else list(aud or [])
+    if ISSUER not in audiences:
+        raise ValueError(
+            f"the assertion is audienced at {audiences or ['nothing']} and "
+            f"this authority is {ISSUER!r} — the resource application's "
+            f"audience at the provider has to be this authority")
+
+    jti = claims.get("jti") or ""
+    if not jti:
+        raise ValueError("the assertion has no jti and cannot be spent once")
+    for spent, expires in list(_ID_JAG_SPENT.items()):
+        if expires < now():
+            _ID_JAG_SPENT.pop(spent, None)
+    if jti in _ID_JAG_SPENT:
+        raise ValueError("that assertion has already been used")
+
+    # Whose agent it is has to be whose authority this is. The audience check
+    # above says the assertion was meant for this server; this says it was
+    # meant for this server *about this member*. Without it, an assertion for
+    # one employee would open a negotiation over another's administration.
+    # Which claim names the person. `preferred_username` is what this lab's
+    # provider sends; a real tenant may only send `sub` and `email`, and the
+    # charter can name the claim it uses. All of them are compared against the
+    # owner this authority serves, so a provider that sends several cannot
+    # have one of them quietly disagree.
+    named = (idp.get("subject_claim")
+             and [claims.get(idp["subject_claim"])]
+             or [claims.get("preferred_username"), claims.get("email"),
+                 (claims.get("email") or "").split("@")[0], claims.get("sub")])
+    if owner not in [n for n in named if n]:
+        raise ValueError(
+            f"the assertion names {[n for n in named if n][:1] or ['nobody']} "
+            f"and this authority is {owner!r}'s")
+
+    # And the enterprise's own ceiling: the administrator approved this
+    # application for particular operations at that resource. This is the
+    # first of three, and the only one the organization sets — the charter
+    # sets the second and her terms set the third.
+    operation = resource_id.split("/", 1)[-1]
+    granted = (claims.get("scope") or "").split()
+    if operation not in granted:
+        raise ValueError(
+            f"{claims.get('iss')} did not approve this application for "
+            f"{operation!r} — it carries {granted or ['nothing']}")
+
+    _ID_JAG_SPENT[jti] = float(claims.get("exp") or (now() + 300))
+    return claims
+
+
+async def need_identity_response(rec: dict, idp: dict) -> JSONResponse:
+    """Beat 1a: before terms, who is this agent acting for?
+
+    Asked *first* because the answer decides what comes next. Which tier
+    applies and what her terms may say both follow from which member the
+    agent acts for, so dictating terms before knowing would be dictating them
+    to nobody in particular.
+
+    This is also the whole of what makes the exchange resource-server
+    initiated. The agent arrives knowing nothing about Northwind; it is told
+    which provider to go to, what to name as the audience and the resource,
+    and which scope to ask for. Nothing was pre-arranged with the agent, and
+    no provider pushed anything at it.
+    """
+    rec["state"] = "need_identity"
+    rotated = await new_ticket(rec)
+    operation = rec["resource_id"].split("/", 1)[-1]
+    try:
+        meta = provider_metadata(idp["issuer"])
+    except Exception:                                           # noqa: BLE001
+        meta = {}
+    event("need_info.identity_required", corr=rec["family"],
+          provider=idp["issuer"], resource_id=rec["resource_id"])
+    return JSONResponse(
+        {
+            "error": "need_info",
+            "ticket": rotated,
+            "required_claims": [
+                {
+                    "claim_type": ID_JAG_CLAIM,
+                    "claim_token_format": [ID_JAG_FORMAT],
+                    "friendly_name": "who your organization says you act for",
+                    # Everything needed to go and get one. An agent that has
+                    # never heard of this organization can complete the next
+                    # step from this object alone.
+                    "identity_provider": {
+                        "issuer": idp["issuer"],
+                        # Discovered, not constructed. See provider_metadata.
+                        "token_endpoint": (meta.get("token_endpoint")
+                                           or f"{idp['issuer'].rstrip('/')}/token"),
+                        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                        "requested_token_type": ID_JAG_FORMAT,
+                        # What this provider will exchange. A tenant takes a
+                        # refresh token from the employee's sign-in; the one
+                        # shipped beside this lab takes an ID token. An agent
+                        # holds whichever its provider issued it, so the list
+                        # travels rather than a single assumed value.
+                        "subject_token_types_supported":
+                            meta.get("subject_token_types_supported")
+                            or ["urn:ietf:params:oauth:token-type:id_token",
+                                "urn:ietf:params:oauth:token-type:refresh_token"],
+                    },
+                    "audience": ISSUER,
+                    "resource": RS_RESOURCE_URI,
+                    "scope": [operation],
+                }
+            ],
+        },
+        status_code=403,
+    )
+
+
 async def need_info_response(rec: dict, tier_id: str, tier: dict) -> JSONResponse:
     family = rec["family"]
     rec["state"] = "need_info"
@@ -3038,6 +3382,42 @@ async def token(request: Request) -> JSONResponse:
         event("policy.evaluated", corr=family, result="no-tier")
         await close_negotiation(rec)
         return JSONResponse({"error": "request_denied"}, status_code=403)
+
+    # Beat 1a: an organization that federates identity wants to know whose
+    # agent this is before anybody's terms are read.
+    #
+    # Only for its own resources, and only when its charter names a provider.
+    # Everything else on this server — her own accounts, anything she holds
+    # jointly — never reaches this branch, and no enterprise provider is
+    # consulted about any of it.
+    idp = federated_provider(await org_envelope(rec["owner"]), rec["resource_id"])
+    if idp and not rec.get("asserted"):
+        if claim_token_format == ID_JAG_FORMAT and claim_token:
+            try:
+                asserted = verify_id_jag(claim_token, idp, rec["owner"],
+                                         rec["resource_id"])
+            except ValueError as exc:
+                event("identity.rejected", corr=family, reason=str(exc))
+                await ledger_add(rec["owner"], "identity_refused", family,
+                                 {"because": [str(exc)]})
+                await close_negotiation(rec)
+                return JSONResponse(
+                    {"error": "request_denied", "error_description": str(exc)},
+                    status_code=403)
+            rec["asserted"] = {
+                "issuer": asserted["iss"],
+                "subject": asserted.get("sub"),
+                "member": asserted.get("preferred_username"),
+                "application": asserted.get("client_id"),
+                "scope": (asserted.get("scope") or "").split(),
+                "jti": asserted.get("jti"),
+            }
+            event("identity.asserted", corr=family, provider=asserted["iss"],
+                  member=rec["asserted"]["member"],
+                  application=rec["asserted"]["application"])
+            # Established. Her terms are the next question, and they are hers.
+            return await need_info_response(rec, tier_id, tier)
+        return await need_identity_response(rec, idp)
 
     # Beat 2: no contract yet -> dictate Alice's terms.
     if not claim_token:
@@ -4124,7 +4504,7 @@ async def owner_join_organization(request: Request) -> dict:
                    "agree to it explicitly, before this can go ahead.")
     try:
         joined = await org.join(ORG_ISSUER, body.get("code") or "", owner,
-                               ORG_CALLBACK)
+                               ORG_CALLBACK, body.get("assertion") or "")
     except Exception as exc:                                    # noqa: BLE001
         raise HTTPException(status_code=400, detail=_org_error(exc))
     token = joined.pop("membership_token")

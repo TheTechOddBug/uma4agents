@@ -63,6 +63,7 @@ const nav = {
         { title: "Many owners, one resource server", to: "/docs/overview/multi-owner/" },
         { title: "Shared ownership", to: "/docs/overview/shared-ownership/" },
         { title: "Joint ownership", to: "/docs/overview/joint-ownership/" },
+        { title: "Cross App Access", to: "/docs/overview/cross-app-access/" },
       ],
     },
     {
@@ -89,6 +90,7 @@ const nav = {
       pages: [
         { title: "The roles you must fill", to: "/docs/guides/roles/" },
         { title: "Run the lab", to: "/docs/guides/run-the-lab/" },
+        { title: "Try it with Okta", to: "/docs/guides/okta-cross-app-access/" },
       ],
     },
     {

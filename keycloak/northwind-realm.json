@@ -1,7 +1,7 @@
 {
   "realm": "northwind",
   "enabled": true,
-  "displayName": "Northwind Capital — administrators",
+  "displayName": "Northwind Capital \u2014 administrators",
   "registrationAllowed": false,
   "users": [
     {
