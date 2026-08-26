@@ -1144,9 +1144,10 @@ $docs-toc-w: 220px
 
 // ---- search ---------------------------------------------------------
 
+// In the site nav now rather than the docs tab bar, so it does not push
+// itself to the right of whatever it happens to sit beside.
 .docs-search__trigger
   flex: 0 0 auto
-  margin-left: auto
   align-self: center
   display: inline-flex
   align-items: center
@@ -1880,8 +1881,8 @@ $docs-toc-w: 220px
   @media (max-width: $bp-lg)
     position: static
     max-height: none
-    padding-bottom: 1.25rem
-    border-bottom: 1px solid $border
+    padding-bottom: 0
+    border-bottom: 0
   h4
     font-family: $font-mono
     font-size: 0.68rem
@@ -1957,3 +1958,60 @@ $docs-toc-w: 220px
   code
     font-family: $font-mono
     font-size: 0.86em
+
+
+// The search trigger in the site nav. Below the point where the links
+// collapse into the drawer there is room for the icon and nothing else, and
+// search is worth more there than the shortcut hint is.
+.site-nav .docs-search__trigger
+  margin-right: 0.5rem
+  @media (max-width: $bp-md)
+    padding: 0.35rem 0.5rem
+    kbd
+      display: none
+
+
+// A contents list that folds away.
+//
+// One element at both sizes: above the breakpoint the summary is hidden and
+// the list is forced open, so this is the plain list it has always been.
+// Below it, twenty-four releases would otherwise stand between the reader and
+// the first entry — which is what it did on a phone.
+.blog-toc--collapsible
+  > summary
+    display: none
+
+  @media (max-width: $bp-lg)
+    border: 1px solid $border
+    border-radius: $radius-sm
+    background: $bg-card
+    margin-bottom: 1.5rem
+
+    > summary
+      display: flex
+      align-items: center
+      justify-content: space-between
+      gap: 0.75rem
+      padding: 0.7rem 0.9rem
+      cursor: pointer
+      list-style: none
+      font-family: $font-mono
+      font-size: 0.72rem
+      letter-spacing: 0.14em
+      text-transform: uppercase
+      color: $fg-dim
+      &::-webkit-details-marker
+        display: none
+      svg
+        flex: 0 0 auto
+        transition: transform 0.15s ease
+
+    &[open] > summary
+      border-bottom: 1px solid $border
+      svg
+        transform: rotate(180deg)
+
+    > ul
+      padding: 0.8rem 0.9rem 0.9rem
+      max-height: 60vh
+      overflow-y: auto

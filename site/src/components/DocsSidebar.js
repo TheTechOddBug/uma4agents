@@ -1,7 +1,6 @@
 import React from "react";
 import { Link } from "gatsby";
 import { tabs, nav, tabForPath } from "../data/docs-nav";
-import DocsSearch from "./DocsSearch";
 
 /**
  * The documentation's two navigations.
@@ -33,7 +32,6 @@ export const DocsTabs = ({ pathname }) => {
             </Link>
           );
         })}
-        <DocsSearch />
       </div>
     </nav>
   );

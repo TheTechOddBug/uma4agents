@@ -1,6 +1,17 @@
 [
   {
     "date": "August 25 2026",
+    "version": "v2026.08.24",
+    "url": "/changelog/",
+    "page": "Changelog",
+    "changes": [
+      "Docs: search moved from the docs tab bar into the site navigation. It already covered the blog and the changelog; now it is reachable from them.",
+      "Docs: a long changelog contents folds into a disclosure below 1080px, rather than standing between the reader and the first release."
+    ],
+    "body": "#### Enhancements\n\n- **Docs:** search moved from the docs tab bar into the site navigation. It already covered the blog and the changelog; now it is reachable from them.\n- **Docs:** a long changelog contents folds into a disclosure below 1080px, rather than standing between the reader and the first release."
+  },
+  {
+    "date": "August 25 2026",
     "version": "v2026.08.23",
     "url": "/changelog/",
     "page": "Changelog",

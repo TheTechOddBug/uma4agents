@@ -53,7 +53,7 @@ const Changelog = ({ data }) => {
             {/* The component defaults to the blog's container; this page
                 is not that, and a default that silently finds nothing
                 renders an empty aside rather than an error. */}
-            <TableOfContents containerSelector=".changelog-body" />
+            <TableOfContents containerSelector=".changelog-body" collapsible />
           </aside>
         </div>
       </div>

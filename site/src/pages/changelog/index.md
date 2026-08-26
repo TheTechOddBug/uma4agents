@@ -22,6 +22,13 @@ release within that month. One entry per release.
 
 ## August 25 2026
 
+### v2026.08.24
+
+#### Enhancements
+
+- **Docs:** search moved from the docs tab bar into the site navigation. It already covered the blog and the changelog; now it is reachable from them.
+- **Docs:** a long changelog contents folds into a disclosure below 1080px, rather than standing between the reader and the first release.
+
 ### v2026.08.23
 
 #### New

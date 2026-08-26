@@ -123,10 +123,10 @@ const DocsSearch = () => {
           className="docs-search__input"
           type="search"
           value={query}
-          placeholder="Search concepts, guides, the wire contract…"
+          placeholder="Search docs, releases and posts…"
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onInputKey}
-          aria-label="Search the documentation"
+          aria-label="Search the site"
         />
 
         {query && results.length === 0 && (
@@ -169,12 +169,11 @@ const DocsSearch = () => {
         type="button"
         className="docs-search__trigger"
         onClick={show}
-        aria-label="Search the documentation"
+        aria-label="Search"
       >
-        {/* Two labels rather than one, because the tab bar this sits in is a
-            single scrolling row on a phone and the long label pushes the
-            sections off the left edge. */}
-        <span className="docs-search__label">Search the docs</span>
+        {/* Two labels rather than one: the short one is what a phone has
+            room for. */}
+        <span className="docs-search__label">Search</span>
         <span className="docs-search__label--short" aria-hidden="true">
           Search
         </span>

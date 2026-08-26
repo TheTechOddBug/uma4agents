@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "gatsby";
 import { navLinks, ctaLabel, ctaActions, codespace } from "../data/site";
 import ThemeToggle from "./ThemeToggle";
+import DocsSearch from "./DocsSearch";
 import { GitHubIcon } from "./Icons";
 import { U4AMark } from "./BrandMark";
 
@@ -99,6 +100,12 @@ const Navbar = () => {
             </li>
           ))}
         </ul>
+
+        {/* The index has always covered the whole site — docs, posts and
+            every release — while the only way to open it was from a
+            documentation page. A blog reader searching for a concept found
+            nothing because there was nowhere to type. */}
+        <DocsSearch />
 
         <ThemeToggle />
 
