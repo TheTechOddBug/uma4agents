@@ -71,6 +71,46 @@ spec:
   mtls:
     mode: STRICT
 ---
+# ────────────────────────────────────────────────────────────────────────
+# STRICT ALSO APPLIES TO THE ONE WORKLOAD THE PUBLIC HAS TO REACH
+#
+# The rule above is what makes every hop in this cluster attested, and the
+# edge is not an exception to it in either direction that matters: it keeps
+# its identity, and `alice/portal-callers` still admits nothing but
+# `ns/uma-edge/sa/edge`.
+#
+# But uma-edge is enrolled in ambient like every other namespace, so ztunnel
+# captures the gateway's *inbound* side too — and a browser arriving at
+# :443 from outside the cluster has no SPIFFE identity to present, because
+# nothing outside the mesh does. STRICT denies it before kgateway ever sees
+# the connection. The symptom is a TLS handshake that opens and is then
+# dropped with nothing read, which reads like a broken certificate and is
+# not one; the cause is in ztunnel's log, as an inbound rejection
+# `explicitly denied by: istio-system/istio_converted_static_strict`.
+#
+# Exempting the port is the narrow fix. Taking the gateway out of the mesh
+# instead would work for about a second and then strand it: with no
+# identity outbound it matches no `principals` rule anywhere, which is the
+# trap named at the top of this file, met from the other side.
+#
+# Only :443 and only on this workload. Everything the edge originates is
+# still mTLS, and every other namespace is untouched.
+# ────────────────────────────────────────────────────────────────────────
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: edge-listener
+  namespace: uma-edge
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: edge
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    "443":
+      mode: PERMISSIVE
+---
 # ═══ alice ═══════════════════════════════════════════════════════════════
 #
 # Default deny. Without a matching ALLOW below, nothing reaches anything in
