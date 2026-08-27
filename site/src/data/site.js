@@ -30,7 +30,7 @@ export const people = [
     org: {
       name: "Multiplier Partners",
       url: "https://multiplierpartners.ai",
-      icon: "/img/orgs/multiplierpartners.svg",
+      icon: "/img/orgs/multiplierpartners.png",
     },
   },
 ];
