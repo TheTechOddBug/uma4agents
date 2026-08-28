@@ -433,7 +433,7 @@ sudo security add-trusted-cert -d -r trustRoot \
               <div class="cmdwrap"><code class="cmd">make kagent</code></div>
             </td>
             <td class="say">
-              kagent's controller, the U4A adapter in Bob's namespace, and a small tool-calling model in the cluster — <strong>no account or API key anywhere.</strong> ~5 minutes on first run while it pulls the model. Off by default, because a model is a real cost.
+              kagent's controller, the U4A adapter in Bob's namespace, and a small tool-calling model in the cluster — <strong>no account or API key anywhere.</strong> ~5 minutes on first run while it pulls the model. Off by default so a plain lab never pulls one.
             </td>
           </tr>
 
@@ -446,11 +446,11 @@ sudo security add-trusted-cert -d -r trustRoot \
     <div class="afters">
       <div class="after">
         <span class="after-label">In a Codespace</span>
-        <p>Only steps <strong>2</strong> and <strong>4</strong>. There is no resolver to edit and no CA to trust — <code>kind-up</code> publishes the portal itself. If you need to republish it later: <code>make codespaces-web</code></p>
+        <p>Only steps <strong>2</strong> and <strong>4</strong>. No resolver to edit, no CA to trust. <code>kind-up</code> publishes the portal for you; to republish it later run <code>make codespaces-web</code></p>
       </div>
       <div class="after">
         <span class="after-label">Running it a second time</span>
-        <p><code>make k8s-reset</code> first. Without it she has already met the agent, so step 2 reads <em>operation request</em> rather than <em>connection request</em> and the first-contact beat is gone.</p>
+        <p><code>make k8s-reset</code> first. Skip it and Alice has already met the agent, so step 2 says <em>operation request</em> instead of <em>connection request</em>.</p>
       </div>
     </div>
 
@@ -481,7 +481,7 @@ make kagent MODEL=openai</code></div>
 
   <section class="runthrough">
     <h2>The run-through</h2>
-    <p class="run-note">Terminal on the left, her portal on the right. One question gets asked twice, on purpose.</p>
+    <p class="run-note">Terminal on the left, her portal on the right. </p>
 
   <div class="table-scroll">
     <table>
@@ -500,6 +500,18 @@ make kagent MODEL=openai</code></div>
       <tbody>
 
         <tr class="term">
+          <td class="num">0</td>
+          <td class="act">
+            <span class="where">Terminal</span>
+            <div class="cmdwrap"><code class="cmd">make k8s-status</code></div>
+          </td>
+          <td class="say">
+            <span class="lede">Display the status of the entire lab</span>
+            Every containers status 
+          </td>
+        </tr>
+
+        <tr class="term">
           <td class="num">1</td>
           <td class="act">
             <span class="where">Terminal</span>
@@ -507,8 +519,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip tier">Tier 1 · Holdings summary</span>
-            <span class="lede">This is Bob's agent, and nobody modified it.</span>
-            Stock kagent, an unmodified agent framework that has never heard of UMA. It sees three ordinary MCP tools. Watch the right screen, not this one.
+            <span class="lede">Bob's agent is about to ask for Alice's holdings.</span>
+            This is stock kagent. Nobody changed it, and it has never heard of UMA. All it sees is three MCP tools.
           </td>
         </tr>
 
@@ -520,8 +532,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip held">Held for her</span>
-            <span class="lede">It stopped. She has never met this agent.</span>
-            First contact is held — the framework's identity buys it nothing. This is the one moment she is awake. Approve, and the holdings land on the left: <strong>one operation, single-use, bound to the agent's key.</strong> No token left over.
+            <span class="lede">It stopped. Alice has never met this agent.</span>
+            Nothing happens until she says yes. Approve, and the holdings come back on the left. <strong>What she granted covers that one call and nothing else.</strong>
           </td>
         </tr>
 
@@ -533,8 +545,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip tier">Tier 2 · Transactions</span>
-            <span class="lede">Different tier, different question.</span>
-            She let it see her holdings. That is not the same as letting it read her transaction history.
+            <span class="lede">Now it wants her transaction history.</span>
+            That is a different tier. Letting it see her holdings gave it no access to this.
           </td>
         </tr>
 
@@ -546,8 +558,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip held">Held for her</span>
-            <span class="lede">She is asked once per tier, not once per agent.</span>
-            Letting it see her holdings did not admit it to her transaction history. She approves this tier once — and that is the last time she sees it. <strong>Set up the next step:</strong> now watch what happens when it asks again.
+            <span class="lede">It stops again, and this is the last time.</span>
+            She approves each tier once. <strong>Tell them to watch what happens when it asks for the same thing again.</strong>
           </td>
         </tr>
 
@@ -559,8 +571,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip through">Through · no approval</span>
-            <span class="lede">Nothing stops. She is not woken, and the portal does not move.</span>
-            <strong>This is the point of tier 2.</strong> Her standing terms answered it while she was away — she was asked once, and never again for what she had already decided. Say it out loud: nobody approved this one.
+            <span class="lede">Nothing stopped. Nobody approved this one.</span>
+            Same question as before. Her terms already covered it, so it went straight through while she was away. <strong>The portal never moved.</strong>
           </td>
         </tr>
 
@@ -572,8 +584,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip tier">Tier 3 · Trade execution</span>
-            <span class="lede">Now it asks for money to move.</span>
-            The agent does not know this tier is different. Her policy does. It stops and waits — from the agent's side, an ask-me tier is just a slow tool call.
+            <span class="lede">Now it wants to sell her shares.</span>
+            She marked this tier ask-me, so it stops and waits for her. The agent just sees a slow tool call.
           </td>
         </tr>
 
@@ -585,8 +597,8 @@ make kagent MODEL=openai</code></div>
           </td>
           <td class="say">
             <span class="chip refused">Refused</span>
-            <span class="lede">The act she cared about could not proceed without her.</span>
-            She marked this tier ask-me, and she said no. The agent takes no for an answer and stops. Nothing standing was left behind to try again with.
+            <span class="lede">She says no, and the trade does not happen.</span>
+            The agent stops there. It has no leftover token to retry with.
           </td>
         </tr>
 
@@ -597,8 +609,8 @@ make kagent MODEL=openai</code></div>
             <span class="click">Settings → Security → <span class="btn plain">Agent Authorization</span></span>
           </td>
           <td class="say">
-            <span class="lede">All of it recorded on her side, in her words.</span>
-            Connected agents, what each promised, what it touched, and the one action she personally approved — plus the one she refused. Recorded by the owner's authority, not by the operator of the agent. <strong>Click Revoke</strong> if they ask what happens next.
+            <span class="lede">Everything is recorded on her side.</span>
+            Each agent, what it promised, what it touched, and what she approved or refused. <strong>Click Revoke</strong> if they ask what happens next.
           </td>
         </tr>
 
