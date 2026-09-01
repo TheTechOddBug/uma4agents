@@ -132,8 +132,12 @@ make kagent-ask Q="Show me her transaction history and cost basis." SIM=0
 ```
 
 **4 · Portal — Approve.** *Held for her.* It stops again, and this is the last
-time. She approves each tier once. **Tell them to watch what happens when it
+time. She approves each tier once. **Now lets watch what happens when it
 asks for the same thing again.**
+
+```bash
+make kagent-ask Q="Show me her transaction history and cost basis." SIM=0
+```
 
 **5 · Terminal** — *through · no approval.* Nothing stopped. Nobody approved
 this one. Same question as before. Her terms already covered it, so it went
