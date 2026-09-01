@@ -22,6 +22,13 @@ release within that month. One entry per release.
 
 ## September 1 2026
 
+### v2026.09.3
+
+#### Enhancements
+
+- **Docs:** the Lab demonstrations pages carry everything the run cards do — the setup, where to sign in, the Codespace and re-run notes, and how to switch model provider — with every command in a copyable block.
+- **Docs:** the README and the Codespace walkthrough link the run cards.
+
 ### v2026.09.2
 
 #### Bug fixes

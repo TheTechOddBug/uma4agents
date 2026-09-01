@@ -459,6 +459,24 @@ Puts a request in front of Alice, deletes the authorization server that
 accepted it, kills the database primary, waits for failover, then has her
 answer *that same request*. Not a fresh one.
 
+## Showing it to somebody
+
+You have just walked one of these by hand. There is a run card for each use
+case — what to type, what to click, and what is worth saying while it happens:
+
+- **[Alice to Bob](docs/cards/kagent-demo.html)** — an agent framework nobody
+  modified, governed by her policy anyway
+- **[Two owners, one account](docs/cards/joint-ownership.html)** — a jointly
+  held account neither owner can release alone
+- **[Two owners, two authorities](docs/cards/multi-owner.html)** — one agent
+  asking two owners, who answer differently
+- **[Her own agent](docs/cards/first-party.html)** — being hers buys less
+  friction and no more access
+- **[Her personal AI](docs/cards/personal-ai.html)** — standing consent
+  answering, and refusing what it cannot ask her about
+- **[The firm's book](docs/cards/organization.html)** — a resource that is hers
+  to administer only while she is a member
+
 ## Where to read more
 
 - **[docs/DEMOS.md](docs/DEMOS.md)** — the three demos, and when to reach for

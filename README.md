@@ -110,6 +110,24 @@ At any point Alice opens her portal and sees which agents are connected, what
 each promised, what it touched, and the one action she personally approved —
 and can revoke any of them.
 
+### Demonstrating it
+
+Six run sheets, one per use case — what to type, what to click, and what is
+worth saying while it happens. Each is driven by asking an agent a question and
+then deciding as the owner.
+
+| Card | What it shows |
+|---|---|
+| [Alice to Bob](docs/cards/kagent-demo.html) | An agent framework nobody modified, governed by her policy anyway |
+| [Two owners, one account](docs/cards/joint-ownership.html) | A jointly held account neither owner can release alone |
+| [Two owners, two authorities](docs/cards/multi-owner.html) | One agent asking two owners, who answer differently |
+| [Her own agent](docs/cards/first-party.html) | Being hers buys less friction and no more access |
+| [Her personal AI](docs/cards/personal-ai.html) | Standing consent answering, and refusing what it cannot ask her about |
+| [The firm's book](docs/cards/organization.html) | A resource that is hers to administer only while she is a member |
+
+The same six are on the site under
+[Guides → Lab demonstrations](https://u4a.ai/docs/guides/demos/).
+
 ## Screenshots
 
 ### Alice's Brokerage 

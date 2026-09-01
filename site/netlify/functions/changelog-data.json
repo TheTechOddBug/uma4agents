@@ -1,6 +1,17 @@
 [
   {
     "date": "September 1 2026",
+    "version": "v2026.09.3",
+    "url": "/changelog/",
+    "page": "Changelog",
+    "changes": [
+      "Docs: the Lab demonstrations pages carry everything the run cards do — the setup, where to sign in, the Codespace and re-run notes, and how to switch model provider — with every command in a copyable block.",
+      "Docs: the README and the Codespace walkthrough link the run cards."
+    ],
+    "body": "#### Enhancements\n\n- **Docs:** the Lab demonstrations pages carry everything the run cards do — the setup, where to sign in, the Codespace and re-run notes, and how to switch model provider — with every command in a copyable block.\n- **Docs:** the README and the Codespace walkthrough link the run cards."
+  },
+  {
+    "date": "September 1 2026",
     "version": "v2026.09.2",
     "url": "/changelog/",
     "page": "Changelog",
