@@ -1,6 +1,18 @@
 [
   {
     "date": "September 1 2026",
+    "version": "v2026.09.2",
+    "url": "/changelog/",
+    "page": "Changelog",
+    "changes": [
+      "Docs: `make kagent` was still described as the local no-account path in `KAGENT.md`, `DEMOS.md`, `KUBERNETES.md` and the Run the lab guide after the default became a hosted model, and `kagent.sh` pinned an Anthropic model two releases behind the one the demo cards name.",
+      "Docs: the Lab demonstrations pages reproduce their run cards rather than paraphrasing them, and are generated from those cards so the two cannot drift.",
+      "Agent shim: `Upstream.resume()` reported \"still waiting\" as a bare string, the same type as the grant it had to be distinguished from. It returns an explicit state."
+    ],
+    "body": "#### Bug fixes\n\n- **Docs:** `make kagent` was still described as the local no-account path in `KAGENT.md`, `DEMOS.md`, `KUBERNETES.md` and the Run the lab guide after the default became a hosted model, and `kagent.sh` pinned an Anthropic model two releases behind the one the demo cards name.\n- **Docs:** the Lab demonstrations pages reproduce their run cards rather than paraphrasing them, and are generated from those cards so the two cannot drift.\n- **Agent shim:** `Upstream.resume()` reported \"still waiting\" as a bare string, the same type as the grant it had to be distinguished from. It returns an explicit state."
+  },
+  {
+    "date": "September 1 2026",
     "version": "v2026.09.1",
     "url": "/changelog/",
     "page": "Changelog",

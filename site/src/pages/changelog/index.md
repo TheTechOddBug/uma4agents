@@ -22,6 +22,14 @@ release within that month. One entry per release.
 
 ## September 1 2026
 
+### v2026.09.2
+
+#### Bug fixes
+
+- **Docs:** `make kagent` was still described as the local no-account path in `KAGENT.md`, `DEMOS.md`, `KUBERNETES.md` and the Run the lab guide after the default became a hosted model, and `kagent.sh` pinned an Anthropic model two releases behind the one the demo cards name.
+- **Docs:** the Lab demonstrations pages reproduce their run cards rather than paraphrasing them, and are generated from those cards so the two cannot drift.
+- **Agent shim:** `Upstream.resume()` reported "still waiting" as a bare string, the same type as the grant it had to be distinguished from. It returns an explicit state.
+
 ### v2026.09.1
 
 #### New
