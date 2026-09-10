@@ -117,7 +117,7 @@ logs:
 ## fixture: the grant with nothing standing behind it — no identity provider,
 ## no database, no gateway, no certificate, no host state. A test harness for
 ## the protocol on its own, not a deployment. See docs/FIXTURE.md.
-.PHONY: fixture fixture-down owner flow-check first-party-check assurance-check kwaai-check kwaai-host
+.PHONY: fixture fixture-down owner flow-check first-party-check subagent-check assurance-check kwaai-check kwaai-host
 fixture:
 	docker compose -f compose.fixture.yml up -d --build owner-keygen uma-as alice-vault-mcp
 	docker compose -f compose.fixture.yml --profile check run --rm fixture-check
@@ -129,6 +129,14 @@ fixture-down:
 ## The check behind docs/FLOW.md — agent identity never reaches her decision.
 flow-check:
 	docker compose --profile test run --rm flow-check
+
+## subagent-check: an orchestrator's workers — each admitted on an
+## introduction, each negotiating its own grant under its own key, all of them
+## held to a tier ceiling she cannot configure away, and all of them dying with
+## the agent that introduced them. See docs/SUBAGENTS.md.
+.PHONY: subagent-check
+subagent-check:
+	docker compose --profile test run --rm subagent-check
 
 ## first-party-check: the degenerate case — an agent Alice activated herself.
 ## RO == RqP, and the requesting agent is still a third thing. Proves the grant
@@ -421,6 +429,15 @@ sig-test:
 rules-test:
 	@docker run --rm -v "$(PWD)":/u4a -w /u4a python:3.12-slim \
 		python lib/test_policy.py
+
+## introduction-test: sub-agent introductions — what one agent may say about
+## another, and every reason the owner's authority refuses to act on it. Mints
+## with the client helper and verifies with the server module, so the two
+## sides are checked against each other. Needs nothing running.
+.PHONY: introduction-test
+introduction-test:
+	@docker run --rm -v "$(PWD)":/u4a -w /u4a python:3.12-slim \
+		sh -c "pip install -q 'pyjwt[crypto]' httpx && python lib/test_introduction.py"
 
 ## org-test: the organization's ceiling — what it may do to a member's terms,
 ## and what it may never touch. Unit tests over the algebra and the charter
