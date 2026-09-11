@@ -1,0 +1,62 @@
+# A live n8n MCP server behind a live U4A sidecar, in the lab's cluster.
+# Three containers in one pod so the hops are localhost and the shape is
+# obvious: n8n is the resource, the sidecar is the only way to it, and the
+# client is an ordinary agent. See integrations/n8n/README.md.
+apiVersion: v1
+kind: Pod
+metadata: { name: n8n-e2e, namespace: meridian, labels: { app: n8n-e2e } }
+spec:
+  restartPolicy: Never
+  serviceAccountName: uma-pep
+  containers:
+    - name: n8n
+      image: n8nio/n8n:latest
+      command: ["/bin/sh","-ec"]
+      args:
+        - |
+          export N8N_ENCRYPTION_KEY=testkeytestkeytestkey123
+          export N8N_USER_FOLDER=/tmp/n8nhome
+          export N8N_PORT=5678
+          export N8N_LISTEN_ADDRESS=0.0.0.0
+          export N8N_SECURE_COOKIE=false
+          export N8N_RUNNERS_ENABLED=true
+          mkdir -p /tmp/n8nhome/.n8n
+          n8n import:credentials --input=/fixtures/creds.json
+          n8n import:workflow --input=/fixtures/wf.json
+          n8n publish:workflow --id=u4aMcpStarter001 2>&1
+          exec n8n start
+      volumeMounts:
+        - { name: fixtures, mountPath: /fixtures }
+    - name: sidecar
+      image: localhost:5001/u4a/uma-pep:dev
+      imagePullPolicy: Always
+      env:
+        - { name: UMA_PEP_UPSTREAM, value: "http://127.0.0.1:5678/mcp/u4a-protected" }
+        - { name: UMA_PEP_UPSTREAM_HEADER, value: "X-Sidecar-Auth" }
+        - { name: UMA_PEP_UPSTREAM_AUTH, value: "only-the-sidecar-knows" }
+        - { name: UMA_PEP_TOOLS, value: "/fixtures/tools.json" }
+        - { name: UMA_AS_PUBLIC, value: "https://alice-as.uma.lab" }
+        - { name: UMA_AS_INTERNAL, value: "http://uma-as.alice.svc.cluster.local:9000" }
+        - { name: UMA_AS_RS_CLIENT_ID, value: "meridian-gateway" }
+        - { name: UMA_AS_RS_CLIENT_SECRET, value: "" }
+        - { name: UMA_OWNER, value: "alice" }
+        - { name: UMA_REALM, value: "alice-vault" }
+        - { name: UMA_EXPECTED_AUTHORITY, value: "gateway.uma.lab" }
+        - { name: UMA4A_CA_BUNDLE, value: "/certs/rootCA.pem" }
+      volumeMounts:
+        - { name: certs, mountPath: /certs }
+        - { name: keys, mountPath: /keys }
+        - { name: tools, mountPath: /fixtures }
+    - name: client
+      image: localhost:5001/u4a/uma-as:dev
+      command: ["sleep", "3600"]
+      volumeMounts:
+        - { name: fixtures, mountPath: /driver }
+        - { name: lib, mountPath: /driver/lib }
+        - { name: certs, mountPath: /certs }
+  volumes:
+    - { name: fixtures, configMap: { name: n8n-fixtures } }
+    - { name: lib, configMap: { name: demo-lib } }
+    - { name: certs, configMap: { name: uma-lab-ca-bundle } }
+    - { name: keys, secret: { secretName: uma-pep-signing-key } }
+    - { name: tools, configMap: { name: sidecar-tools } }

@@ -26,6 +26,7 @@ import time
 
 import httpx
 import jwt
+from urllib.parse import urlparse
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI, Request, Response
@@ -697,6 +698,13 @@ async def check(request: Request, rest: str = "") -> Response:
 # codebase keeps refusing to have. A 200 from it means allow, and only then is
 # anything sent upstream.
 UPSTREAM = os.environ.get("UMA_PEP_UPSTREAM")
+# A credential the upstream requires, which only this sidecar holds. It is not
+# what authorizes agents — that has already happened by the time anything is
+# forwarded — it is what stops the upstream being reachable *around* the
+# sidecar by anyone who learns its URL. Defence in depth, and the thing the
+# conformance check's last assertion is about.
+UPSTREAM_HEADER = os.environ.get("UMA_PEP_UPSTREAM_HEADER", "")
+UPSTREAM_AUTH = os.environ.get("UMA_PEP_UPSTREAM_AUTH", "")
 # Hop-by-hop headers, plus the ones this hop is authoritative for. Passing
 # Host through would send the upstream a name it does not answer to.
 _DROP = {"host", "connection", "keep-alive", "transfer-encoding", "upgrade",
@@ -728,12 +736,25 @@ async def sidecar(request: Request, rest: str = "") -> Response:
     headers["x-uma-contract"] = verdict.headers.get("x-uma-contract", "")
     headers["x-forwarded-host"] = request.headers.get("host", "")
     headers["x-forwarded-proto"] = request.url.scheme
+    if UPSTREAM_HEADER and UPSTREAM_AUTH:
+        headers[UPSTREAM_HEADER] = UPSTREAM_AUTH
 
+    # Where UMA_PEP_UPSTREAM names a path it *is* the endpoint, and the
+    # request's own path is not appended to it. That is the ordinary case in
+    # front of a workflow tool, whose MCP server lives at one generated URL
+    # like /mcp/<id> — appending would turn it into /mcp/<id>/mcp, which the
+    # tool answers with a 404 that says nothing about why.
+    #
+    # A bare origin keeps the request's path, which is what fronting a server
+    # with several paths needs.
+    target = UPSTREAM.rstrip("/")
+    if not urlparse(target).path:
+        target = f"{target}/{rest.lstrip('/')}"
     try:
         async with httpx.AsyncClient(timeout=SIDECAR_TIMEOUT_S) as c:
             up = await c.request(
                 request.method,
-                f"{UPSTREAM.rstrip('/')}/{rest.lstrip('/')}",
+                target,
                 content=await request.body(),
                 headers=headers,
                 params=dict(request.query_params),
@@ -743,9 +764,15 @@ async def sidecar(request: Request, rest: str = "") -> Response:
         return deny(502, {"error": "upstream_unreachable",
                           "error_description": "the protected resource did not "
                                                "answer"})
+    # `up.content` has already been decoded, so the upstream's
+    # content-encoding and content-length describe a body that no longer
+    # exists — forwarding them has the client decompress a second time and
+    # fail on a header check, which reads like a corrupt response rather than
+    # a proxy bug.
+    passthrough = _DROP | {"content-encoding", "content-length"}
     return Response(status_code=up.status_code, content=up.content,
                     headers={k: v for k, v in up.headers.items()
-                             if k.lower() not in _DROP},
+                             if k.lower() not in passthrough},
                     media_type=up.headers.get("content-type"))
 
 

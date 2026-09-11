@@ -28,8 +28,13 @@ release within that month. One entry per release.
 
 - **Enforcement point:** the tool surface is configurable. `UMA_PEP_TOOLS` names a JSON document mapping each MCP tool to a resource id, its scopes and whether its grant is single-use — which is what the owner's tiers can name, and therefore what she can approve separately. Absent, the lab's own surface is used. A malformed document stops the service rather than silently protecting the wrong tools.
 
+- **Enforcement point:** `UMA_PEP_UPSTREAM_HEADER` and `UMA_PEP_UPSTREAM_AUTH` present a credential the upstream requires, so a resource fronted by the sidecar is not reachable around it by anyone who learns its URL.
+- **Integrations:** `integrations/n8n/lab/` runs a live n8n behind a live sidecar in the lab's cluster, with a step-by-step walkthrough, and `docs/n8n-sidecar.svg` shows the flow and what is on the wire at each beat.
+
 #### Bug fixes
 
+- **Enforcement point:** in sidecar mode the request path was appended to `UMA_PEP_UPSTREAM` even when that named a path, so fronting a workflow tool's generated URL produced `/mcp/<id>/mcp` and a 404 that explained nothing. A configured path is now the endpoint; a bare origin still keeps the request path.
+- **Enforcement point:** the upstream's `content-encoding` and `content-length` were forwarded alongside a body the sidecar had already decoded, so the client decompressed twice and failed on a header check that read like a corrupt response.
 - **Integrations:** the n8n kit described a `tools.json` nothing read, an environment variable that did not exist, a client secret the registration flow does not use, and an image that was never published. It omitted the step that matters most — the owner authorizing the resource server before it can protect anything. Corrected, and the sidecar path is now verified end to end against the lab.
 
 ## September 10 2026

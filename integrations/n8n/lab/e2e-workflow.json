@@ -1,0 +1,95 @@
+[
+  {
+    "id": "u4aMcpStarter001",
+    "name": "U4A-ready MCP server (starter)",
+    "nodes": [
+      {
+        "parameters": {
+          "authentication": "headerAuth",
+          "path": "u4a-protected"
+        },
+        "id": "b7c1e2a4-0001-4a10-9f11-2a3b4c5d6e01",
+        "name": "MCP Server Trigger",
+        "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "notes": "Header auth keeps this endpoint from being reached around the U4A sidecar. It is not what authorizes agents \u2014 the sidecar does that, before anything gets here. Copy the PRODUCTION URL into UMA_PEP_UPSTREAM.",
+        "webhookId": "b7c1e2a4-0001-4a10-9f11-2a3b4c5d6e01",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "u4aSidecarHdr01",
+            "name": "U4A sidecar header"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "name": "get_positions",
+          "description": "List invoices for a customer",
+          "language": "javaScript",
+          "jsCode": "return JSON.stringify({ served_by: 'n8n', tool: 'get_positions', holdings: ['VTI','VXUS','BND'] });"
+        },
+        "id": "b7c1e2a4-0002-4a10-9f11-2a3b4c5d6e02",
+        "name": "get_positions",
+        "type": "@n8n/n8n-nodes-langchain.toolCode",
+        "typeVersion": 1.3,
+        "position": [
+          260,
+          -140
+        ],
+        "notes": "A read. Give it its own resource id in tools.json so the owner can put it in a tier of its own."
+      },
+      {
+        "parameters": {
+          "name": "get_transactions",
+          "description": "Refund a payment",
+          "language": "javaScript",
+          "jsCode": "return JSON.stringify({ served_by: 'n8n', tool: 'get_transactions', holdings: ['VTI','VXUS','BND'] });"
+        },
+        "id": "b7c1e2a4-0003-4a10-9f11-2a3b4c5d6e03",
+        "name": "get_transactions",
+        "type": "@n8n/n8n-nodes-langchain.toolCode",
+        "typeVersion": 1.3,
+        "position": [
+          260,
+          140
+        ],
+        "notes": "An act with consequences. This is the one that belongs on a tier the owner marked ask-me, and the reason tools are split rather than exposed as one endpoint."
+      }
+    ],
+    "connections": {
+      "get_positions": {
+        "ai_tool": [
+          [
+            {
+              "node": "MCP Server Trigger",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "get_transactions": {
+        "ai_tool": [
+          [
+            {
+              "node": "MCP Server Trigger",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "meta": {
+      "description": "A starter MCP server shaped for U4A. Two tools on purpose: one read and one act with consequences, so the owner has something worth splitting across tiers. Import it, replace the tool bodies with your own, activate it, then put the U4A sidecar in front \u2014 see integrations/n8n/README.md."
+    },
+    "active": true
+  }
+]

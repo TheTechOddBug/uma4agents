@@ -7,6 +7,14 @@ The same files work for any tool that publishes a streamable-HTTP MCP
 endpoint — StitchOps, Zapier, a hand-written FastMCP server. Change
 `UMA_PEP_UPSTREAM` and you have integrated that one instead.
 
+![U4A in front of n8n. An MCP client calls a tool and is answered 401 with a
+UMA challenge by the sidecar, which n8n never sees. The client negotiates the
+owner's terms at her authorization server and comes back with a grant bound to
+its own key. The sidecar introspects it and forwards to n8n, stripping the
+agent's Authorization and adding its own credential and the contract digest.
+Before any of that, the sidecar registers itself with her authority and waits
+for her to approve it.](../../docs/n8n-sidecar.svg)
+
 ## 1 · Publish the MCP server in n8n
 
 Import `workflow-template.json`, or add an **MCP Server Trigger** yourself and
@@ -88,25 +96,94 @@ challenge named, confirms a made-up bearer token gets nowhere, and — the one
 people forget — confirms the resource itself refuses a call that did not come
 through the sidecar.
 
-## What is verified, and what is not
+## Run it yourself, against the lab
 
-The sidecar path has been run end to end against the lab's authorization
-server: a call with no grant is answered `401` with a UMA challenge, the
-upstream is never reached, and after a real grant is negotiated the call is
-forwarded and answered `200`. The upstream sees an `X-Uma-Contract` header and
-**does not** see the agent's `Authorization` — that grant is addressed to the
-owner's authority and spent at the sidecar, and an upstream holding it could
-replay it.
+The lab already has an authorization server, an owner and a CA, so it is the
+cheapest place to watch the whole thing work. `lab/e2e-pod.yaml` puts a live
+n8n and a live sidecar in one pod, with an ordinary agent beside them — three
+containers so every hop is localhost and the shape stays obvious.
 
-`workflow-template.json` imports into n8n 2.38.6 and round-trips back out with
-all three nodes resolving at their current versions — `mcpTrigger` 2.1 and two
-`toolCode` 1.3. Import it, replace the tool bodies, activate it.
+**1 · Bring the lab up** and make sure it is healthy.
 
 ```bash
-n8n import:workflow --input=workflow-template.json
+make kind-up && make k8s-status
 ```
 
-What has not been run is the two halves joined: a live n8n behind a live
-sidecar. The sidecar speaks HTTP to an HTTP upstream and parses MCP from the
-body, so that join is configuration rather than code — but it is worth saying
-which part was tested and which was reasoned.
+**2 · Load the fixtures.** The workflow, its header credential, the tool
+surface the sidecar protects, and the agent script.
+
+```bash
+kubectl create cm n8n-fixtures -n meridian   --from-file=wf.json=integrations/n8n/lab/e2e-workflow.json   --from-file=creds.json=integrations/n8n/lab/e2e-credentials.json   --from-file=e2e.py=integrations/n8n/lab/e2e-client.py
+kubectl create cm sidecar-tools -n meridian   --from-file=tools.json=integrations/n8n/lab/e2e-tools.json
+kubectl create cm demo-lib -n meridian   --from-file=lib/uma4a_grant.py --from-file=lib/uma4a_http_sig.py   --from-file=lib/uma4a_org.py --from-file=lib/uma4a_joint.py
+```
+
+**3 · Start it.** n8n imports the workflow, publishes it, and comes up; the
+sidecar registers itself with Alice's authority.
+
+```bash
+kubectl apply -f integrations/n8n/lab/e2e-pod.yaml
+kubectl -n meridian logs -f n8n-e2e -c n8n | grep -m1 "published workflows"
+```
+
+**4 · Alice authorizes the resource server.** Until she does, every call
+through the sidecar answers `authorization_pending`. In her portal at
+`https://portal.uma.lab` (**alice** / **alice-demo**) it is under
+**Settings → Security → Agent Authorization → Resource servers**.
+
+**5 · Run the agent**, and answer its first contact in her portal when the
+badge appears.
+
+```bash
+kubectl -n meridian exec n8n-e2e -c client -- python3 /driver/e2e.py
+```
+
+What it prints:
+
+```
+1 initialize through the sidecar -> 200 session True
+2 tools/call with no grant -> 401
+  challenge from -> https://alice-as.uma.lab
+3 grant negotiated -> True
+4 same call with the grant -> 200
+  n8n answered -> {"served_by":"n8n","tool":"get_positions", ...}
+```
+
+**6 · Check that n8n is not reachable around the sidecar.**
+
+```bash
+kubectl -n meridian exec n8n-e2e -c client -- python3 -c   "import httpx; print(httpx.post('http://127.0.0.1:5678/mcp/u4a-protected', json={}, timeout=10).status_code)"
+```
+
+`403`. The sidecar holds a header credential n8n requires and nothing else
+has it.
+
+**Tear it down.**
+
+```bash
+kubectl -n meridian delete pod n8n-e2e
+kubectl -n meridian delete cm n8n-fixtures sidecar-tools demo-lib
+```
+
+The workflow in `lab/` exposes the lab's own tool names, so Alice's existing
+tiers govern it and no policy has to be written to see the whole loop. The
+template at the top of this directory keeps the billing example, which is the
+shape you would actually start from.
+
+## What the sidecar does to the request
+
+On the way out it adds two headers and removes one.
+
+`X-Uma-Contract` is the agreement digest — a fact about the call the upstream
+may want to log, and useless for obtaining anything. The credential named by
+`UMA_PEP_UPSTREAM_HEADER` is the one the upstream requires, which only the
+sidecar holds.
+
+The agent's `Authorization` is **not** forwarded. That grant is addressed to
+the owner's authority and spent at the sidecar; an upstream holding it could
+replay it.
+
+`UMA_PEP_UPSTREAM` naming a path means it *is* the endpoint — the request's own
+path is not appended. That is the ordinary case in front of a workflow tool,
+whose MCP server lives at one generated URL. A bare origin keeps the request
+path instead, for fronting a server with several.

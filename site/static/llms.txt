@@ -81,6 +81,7 @@ UMA 2.0. Listed in reading order.
 Every release, newest first. One entry per merged change; several land on
 most days.
 
+- [September 11 2026 · v2026.09.5](https://u4a.ai/changelog.md): Enforcement point: the tool surface is configurable. `UMA_PEP_TOOLS` names a JSON document mapping each MCP tool to a resource id, its scopes and whether its grant is single-use — which is what the owner's tiers can name, and therefore what she can approve separately. Absent, the lab's own surface is used. A malformed document stops the service rather than silently protecting the wrong tools.
 - [September 10 2026 · v2026.09.4](https://u4a.ai/changelog.md): Authorization server: sub-agent grants. An agent holding a connection may introduce a sibling, which skips first contact and then negotiates its own terms under its own key for its own grant. Nothing is passed down and nothing is inherited.
 - [September 1 2026 · v2026.09.3](https://u4a.ai/changelog.md): Docs: the Lab demonstrations pages carry everything the run cards do — the setup, where to sign in, the Codespace and re-run notes, and how to switch model provider — with every command in a copyable block.
 - [September 1 2026 · v2026.09.2](https://u4a.ai/changelog.md): Docs: `make kagent` was still described as the local no-account path in `KAGENT.md`, `DEMOS.md`, `KUBERNETES.md` and the Run the lab guide after the default became a hosted model, and `kagent.sh` pinned an Anthropic model two releases behind the one the demo cards name.
@@ -92,7 +93,6 @@ most days.
 - [August 25 2026 · v2026.08.22](https://u4a.ai/changelog.md): Organization: a charter may only claim a namespace it names. `northwind-vault/*` is accepted; `*/get_positions` is refused.
 - [August 25 2026 · v2026.08.21](https://u4a.ai/changelog.md): Joint ownership: a resource can have several owners of equal standing, none of whom can decide alone. A published mandate names who is entitled to be counted, at what weight and how many it takes; each owner's authority signs a verdict bound to one negotiation and one agreement; a tally collects them.
 - [August 25 2026 · v2026.08.20](https://u4a.ai/changelog.md): Organization: an organization can own resources, share them with members under a role, and set policy over them. Each member administers access through her own authorization server and her own terms. New `org-authority` service.
-- [August 23 2026 · v2026.08.19](https://u4a.ai/changelog.md): Authorization server: one resource server can hold many people's accounts, each governed by an authorization server of her own. Every owner-scoped artifact carries its owner: the ticket, the grant, the resource id, the terms template and the RFC 9728 document.
 - [The full changelog](https://u4a.ai/changelog.md): every release since the first.
 
 ## Posts

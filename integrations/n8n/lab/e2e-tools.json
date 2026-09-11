@@ -1,0 +1,5 @@
+{
+  "get_positions": { "resource": "alice-vault/get_positions", "scopes": ["positions:read"] },
+  "get_transactions": { "resource": "alice-vault/get_transactions", "scopes": ["transactions:read"] },
+  "execute_trade": { "resource": "alice-vault/execute_trade", "scopes": ["trades:execute"], "single_use": true }
+}

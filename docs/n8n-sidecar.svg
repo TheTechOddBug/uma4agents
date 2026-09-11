@@ -1,0 +1,169 @@
+<svg viewBox="0 0 1800 1230" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <!-- n8n-sidecar — U4A in front of an MCP server the owner did not write.
+       Boxes, then connectors, then every label last.
+       Colour: site/src/style/theme.js -->
+  <defs>
+    <marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8cc2d4"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#bcdb2c"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#e8836b"/>
+    </marker>
+    <marker id="w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8f97"/>
+    </marker>
+  </defs>
+  <style>
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; }
+    .k { fill: #9cdcfe; } .s { fill: #ce9178; } .n { fill: #b5cea8; }
+    .c { fill: #6a9955; } .p { fill: #d4d4d4; } .kw { fill: #c586c0; } .ok { fill: #bcdb2c; }
+    .no { fill: #e8836b; }
+  </style>
+
+  <rect width="1800" height="1230" fill="#0a0b0d"/>
+
+  <!-- ===== boxes ===== -->
+  <g>
+    <rect x="60" y="250" width="300" height="130" rx="10" fill="#121317" stroke="#5e8fa3" stroke-width="1.6"/>
+
+    <rect x="480" y="170" width="700" height="530" rx="12" fill="none" stroke="#8a8f97" stroke-width="1.4" stroke-dasharray="7 5"/>
+    <rect x="520" y="210" width="620" height="140" rx="10" fill="#121317" stroke="#bcdb2c" stroke-width="1.8"/>
+    <rect x="520" y="480" width="620" height="160" rx="10" fill="#121317" stroke="#3a4a52" stroke-width="1.4"/>
+    <rect x="550" y="556" width="250" height="34" rx="6" fill="#0d0f13" stroke="#2d3138"/>
+    <rect x="820" y="556" width="290" height="34" rx="6" fill="#0d0f13" stroke="#2d3138"/>
+
+    <rect x="1270" y="170" width="500" height="390" rx="12" fill="none" stroke="#bcdb2c" stroke-width="1.4" stroke-dasharray="7 5"/>
+    <rect x="1300" y="210" width="440" height="120" rx="10" fill="#121317" stroke="#bcdb2c" stroke-width="1.6"/>
+    <rect x="1300" y="410" width="440" height="110" rx="10" fill="#121317" stroke="#3a4a52" stroke-width="1.4"/>
+
+    <rect x="60" y="800" width="540" height="380" rx="8" fill="#1b1d21" stroke="#2d3036" stroke-width="1.2"/>
+    <rect x="60" y="800" width="540" height="26" rx="8" fill="#232529"/>
+    <rect x="60" y="818" width="540" height="8" fill="#232529"/>
+    <rect x="630" y="800" width="540" height="380" rx="8" fill="#1b1d21" stroke="#2d3036" stroke-width="1.2"/>
+    <rect x="630" y="800" width="540" height="26" rx="8" fill="#232529"/>
+    <rect x="630" y="818" width="540" height="8" fill="#232529"/>
+    <rect x="1200" y="800" width="540" height="380" rx="8" fill="#1b1d21" stroke="#2d3036" stroke-width="1.2"/>
+    <rect x="1200" y="800" width="540" height="26" rx="8" fill="#232529"/>
+    <rect x="1200" y="818" width="540" height="8" fill="#232529"/>
+    <circle cx="78" cy="813" r="3.5" fill="#e8836b"/><circle cx="90" cy="813" r="3.5" fill="#f2b955"/><circle cx="102" cy="813" r="3.5" fill="#bcdb2c"/>
+    <circle cx="648" cy="813" r="3.5" fill="#e8836b"/><circle cx="660" cy="813" r="3.5" fill="#f2b955"/><circle cx="672" cy="813" r="3.5" fill="#bcdb2c"/>
+    <circle cx="1218" cy="813" r="3.5" fill="#e8836b"/><circle cx="1230" cy="813" r="3.5" fill="#f2b955"/><circle cx="1242" cy="813" r="3.5" fill="#bcdb2c"/>
+  </g>
+
+  <!-- ===== connectors ===== -->
+  <g>
+    <path d="M830 206 L830 140 L1520 140 L1520 206" fill="none" stroke="#8a8f97" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#w)"/>
+    <line x1="1520" y1="406" x2="1520" y2="334" stroke="#8a8f97" stroke-width="1.6" marker-end="url(#w)"/>
+    <line x1="364" y1="265" x2="516" y2="265" stroke="#8cc2d4" stroke-width="2" marker-end="url(#t)"/>
+    <line x1="516" y1="300" x2="364" y2="300" stroke="#e8836b" stroke-width="2" marker-end="url(#r)"/>
+    <line x1="364" y1="340" x2="516" y2="340" stroke="#bcdb2c" stroke-width="2" marker-end="url(#g)"/>
+    <path d="M210 384 L210 452 L1240 452 L1240 272 L1296 272" fill="none" stroke="#8cc2d4" stroke-width="2" marker-end="url(#t)"/>
+    <line x1="830" y1="354" x2="830" y2="476" stroke="#bcdb2c" stroke-width="2" marker-end="url(#g)"/>
+  </g>
+
+  <!-- ===== labels ===== -->
+  <g>
+    <text x="900" y="56" fill="#ffffff" font-size="30" font-weight="700" text-anchor="middle">U4A in front of n8n</text>
+    <text x="900" y="90" fill="#a9aeb6" font-size="14.5" text-anchor="middle">n8n is not modified, and does not know any of this is happening</text>
+
+    <text x="84" y="288" fill="#ffffff" font-size="17" font-weight="650">Any MCP client</text>
+    <text x="84" y="314" fill="#a9aeb6" font-size="13">its own key · proof-of-possession</text>
+    <text x="84" y="338" fill="#757b83" font-size="13">knows nothing about U4A until</text>
+    <text x="84" y="358" fill="#757b83" font-size="13">the 401 tells it where to go</text>
+
+    <text x="500" y="196" fill="#8a8f97" font-size="13" font-weight="700" letter-spacing="1.4">YOUR NETWORK — ONLY THE SIDECAR IS EXPOSED</text>
+
+    <text x="544" y="248" fill="#bcdb2c" font-size="17" font-weight="650">U4A sidecar</text>
+    <text x="544" y="274" fill="#a9aeb6" font-size="13">the enforcement point, as a reverse proxy</text>
+    <text x="544" y="300" fill="#757b83" font-size="13">answers the challenge · introspects every call</text>
+    <text x="544" y="326" fill="#757b83" font-size="13">holds the credential n8n requires</text>
+
+    <text x="544" y="518" fill="#ffffff" font-size="17" font-weight="650">n8n — MCP Server Trigger</text>
+    <text x="544" y="542" fill="#757b83" font-size="13">a workflow you built, published at its own URL</text>
+    <text x="675" y="578" fill="#757b83" font-size="13" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">get_invoices</text>
+    <text x="965" y="578" fill="#757b83" font-size="13" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">issue_refund</text>
+    <text x="544" y="620" fill="#e8836b" font-size="13">unreachable except through the sidecar</text>
+
+    <text x="1296" y="196" fill="#bcdb2c" font-size="13" font-weight="700" letter-spacing="1.4">THE OWNER'S DOMAIN</text>
+    <text x="1324" y="248" fill="#ffffff" font-size="17" font-weight="650">Her authorization server</text>
+    <text x="1324" y="274" fill="#a9aeb6" font-size="13">tickets · her terms · grants</text>
+    <text x="1324" y="300" fill="#757b83" font-size="13">the sidecar registers here and waits</text>
+    <text x="1324" y="322" fill="#757b83" font-size="13">until she says yes</text>
+
+    <text x="1324" y="448" fill="#ffffff" font-size="17" font-weight="650">The owner</text>
+    <text x="1324" y="474" fill="#a9aeb6" font-size="13">approves the resource server, then the agent</text>
+    <text x="1324" y="498" fill="#757b83" font-size="13">portal: approve · revoke · audit</text>
+
+    <text x="1175" y="132" text-anchor="middle" fill="#8a8f97" font-size="12.5">0 · registers itself, signed with a key published at its own origin</text>
+
+    <text x="372" y="257" fill="#ffffff" font-size="14" font-weight="700">1</text>
+    <text x="390" y="257" fill="#8cc2d4" font-size="13">calls a tool</text>
+
+    <text x="540" y="442" fill="#ffffff" font-size="14" font-weight="700">3</text>
+    <text x="558" y="442" fill="#8cc2d4" font-size="13">negotiates her terms, signs the agreement, gets a grant bound to its key</text>
+
+    <text x="372" y="332" fill="#ffffff" font-size="14" font-weight="700">4</text>
+    <text x="390" y="332" fill="#bcdb2c" font-size="13">calls again, signed</text>
+
+    <text x="372" y="292" fill="#ffffff" font-size="14" font-weight="700">2</text>
+    <text x="390" y="292" fill="#e8836b" font-size="13">401 + challenge</text>
+
+    <text x="852" y="378" fill="#ffffff" font-size="14" font-weight="700">5</text>
+    <text x="870" y="378" fill="#bcdb2c" font-size="13">forwarded, once the grant checks out</text>
+    <text x="852" y="398" fill="#757b83" font-size="12.5">the agent's Authorization is stripped;</text>
+    <text x="852" y="416" fill="#757b83" font-size="12.5">the sidecar's own credential is added</text>
+
+    <text x="118" y="818" fill="#757b83" font-size="11" class="mono">the tool surface · UMA_PEP_TOOLS</text>
+    <text x="82" y="852" xml:space="preserve" class="mono c">// what her tiers can name, so what</text>
+    <text x="82" y="870" xml:space="preserve" class="mono c">// she gets to approve separately</text>
+    <text x="82" y="898" xml:space="preserve" class="mono"><tspan class="p">{</tspan></text>
+    <text x="82" y="916" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">"get_invoices"</tspan><tspan class="p">: {</tspan></text>
+    <text x="82" y="934" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="k">"resource"</tspan><tspan class="p">: </tspan><tspan class="s">"billing/get_invoices"</tspan><tspan class="p">,</tspan></text>
+    <text x="82" y="952" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="k">"scopes"</tspan><tspan class="p">: [</tspan><tspan class="s">"invoices:read"</tspan><tspan class="p">] },</tspan></text>
+    <text x="82" y="976" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">"issue_refund"</tspan><tspan class="p">: {</tspan></text>
+    <text x="82" y="994" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="k">"resource"</tspan><tspan class="p">: </tspan><tspan class="s">"billing/issue_refund"</tspan><tspan class="p">,</tspan></text>
+    <text x="82" y="1012" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="k">"scopes"</tspan><tspan class="p">: [</tspan><tspan class="s">"refunds:write"</tspan><tspan class="p">],</tspan></text>
+    <text x="82" y="1030" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="k">"single_use"</tspan><tspan class="p">: </tspan><tspan class="kw">true</tspan><tspan class="p"> }</tspan></text>
+    <text x="82" y="1048" xml:space="preserve" class="mono"><tspan class="p">}</tspan></text>
+    <text x="82" y="1082" xml:space="preserve" class="mono c">// one endpoint as one resource means</text>
+    <text x="82" y="1100" xml:space="preserve" class="mono c">// she can only say yes to all of it</text>
+    <text x="82" y="1130" xml:space="preserve" class="mono c">// a malformed file stops the sidecar</text>
+    <text x="82" y="1148" xml:space="preserve" class="mono c">// rather than protecting the wrong</text>
+    <text x="82" y="1166" xml:space="preserve" class="mono c">// tools with nothing reporting it</text>
+
+    <text x="688" y="818" fill="#757b83" font-size="11" class="mono">2 · what the client gets back</text>
+    <text x="652" y="852" xml:space="preserve" class="mono kw">HTTP/1.1 401 Unauthorized</text>
+    <text x="652" y="874" xml:space="preserve" class="mono"><tspan class="k">WWW-Authenticate:</tspan><tspan class="p"> UMA</tspan></text>
+    <text x="652" y="892" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">realm</tspan><tspan class="p">=</tspan><tspan class="s">"billing"</tspan><tspan class="p">,</tspan></text>
+    <text x="652" y="910" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">as_uri</tspan><tspan class="p">=</tspan><tspan class="s">"https://as.example.com"</tspan><tspan class="p">,</tspan></text>
+    <text x="652" y="928" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">ticket</tspan><tspan class="p">=</tspan><tspan class="s">"tkt_Ak-sc5NVmwlu"</tspan><tspan class="p">,</tspan></text>
+    <text x="652" y="946" xml:space="preserve" class="mono"><tspan class="p">  </tspan><tspan class="k">resource_metadata</tspan><tspan class="p">=</tspan><tspan class="s">"…"</tspan></text>
+    <text x="652" y="980" xml:space="preserve" class="mono c">// this is the whole integration:</text>
+    <text x="652" y="998" xml:space="preserve" class="mono c">// n8n cannot send this header, so</text>
+    <text x="652" y="1016" xml:space="preserve" class="mono c">// something in front of it must.</text>
+    <text x="652" y="1050" xml:space="preserve" class="mono c">// before she authorizes the sidecar:</text>
+    <text x="652" y="1072" xml:space="preserve" class="mono"><tspan class="p">{ </tspan><tspan class="k">"error"</tspan><tspan class="p">:</tspan></text>
+    <text x="652" y="1090" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="s">"authorization_pending"</tspan><tspan class="p"> }</tspan></text>
+    <text x="652" y="1124" xml:space="preserve" class="mono c">// a resource server is something she</text>
+    <text x="652" y="1142" xml:space="preserve" class="mono c">// consents to, the way an agent is</text>
+
+    <text x="1258" y="818" fill="#757b83" font-size="11" class="mono">5 · what n8n actually receives</text>
+    <text x="1222" y="852" xml:space="preserve" class="mono kw">POST /mcp/u4a-protected</text>
+    <text x="1222" y="874" xml:space="preserve" class="mono"><tspan class="k">X-Sidecar-Auth:</tspan><tspan class="p"> only-the-sidecar…</tspan></text>
+    <text x="1222" y="892" xml:space="preserve" class="mono"><tspan class="k">X-Uma-Contract:</tspan><tspan class="p"> s256:3MBslhQbvO…</tspan></text>
+    <text x="1222" y="916" xml:space="preserve" class="mono no">Authorization: — absent —</text>
+    <text x="1222" y="950" xml:space="preserve" class="mono c">// the grant is addressed to her</text>
+    <text x="1222" y="968" xml:space="preserve" class="mono c">// authority and spent at the sidecar.</text>
+    <text x="1222" y="986" xml:space="preserve" class="mono c">// an upstream holding it could replay</text>
+    <text x="1222" y="1004" xml:space="preserve" class="mono c">// it, so it never goes downstream.</text>
+    <text x="1222" y="1038" xml:space="preserve" class="mono c">// n8n answers as it always would:</text>
+    <text x="1222" y="1060" xml:space="preserve" class="mono"><tspan class="p">{ </tspan><tspan class="k">"result"</tspan><tspan class="p">: { </tspan><tspan class="k">"content"</tspan><tspan class="p">: [ …</tspan></text>
+    <text x="1222" y="1078" xml:space="preserve" class="mono"><tspan class="p">    </tspan><tspan class="s">"{\\"served_by\\":\\"n8n\\"…}"</tspan><tspan class="p"> ] } }</tspan></text>
+    <text x="1222" y="1112" xml:space="preserve" class="mono c">// without the sidecar's header the</text>
+    <text x="1222" y="1130" xml:space="preserve" class="mono c">// same call gets 403 from n8n —</text>
+    <text x="1222" y="1148" xml:space="preserve" class="mono c">// there is no way around the front</text>
+  </g>
+</svg>

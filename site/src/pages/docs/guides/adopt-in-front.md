@@ -20,12 +20,15 @@ One container. The enforcement point runs as a sidecar, answers the protocol,
 and forwards what it allows. Nothing upstream changes, and nothing upstream
 needs to know this exists.
 
-```
-  agent ──►  U4A enforcement point  ──►  your MCP server
-               │
-               ▼
-       the owner's authorization server
-```
+![U4A in front of n8n. An MCP client calls a tool and is answered 401 with a
+UMA challenge by the sidecar, which n8n never sees. The client negotiates the
+owner's terms at her authorization server and comes back with a grant bound to
+its own key. The sidecar introspects it and forwards the call to n8n, stripping
+the agent's Authorization and adding its own credential and the contract
+digest. Before any of that the sidecar registers itself with her authority and
+waits for her to approve it. Beside the flow, three windows show the tool
+surface file, the 401 challenge, and exactly what n8n
+receives.](/img/docs/n8n-sidecar.svg)
 
 ## Why in front, and not inside
 
