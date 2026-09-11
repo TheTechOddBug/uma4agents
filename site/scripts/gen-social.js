@@ -17,11 +17,41 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const jobs = [
-  { svg: "static/img/og.svg", png: "static/img/og.png", width: 1200 },
-  { svg: "static/img/blog/u4a-at-scale.svg", png: "static/img/blog/u4a-at-scale.png", width: 2000 },
-  { svg: "static/img/blog/subagent-two-ways.svg", png: "static/img/blog/subagent-two-ways.png", width: 2000 },
-];
+
+/**
+ * What needs a twin, worked out rather than listed.
+ *
+ * A hand-maintained list is a list somebody forgets to add to, and the cost
+ * of forgetting is invisible: the tag points at a PNG that was never rendered,
+ * the scrape falls back, and nobody notices until a link is shared. So the
+ * jobs come from the only two places an og:image can come from — the
+ * site-wide card, and a post's `featuredimage`.
+ *
+ * `check-links` fails the build if one of these is missing, so the two halves
+ * cannot drift apart.
+ */
+const jobs = [];
+
+// The site-wide card. site-meta names the raster; the SVG beside it is source.
+if (fs.existsSync(path.join(root, "static/img/og.svg"))) {
+  jobs.push({ svg: "static/img/og.svg", png: "static/img/og.png", width: 1200 });
+}
+
+// Every post's featured image. Only an SVG needs rendering — a post whose
+// image is already a raster is served as it is.
+const blog = path.join(root, "src/pages/blog");
+for (const name of fs.readdirSync(blog).filter((f) => f.endsWith(".md"))) {
+  const front = fs.readFileSync(path.join(blog, name), "utf8").split("---")[1] || "";
+  const match = front.match(/^featuredimage:\s*(\S+)\s*$/m);
+  if (!match) continue;
+  const image = match[1].replace(/^['"]|['"]$/g, "");
+  if (!image.endsWith(".svg")) continue;
+  jobs.push({
+    svg: `static${image}`,
+    png: `static${image.replace(/\.svg$/, ".png")}`,
+    width: 2000,
+  });
+}
 
 try {
   execFileSync("rsvg-convert", ["--version"], { stdio: "ignore" });

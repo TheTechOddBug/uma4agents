@@ -2,16 +2,24 @@
 /**
  * Fails the build on a documentation link that goes nowhere.
  *
- * Three checks, over what actually shipped in public/ rather than over what
+ * Four checks, over what actually shipped in public/ rather than over what
  * the source intended to ship:
  *
  *   1. every page docs-nav.js lists was built
  *   2. every internal link in a docs page resolves to a built page
  *   3. every built docs page is reachable from docs-nav.js
+ *   4. every og:image and twitter:image on any built page was published
  *
  * The third one is the reason this exists. A dead link is visible the first
  * time somebody clicks it; an orphaned page is invisible forever, because
  * nothing links to it and nobody finds out it is there.
+ *
+ * The fourth has the same shape. SEO.js rewrites an SVG social image to its
+ * PNG twin, because the scrapers will not render an SVG — and when that PNG
+ * is missing they fall back to scraping the page, so the card silently
+ * becomes the author's avatar instead of the diagram. Nothing about the page
+ * looks wrong; you find out when somebody shares it. `npm run social`
+ * renders the twins, and this makes forgetting to run it fail the build.
  *
  * Runs from `postbuild`, after gatsby-node's onPostBuild has emitted the
  * sitemap and the Markdown twins.
@@ -19,6 +27,7 @@
 const fs = require("fs");
 const path = require("path");
 const { allPages } = require("../src/data/docs-nav");
+const siteMetadata = require("../site-meta");
 
 const PUBLIC = path.join(__dirname, "..", "public");
 const problems = [];
@@ -78,6 +87,35 @@ for (const file of pages) {
   }
 }
 
+// 4 — every social image was published
+//
+// Across every built page rather than only the docs, because any page type
+// may set one and the failure is invisible on all of them.
+const everyPage = walk(PUBLIC);
+let socialImages = 0;
+for (const file of everyPage) {
+  const html = fs.readFileSync(file, "utf8");
+  const from = `/${path.relative(PUBLIC, path.dirname(file)).split(path.sep).join("/")}/`;
+  const seen = new Set();
+
+  for (const match of html.matchAll(
+    /<meta (?:property|name)="(?:og:image|twitter:image)" content="([^"]+)"/g
+  )) {
+    const url = match[1];
+    if (!url.startsWith(siteMetadata.siteUrl)) continue; // somebody else's host
+    const asset = url.slice(siteMetadata.siteUrl.length);
+    if (seen.has(asset)) continue;
+    seen.add(asset);
+    socialImages += 1;
+    if (!fs.existsSync(path.join(PUBLIC, asset))) {
+      problems.push(
+        `${from} declares a social image at ${asset}, which was not published` +
+          (asset.endsWith(".png") ? " — run `npm run social`" : "")
+      );
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error(`\ncheck-links: ${problems.length} problem(s)\n`);
   for (const p of problems) console.error(`  ✗ ${p}`);
@@ -86,5 +124,6 @@ if (problems.length > 0) {
 }
 
 console.log(
-  `check-links: ${pages.length} docs pages, every link resolves, no orphans`
+  `check-links: ${pages.length} docs pages, every link resolves, no orphans; ` +
+    `${socialImages} social images published`
 );
