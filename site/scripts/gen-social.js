@@ -20,6 +20,7 @@ const root = path.join(__dirname, "..");
 const jobs = [
   { svg: "static/img/og.svg", png: "static/img/og.png", width: 1200 },
   { svg: "static/img/blog/u4a-at-scale.svg", png: "static/img/blog/u4a-at-scale.png", width: 2000 },
+  { svg: "static/img/blog/subagent-two-ways.svg", png: "static/img/blog/subagent-two-ways.png", width: 2000 },
 ];
 
 try {
