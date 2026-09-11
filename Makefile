@@ -352,7 +352,22 @@ smoke-test:
 		&& echo "  DNS: OK" || echo "  DNS: not configured (browser use needs 'make dns-setup'; smoke tests don't)"
 	@echo "==> uma-as discovery..."
 	@$(CURL) https://alice-as.uma.lab/.well-known/uma4agents-configuration | grep -q token_endpoint \
+		&& $(CURL) https://alice-as.uma.lab/.well-known/uma4agents-configuration | grep -q terms_endpoint \
 		&& echo "  uma-as: OK" || echo "  uma-as: FAIL"
+	@echo "==> ... at UMA 2.0's well-known path, naming the profile it implements..."
+	@$(CURL) https://alice-as.uma.lab/.well-known/uma2-configuration \
+		| grep -q '"uma_profiles_supported": *\[[^]]*https://u4a.ai/spec/core/1.0' \
+		&& echo "  uma_profiles_supported: OK" || echo "  uma_profiles_supported: FAIL"
+	@echo "==> ... and every grant type and claim format the token endpoint accepts..."
+	@$(CURL) https://alice-as.uma.lab/.well-known/uma2-configuration \
+		| grep -q 'client_credentials' \
+		&& $(CURL) https://alice-as.uma.lab/.well-known/uma2-configuration \
+		| grep -q 'urn:ietf:params:oauth:token-type:id-jag' \
+		&& $(CURL) https://alice-as.uma.lab/.well-known/uma2-configuration \
+		| grep -q 'consume_endpoint' \
+		&& $(CURL) https://alice-as.uma.lab/.well-known/uma2-configuration \
+		| grep -q 'owner_endpoint' \
+		&& echo "  advertised formats: OK" || echo "  advertised formats: FAIL"
 	@echo "==> uma-as JWKS..."
 	@$(CURL) https://alice-as.uma.lab/jwks | grep -q Ed25519 && echo "  jwks: OK" || echo "  jwks: FAIL"
 	@echo "==> Keycloak alice realm..."
@@ -378,6 +393,16 @@ smoke-test:
 		echo "==> ext_authz denial body reaches the client verbatim..."; \
 		echo "$$RESP" | grep -q 'uma_challenge' \
 		&& echo "  ext_authz body passthrough: OK" || echo "  ext_authz body passthrough: FAIL"
+	@echo "==> A truncated authorization body fails closed, by name..."
+	@docker compose exec -T uma-pep python -c "\
+	import urllib.request, json; \
+	req = urllib.request.Request('http://127.0.0.1:9002/check/mcp', method='POST', \
+		data=b'{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":1,\"params\":{\"name\":\"exec', \
+		headers={'content-type': 'application/json', 'x-envoy-auth-partial-body': 'true'}); \
+	import urllib.error; \
+	code, body = 0, b''; \
+	exec('try:\n    urllib.request.urlopen(req)\nexcept urllib.error.HTTPError as e:\n    code, body = e.code, e.read()'); \
+	print('  truncated body: OK' if code == 413 and b'request_body_too_large' in body else '  truncated body: FAIL (%s %s)' % (code, body[:120]))"
 	@echo "==> Alice's portal..."
 	@$(CURL) https://portal.uma.lab/health | grep -q ok && echo "  portal: OK" || echo "  portal: FAIL"
 	@echo "==> and the other owner's, which is the same image..."
@@ -421,6 +446,13 @@ shim-test:
 sig-test:
 	@docker run --rm -v "$(PWD)/lib:/u4a/lib:ro" python:3.12-slim \
 		sh -c "pip install -q cryptography && python /u4a/lib/test_http_sig.py"
+
+## pep-test: what the enforcement point refuses before it asks anybody, and
+## that the challenge is one object under two envelopes. Needs nothing running.
+.PHONY: pep-test
+pep-test:
+	@docker run --rm -v "$(PWD)":/u4a -w /u4a python:3.12-slim \
+		sh -c "pip install -q 'pyjwt[crypto]' httpx cryptography && python lib/test_pep.py"
 
 ## rules-test: her agent rules — what may tighten, what may relax, what wins.
 ## Named apart from `k8s-policy-test`, which proves the *mesh* denies: these
@@ -483,6 +515,47 @@ store-test:
 	docker network rm u4a-storetest >/dev/null 2>&1 || true; \
 	exit $$status
 
+## ts-agent-check: the four beats from a second implementation. A requesting
+## agent in TypeScript, sharing no code with the Python client, discovers,
+## corroborates, signs the terms, waits for her, spends the grant and is
+## refused where it should be. Two implementations meeting on the wire is the
+## evidence a specification needs and a single client cannot give.
+.PHONY: ts-agent-check
+ts-agent-check:
+	docker compose --profile test run --rm ts-agent-check
+
+## rotation-check: the authority rotates its signing key under live grants.
+# A grant issued before the rotation still spends, one issued after spends
+# too, both kids are published, and the resource server accepts a pull signed
+# with the new key without waiting out its key cache. Restores the original
+# key afterwards; grants issued under the interim key do not survive the
+# restore, which is the point of a check and not of a deployment.
+ROTATION_PG = UMA_AS_STORE=postgres UMA_AS_DATABASE_URL=postgres://u4a:u4a@pg:5432/u4a
+.PHONY: rotation-check
+rotation-check:
+	docker compose --profile test up -d --wait pg
+	$(ROTATION_PG) docker compose up -d --force-recreate uma-as
+	@until docker compose exec -T uma-as python -c \
+		"import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/health')" >/dev/null 2>&1; \
+		do sleep 2; done
+	docker compose --profile test run --rm rotation-check --phase before
+	@docker compose exec -T uma-as python -c "\
+	from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey; \
+	from cryptography.hazmat.primitives import serialization as s; \
+	open('/keys/uma-as-2.pem','wb').write(Ed25519PrivateKey.generate().private_bytes( \
+		s.Encoding.PEM, s.PrivateFormat.PKCS8, s.NoEncryption()))"
+	$(ROTATION_PG) UMA_AS_SIGNING_KEY=/keys/uma-as-2.pem UMA_AS_KID=uma-as-2 \
+	UMA_AS_PREVIOUS_KEYS=/keys/uma-as-ed25519.pem UMA_AS_PREVIOUS_KIDS=uma-as-1 \
+		docker compose up -d --force-recreate uma-as
+	@until docker compose exec -T uma-as python -c \
+		"import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/health')" >/dev/null 2>&1; \
+		do sleep 2; done
+	@docker compose --profile test run --rm rotation-check --phase after; status=$$?; \
+	echo "Restoring the original signing key and the memory store"; \
+	docker compose up -d --force-recreate uma-as >/dev/null 2>&1; \
+	docker compose --profile test rm -sf pg >/dev/null 2>&1; \
+	exit $$status
+
 ## embedded-check: prove the grant works with the resource enforcing itself
 # Flips alice-vault to ENFORCEMENT_MODE=embedded, runs the four beats straight
 # at the resource (no gateway, no ext_authz), then restores gateway mode.
@@ -504,3 +577,38 @@ embedded-check:
 # The Kubernetes shape of the lab: same source, deployed the way it would
 # actually run. `make up` above stays the fast path.
 include Makefile.k8s
+
+## check-all: every suite the requirements register cites, in one run — the
+## unit half first (nothing running), then everything against the compose
+## stack. The register names these as what proves the drafts; a check that
+## nobody runs is a claim, and this is how they all get run.
+.PHONY: check-all check-unit check-live
+check-unit: rules-test sig-test pep-test introduction-test org-test joint-test store-test
+check-live: smoke-test flow-check first-party-check multi-owner-check \
+	establishment-check assurance-check intent-check subagent-check org-check \
+	joint-check xaa-check adapter-check shim-test embedded-check kwaai-check \
+	rotation-check ts-agent-check fixture
+check-all: check-unit spec-check check-live
+	@echo "check-all: every suite the register cites has run"
+
+## spec: render the Internet-Draft set from spec/src into site/static/spec.
+## kramdown-rfc turns the Markdown into xml2rfc v3 XML, xml2rfc turns that into
+## the .txt and .html a draft is actually read as. The reference cache in
+## spec/.refcache is committed, so a render reaches no network and two people
+## building the same source get the same bytes.
+.PHONY: spec
+spec:
+	@docker build -q -t u4a-spec:local spec/ >/dev/null
+	@mkdir -p site/static/spec
+	@docker run --rm -v "$(PWD)/spec":/spec -v "$(PWD)/site/static/spec":/out \
+		u4a-spec:local bash /spec/render.sh
+	@cp spec/conformance.yaml site/static/spec/conformance.yaml
+
+## spec-check: the requirements register — every normative statement in the
+## drafts is mapped to the check that proves it, and every check named exists.
+## A specification that asserts a behaviour should name what verifies it; this
+## is that discipline, made to fail the build.
+.PHONY: spec-check
+spec-check: spec
+	@docker run --rm -v "$(PWD)":/u4a -w /u4a python:3.12-slim \
+		sh -c "pip install -q pyyaml && python spec/check_conformance.py"

@@ -85,15 +85,18 @@ to put a header on:
 {"jsonrpc": "2.0", "id": 4, "error": {
   "code": -32001,
   "message": "authorization required: present this ticket to the resource owner's AS",
-  "data": {"error": "uma_challenge", "as_uri": "https://alice-as.uma.lab",
-           "ticket": "tkt_…", "resource_metadata": "…", "realm": "alice-vault"}}}
+  "data": {"error": "insufficient_authorization",
+           "as_uri": "https://alice-as.uma.lab", "ticket": "tkt_…",
+           "resource_metadata": "…", "realm": "alice-vault",
+           "scope": "trades:execute",
+           "authorization_remediation": { /* the object, not base64url */ }}}}
 ```
 
 A client should accept both; the shim in this repo does, and negotiates
 identically after either.
 
 **The `authorization_remediation` object is byte-for-byte the same in both.**
-That is the point of carrying it: `draft-zehavi-oauth-rar-metadata` defines
+That is the point of carrying it: `draft-ietf-oauth-rar-metadata-remediation` defines
 the payload against `WWW-Authenticate`, and this shows the payload survives a
 transport that has no status line. The envelope is binding-specific; the
 remediation is not.
@@ -156,7 +159,7 @@ checking them when present — an absent header is as steerable as a lying one.
 The reference SDK rejects both cases for `mcp-name`, which is corroboration
 that this is real. The spec does not currently say so.
 
-## Step-up remediation (SEP-2643 / draft-zehavi-oauth-rar-metadata)
+## Step-up remediation (SEP-2643 / draft-ietf-oauth-rar-metadata-remediation)
 
 ![RAR metadata alone, and U4A](rar-at-a-glance.svg)
 

@@ -59,6 +59,7 @@ from fastapi.responses import JSONResponse
 from jwt.algorithms import OKPAlgorithm
 
 import uma4a_joint as J
+import uma4a_profiles
 
 ISSUER = os.environ.get("TALLY_ISSUER", "https://joint-tally.uma.lab")
 AUDIENCE = os.environ.get("TALLY_AUDIENCE", "https://gateway.uma.lab")
@@ -179,6 +180,7 @@ async def jwks_endpoint() -> dict:
     return jwks()
 
 
+@app.get("/.well-known/uma2-configuration")
 @app.get("/.well-known/uma4agents-configuration")
 async def configuration() -> dict:
     return {
@@ -187,6 +189,7 @@ async def configuration() -> dict:
         "token_endpoint": f"{ISSUER}/token",
         "permission_endpoint": f"{ISSUER}/perm",
         "introspection_endpoint": f"{ISSUER}/introspect",
+        "consume_endpoint": f"{ISSUER}/consume",
         # What makes this not an ordinary authorization server, said out
         # loud. A relying party finding this field is being told the thing it
         # most needs to know: the party at this endpoint decides nothing, and
@@ -194,6 +197,10 @@ async def configuration() -> dict:
         # are worth.
         "u4a_tally": True,
         "u4a_mandate_endpoint": f"{ISSUER}/mandate/{{account}}",
+        "response_types_supported": [],
+        "grant_types_supported": ["urn:ietf:params:oauth:grant-type:uma-ticket"],
+        "claim_token_formats_supported": [AGREEMENT_FORMAT],
+        "uma_profiles_supported": list(uma4a_profiles.TALLY),
     }
 
 
