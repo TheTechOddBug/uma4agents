@@ -12,7 +12,7 @@
 ]>
 
 
-<rfc ipr="trust200902" docName="draft-gamb-uma4agents-core-00" category="std" consensus="true" submissionType="IETF" tocInclude="true" sortRefs="true" symRefs="true">
+<rfc ipr="trust200902" docName="draft-gamb-uma4agents-core-00" category="info" submissionType="IETF" tocInclude="true" sortRefs="true" symRefs="true">
   <front>
     <title abbrev="UMA 2.0 for Agents">User-Managed Access (UMA) 2.0 Profile for Autonomous Agents</title>
 
@@ -28,7 +28,7 @@
       </address>
     </author>
 
-    <date year="2026" month="September" day="12"/>
+    <date year="2026" month="September" day="15"/>
 
     <area>Security</area>
     
@@ -40,18 +40,16 @@
 <?line 176?>
 
 <t>This document profiles and extends the User-Managed Access (UMA) 2.0 Grant so
-that an autonomous software agent, operated by a party who is not the resource
-owner, can negotiate access to that owner's resources while the owner is not
-present.</t>
+that a client, operated by a party other than the resource owner, can obtain
+access to that owner's resources while the owner is not present. The case it is
+written for is a client that is an autonomous software agent.</t>
 
-<t>It narrows UMA 2.0 in one place and extends it in several. The requesting side
-is an agent identified by a key it proves possession of rather than by a client
-credential; the requesting party token is a proof-of-possession token carrying
-its permissions as a claim; a grant may be bound to a single operation and spent
-exactly once; the owner holds a standing, revocable relationship with each agent
-individually; and the challenge that begins a negotiation is specified as a set
-of parameters rather than as an HTTP header, so that an enforcement point with no
-status line can emit it.</t>
+<t>Under this profile the client authenticates by proving possession of a key and
+needs no prior registration with the authorization server; the requesting party
+token is a proof-of-possession token that carries its permissions as a claim; a
+grant may be bound to a single operation and spent once; the owner holds a
+standing, revocable relationship with each client; and the challenge that begins
+a negotiation is specified as a set of parameters rather than as an HTTP header.</t>
 
 
 
@@ -64,64 +62,56 @@ status line can emit it.</t>
   <middle>
 
 
-<?line 192?>
+<?line 190?>
 
 <section anchor="introduction"><name>Introduction</name>
 
-<t>UMA 2.0 <xref target="UMAGrant"/> describes a topology that almost nothing else has: the
-party who authorizes access is not the party operating the client, and the
-authorization server holds the owner's policy rather than the resource server's.
-That arrangement was designed for a person sharing a resource with another
-person. It turns out to be the arrangement an agent economy needs, because the
-question an agent economy has to answer is not "is this my agent doing my task"
-but "may your agent touch my resource".</t>
+<t>UMA 2.0 <xref target="UMAGrant"/> separates the party who authorizes access, the resource
+owner, from the party on whose behalf a client requests it, the requesting party,
+and places the owner's policy at an authorization server of the owner's choosing.
+This profile applies that arrangement to clients that are autonomous software
+agents.</t>
 
-<t>What UMA 2.0 assumes, and what this profile changes, is everything downstream of
-that topology. The requesting side is assumed to be a registered OAuth client
-operated by a human who can be redirected to a browser. An agent is neither. It
-holds a key rather than a client secret, it may have no prior relationship with
-the authorization server at all, and the owner it needs an answer from may be
-asleep.</t>
+<t>UMA 2.0 leaves client credentials and their assignment open. This profile
+addresses clients that have no prior relationship with the authorization server,
+and owners who are not available when a request arrives. Nothing in it requires
+the client to be autonomous: a conventional client application that holds a key
+can use it.</t>
 
-<t>This profile is written against a reference implementation <xref target="U4ALAB"/> in which
-every requirement below is exercised by an automated check.
-<xref target="implementation-status"/> says what that implementation covers and where the
-register of requirement-to-check mappings lives.</t>
+<t>The requirements in this document are exercised by a reference implementation
+<xref target="U4ALAB"/>; <xref target="implementation-status"/> describes its coverage.</t>
 
 <section anchor="design-rule"><name>Design Rule</name>
 
-<t>The rule this profile was written under, and the reason its surface is as small
-as it is: <strong>stay inside UMA 2.0's wire surface wherever it already fits, and
-make every departure explicit.</strong> <spanx style="verb">WWW-Authenticate: UMA</spanx>, the <spanx style="verb">uma-ticket</spanx> grant
-type, <spanx style="verb">need_info</spanx>, <spanx style="verb">request_submitted</spanx> and the introspection <spanx style="verb">permissions</spanx> array
-are all used as specified. <xref target="profiles-and-extensions"/> is the complete list of
-departures; anything not named there is intended to be stock UMA 2.0.</t>
+<t>This profile uses UMA 2.0's wire surface wherever it fits and makes each
+departure explicit. The following are used as <xref target="UMAGrant"/> specifies them:</t>
+
+<t><list style="symbols">
+  <t>the <spanx style="verb">urn:ietf:params:oauth:grant-type:uma-ticket</spanx> grant type;</t>
+  <t>the <spanx style="verb">need_info</spanx> and <spanx style="verb">request_submitted</spanx> responses;</t>
+  <t>the <spanx style="verb">permissions</spanx> array of the introspection response.</t>
+</list></t>
+
+<t>Over HTTP the challenge keeps UMA 2.0's <spanx style="verb">WWW-Authenticate: UMA</spanx> header
+(<xref target="challenge-http"/>), but the header is no longer its only encoding
+(<xref target="challenge-parameters"/>).</t>
+
+<t><xref target="profiles-and-extensions"/> lists every departure. Anything not listed there is
+intended to be UMA 2.0 as specified.</t>
 
 </section>
 <section anchor="relationship-to-other-authorization-work"><name>Relationship to Other Authorization Work</name>
 
-<t>This profile is an extension grant on OAuth 2.0 <xref target="RFC6749"/>, as UMA 2.0 is.</t>
+<t>GNAP <xref target="RFC9635"/> addresses a comparable topology, including a resource owner who
+is not the end user and is contacted asynchronously (Section 1.6.4 of
+<xref target="RFC9635"/>). It does not define terms that the owner publishes and the client
+signs, which is the central addition of this set (<xref target="U4ATerms"/>). A binding of
+this profile to GNAP is possible.</t>
 
-<t>GNAP <xref target="RFC9635"/> is the closer comparison, and in several respects the better
-carrier: its interaction model is more general than OAuth's, key binding is
-native rather than an extension, and its request format expresses what a client
-wants far better than a scope string. GNAP also anticipates a resource owner who
-is not the end user, reached by the authorization server asynchronously while
-the client waits (Section 1.6.4 of <xref target="RFC9635"/>), and expects the authorization
-server to follow that owner's decisions, including automated rules. What it
-leaves to implementations is what those rules may rest on and what is agreed:
-it defines no terms the owner publishes and the requesting side signs, no record
-of that agreement held by both parties, and no constraint on which facts may
-relax a requirement. Those are the substance of this profile. A GNAP binding of
-it would be a reasonable document, and probably a cleaner one than the
-OAuth-shaped binding here; it is not a substitute for it.</t>
-
-<t>DPoP <xref target="RFC9449"/> solves the same problem as <xref target="proof-of-possession"/> for the
-OAuth installed base. This profile uses <xref target="RFC9421"/> instead because the signature
-must cover the request rather than only bind the token, and because the same
-mechanism authenticates four different parties here, in both directions. A DPoP
-binding is a reasonable second binding and would recruit a different set of
-implementers.</t>
+<t>DPoP <xref target="RFC9449"/> binds an access token to a key. This profile uses HTTP Message
+Signatures <xref target="RFC9421"/> instead, because the signature covers the request as well
+as binding the token, and because the same mechanism authenticates several
+parties in this set.</t>
 
 </section>
 <section anchor="specification-set"><name>Specification Set</name>
@@ -133,37 +123,40 @@ UMA 2.0 profile for autonomous agents.</t>
 <t><xref target="U4APolicy"/>, <xref target="U4ALineage"/>, <xref target="U4AMultiParty"/> and <xref target="U4AOwner"/> are <bcp14>OPTIONAL</bcp14>
 extensions of this document. <xref target="U4AMCP"/> binds this profile to a transport and
 <xref target="U4AAAuth"/> to an agent identity and signature layer; other bindings are
-possible and this document is written so that they are.</t>
+possible.</t>
 
 </section>
 <section anchor="roles"><name>Roles</name>
 
-<t>The roles of <xref target="UMAGrant"/> apply, with the following additions and narrowings.</t>
+<t>The roles of <xref target="UMAGrant"/> apply. This document uses UMA's entity terms: the
+software making a request is the client, and the party on whose behalf it acts is
+the requesting party. Where the client is an autonomous agent, the requesting
+party is the person or organization accountable for it, and is not necessarily
+present.</t>
+
+<t>The UMA Work Group's legal work names the parties responsible for these entities:
+the party that seeks access through a client is the Requesting Agent, and the
+party responsible for the client software is the Client Operator. This document
+does not use "requesting agent" to mean software.</t>
+
+<t>The following roles are added:</t>
 
 <dl>
-  <dt>Requesting agent:</dt>
+  <dt>Client operator:</dt>
   <dd>
-    <t>The software making the request. UMA used this term in 2010 <xref target="UMAClaims2010"/>
-and dropped it; the agent era makes the distinction load-bearing again. A
-requesting agent is individuated by a key it proves possession of, and is
-distinct from the requesting party, who is accountable for it and is not
-present. Nothing in this profile lets the requesting agent be the responsible
-party; it lets the agent be the acting one.</t>
-  </dd>
-  <dt>Operator:</dt>
-  <dd>
-    <t>The party that runs a requesting agent and publishes a directory of the keys
-its agents hold. The operator is a party the owner may act against as a whole
-— see <xref target="U4APolicy"/> — and is never an authorization input on its own.</t>
+    <t>The party that runs a client and publishes a directory of the keys its clients
+hold, corresponding to the Client Operator. Where this document set says
+"operator" alone, it means the client operator. The owner may act against a
+client operator as a whole (see <xref target="U4APolicy"/>); a client operator is never an
+authorization input on its own.</t>
   </dd>
   <dt>Enforcement point:</dt>
   <dd>
-    <t>The component that discharges the resource-server obligations of
-<xref target="UMAFedAuthz"/>: holding the protection API access token, obtaining a
-permission ticket, introspecting, and refusing. <xref target="UMAFedAuthz"/> Section 1.4
-divides responsibility between <em>parties</em> and names no component, and this
-profile keeps it that way. An enforcement point <bcp14>MAY</bcp14> be a gateway in front of
-the resource, or the resource itself. It is a role, not a product.</t>
+    <t>The component that performs the resource server's jobs defined by
+<xref target="UMAFedAuthz"/>: holding the protection API access token, obtaining a permission
+ticket, introspecting, and refusing. <xref target="UMAFedAuthz"/> Section 1.4 describes these
+jobs without naming the component that performs them. An enforcement point <bcp14>MAY</bcp14>
+be a gateway in front of the resource, or the resource itself.</t>
   </dd>
 </dl>
 
@@ -181,7 +174,9 @@ appear in all capitals, as shown here.</t>
 <t>Base64url encoding is as defined in <xref target="RFC7515"/> Section 2, without padding.</t>
 
 <t>The notation <spanx style="verb">s256(x)</spanx> denotes the string <spanx style="verb">"s256:"</spanx> followed by the base64url
-encoding, without padding, of the SHA-256 digest of the octets <spanx style="verb">x</spanx>.</t>
+encoding, without padding, of the SHA-256 digest of the octets <spanx style="verb">x</spanx>. Where <spanx style="verb">x</spanx> is
+a JSON value, the octets are its serialization under the JSON Canonicalization
+Scheme <xref target="RFC8785"/>, so that independent implementations compute the same digest.</t>
 
 <t>The notation <spanx style="verb">jkt(k)</spanx> denotes the string <spanx style="verb">"jkt:"</spanx> followed by the JWK Thumbprint
 <xref target="RFC7638"/> of the JSON Web Key <spanx style="verb">k</spanx>. The value after the prefix is the same
@@ -199,26 +194,13 @@ by this document.</t>
 <t>The authorization server <bcp14>MUST</bcp14> include in its metadata the value
 <spanx style="verb">https://u4a.ai/spec/core/1.0</spanx> in the <spanx style="verb">uma_profiles_supported</spanx> array, and <bcp14>MUST</bcp14>
 include the identifying URI of each extension in this set that it implements.
-<xref target="UMAGrant"/> Section 4 asks a profile to be given a uniquely identifying URI and
-asks a server supporting one to advertise it; this profile's URIs are listed in
-<xref target="iana-considerations"/>.</t>
-
-<t>The following metadata member is added:</t>
-
-<dl>
-  <dt>terms_endpoint:</dt>
-  <dd>
-    <t><bcp14>OPTIONAL</bcp14>. The URL of the owner's terms roster, as defined in <xref target="U4ATerms"/>. An
-authorization server implementing <xref target="U4ATerms"/> <bcp14>MUST</bcp14> include it.</t>
-  </dd>
-</dl>
+This profile's identifying URIs are listed in <xref target="used-identifiers"/>.</t>
 
 <t>An authorization server <bcp14>MUST NOT</bcp14> advertise a grant type or claim token format it
 will not accept, and <bcp14>MUST</bcp14> advertise every grant type and claim token format it
-will. This is not pedantry about completeness: a requesting agent that has never
-met this authorization server decides from this document alone what to attempt,
-and an unadvertised-but-accepted format is indistinguishable to it from an
-unsupported one.</t>
+will. This requirement establishes an accurate source of truth for an agent
+making first contact with the authorization server, and enables clean
+interoperability failures in the absence of human intervention.</t>
 
 </section>
 <section anchor="the-challenge"><name>The Challenge</name>
@@ -280,7 +262,7 @@ deployments most likely to adopt this profile. An enforcement point running
 in-process inside the resource returns a domain result, not a status line; a
 JSON-RPC method handler has nowhere to put a <spanx style="verb">WWW-Authenticate</spanx>. Both encodings
 run in the reference implementation against one authorization server, and one
-requesting agent reads both.</t>
+client reads both.</t>
 
 </section>
 <section anchor="challenge-http"><name>The HTTP Binding</name>
@@ -316,9 +298,8 @@ was attempted.</t>
   </dd>
   <dt>authorization_reference:</dt>
   <dd>
-    <t><bcp14>REQUIRED</bcp14>. <spanx style="verb">s256</spanx> over the canonical JSON serialization of
-<spanx style="verb">authorization_details</spanx>, with object keys sorted and no insignificant
-whitespace.</t>
+    <t><bcp14>REQUIRED</bcp14>. <spanx style="verb">s256</spanx> over <spanx style="verb">authorization_details</spanx>, serialized as
+<xref target="RFC8785"/>.</t>
   </dd>
   <dt>authorization_server:</dt>
   <dd>
@@ -340,7 +321,8 @@ that decides. Same value as the <spanx style="verb">as_uri</spanx> parameter.</t
     "actions": ["execute_trade"],
     "datatypes": ["trades:execute"]
   }],
-  "authorization_reference": "s256:6cR6qTmCj6s0S95MxCfdfwfXJ8m",
+  "authorization_reference":
+    "s256:ij_r5Jn2rOT7fL8gSvNaOY1XBnRZnWOwasceTRKB42E",
   "authorization_server": "https://alice-as.example",
   "ticket": "MWRlNzE4ZjgtMGY0OS00NDg2"
 }
@@ -365,7 +347,7 @@ parsing the details.</t>
 </section>
 <section anchor="corroboration"><name>Corroborating the Authorization Server</name>
 
-<t>A requesting agent <bcp14>MUST</bcp14> fetch the document named by <spanx style="verb">resource_metadata</spanx>, <bcp14>MUST</bcp14>
+<t>A client <bcp14>MUST</bcp14> fetch the document named by <spanx style="verb">resource_metadata</spanx>, <bcp14>MUST</bcp14>
 verify that its <spanx style="verb">resource</spanx> member identifies the resource being accessed as
 required by <xref target="RFC9728"/> Section 3.3, and <bcp14>MUST</bcp14> refuse a challenge whose <spanx style="verb">as_uri</spanx>
 does not appear in that document's <spanx style="verb">authorization_servers</spanx> array.</t>
@@ -380,7 +362,7 @@ document cannot carry.</t>
 </section>
 <section anchor="the-negotiation"><name>The Negotiation</name>
 
-<t>The requesting agent presents the ticket at the authorization server's token
+<t>The client presents the ticket at the authorization server's token
 endpoint using the <spanx style="verb">urn:ietf:params:oauth:grant-type:uma-ticket</spanx> grant type, as
 <xref target="UMAGrant"/> Section 3.3.1. This profile does not change the grant type, the
 ticket's single-use rotation, or the meaning of <spanx style="verb">need_info</spanx>,
@@ -401,7 +383,7 @@ an identity assertion authorization grant
 <bcp14>MUST</bcp14> treat it as a claim about identity and reach, and <bcp14>MUST NOT</bcp14> treat it as
 conferring access.</t>
 
-<t>A requesting agent <bcp14>MUST</bcp14> send the credentials it exchanges for such an assertion
+<t>A client <bcp14>MUST</bcp14> send the credentials it exchanges for such an assertion
 only to the identity provider they belong to, as configured at the agent, and
 <bcp14>MUST NOT</bcp14> send them to a provider or token endpoint that only the authorization
 server's request names. The authorization server says which provider it will
@@ -418,7 +400,8 @@ first, because which terms apply follows from which party the agent acts for.</t
 </section>
 <section anchor="responses"><name>Responses</name>
 
-<t>The authorization server's responses are those of <xref target="UMAGrant"/> Section 3.3.1.
+<t>The authorization server's responses are those of <xref target="UMAGrant"/> Sections 3.3.5
+and 3.3.6.
 Two are constrained by this profile.</t>
 
 <t>A <spanx style="verb">request_submitted</spanx> response indicates that the owner has been asked and has
@@ -428,12 +411,12 @@ request, and <bcp14>MUST</bcp14> make the kind available to the owner's decision
 <dl>
   <dt>connection:</dt>
   <dd>
-    <t>The requesting agent has no standing relationship with this owner. The question
+    <t>The client has no standing relationship with this owner. The question
 put to the owner is whether to have one. See <xref target="connections"/>.</t>
   </dd>
   <dt>operation:</dt>
   <dd>
-    <t>The requesting agent has a standing relationship, and the owner's policy
+    <t>The client has a standing relationship, and the owner's policy
 requires her to answer for this particular access.</t>
   </dd>
 </dl>
@@ -441,54 +424,55 @@ requires her to answer for this particular access.</t>
 <t>A <spanx style="verb">request_denied</spanx> response <bcp14>MAY</bcp14> carry an <spanx style="verb">error_description</spanx>. Where the refusal
 was reached without evaluating the owner's policy — because a quota was exhausted
 or the operator was blocked — the authorization server <bcp14>SHOULD</bcp14> say so, so that a
-well-behaved requesting agent can distinguish a refusal it might overcome from
+well-behaved client can distinguish a refusal it might overcome from
 one it cannot.</t>
 
 </section>
 <section anchor="waiting"><name>Waiting</name>
 
-<t><spanx style="verb">request_submitted</spanx> is a state to render, not a call to hold open. A requesting
-agent that can express waiting to its own user <bcp14>SHOULD</bcp14> hand the wait up rather
+<t><spanx style="verb">request_submitted</spanx> is a state to render, not a call to hold open. A client that can express waiting to its own user <bcp14>SHOULD</bcp14> hand the wait up rather
 than block, and a binding <bcp14>SHOULD</bcp14> define how. The decision belongs to the owner
 either way; what changes is whether the requesting party's client hangs on it.</t>
 
 <t>A binding that surfaces the wait <bcp14>MUST</bcp14> be able to say that the party being waited
-on is not the requesting party's own user, and that the requesting agent's client
+on is not the requesting party's own user, and that the client
 <bcp14>MUST NOT</bcp14> attempt to satisfy the wait from that user. A wait that cannot name its
 subject will be answered by the wrong person.</t>
 
 </section>
 </section>
-<section anchor="requesting-agent"><name>The Requesting Agent</name>
+<section anchor="requesting-agent"><name>The Client</name>
 
 <section anchor="identity-levels"><name>Identity Levels</name>
 
-<t>A requesting agent presents itself at exactly one of two levels. The level
+<t>A client presents itself at exactly one of two levels. The level
 determines the shape of the standing connection handle and nothing else.</t>
 
 <dl>
   <dt>Pseudonymous:</dt>
   <dd>
-    <t>The agent presents a bare public JWK <xref target="RFC7517"/>. The key is the identity. The
+    <t>The client presents a bare public JWK <xref target="RFC7517"/>. The key is the identity. The
 connection handle is <spanx style="verb">jkt(k)</spanx>.</t>
   </dd>
   <dt>Identified:</dt>
   <dd>
-    <t>The agent presents a credential from an issuer asserting its identity and
+    <t>The client presents a credential from an issuer asserting its identity and
 binding it to a key — for example an <spanx style="verb">aa-agent+jwt</spanx> as defined by
 <xref target="I-D.hardt-aauth-protocol"/>, whose <spanx style="verb">cnf.jwk</spanx> is the signing key. The
 authorization server <bcp14>MUST</bcp14> verify that credential against keys published by its
 issuer, <bcp14>MUST</bcp14> require that the issuer identifier use the <spanx style="verb">https</spanx> scheme, and
 <bcp14>MUST</bcp14> derive the connection handle from the issuer and subject rather than from
-the key. The issuer <bcp14>MUST</bcp14> qualify the handle whole, including any path.</t>
+the key. The issuer <bcp14>MUST</bcp14> qualify the handle whole, including any path. The
+handle <bcp14>MUST</bcp14> be the subject, followed by <spanx style="verb">@</spanx> and the issuer identifier with its
+scheme and any trailing <spanx style="verb">/</spanx> removed, unless the subject already ends with that
+suffix, in which case the handle is the subject.</t>
   </dd>
 </dl>
 
 <t>The handle for an identified agent <bcp14>MUST NOT</bcp14> be derived from its key. Issuers that
 attest agents commonly bind a fresh key per session; a thumbprint-keyed
 relationship forgets such an agent on every run, which presents to the owner as
-an agent she has approved asking to be approved again. This was found by running
-it.</t>
+an agent she has approved asking to be approved again.</t>
 
 <t>Qualifying by the issuer's host alone is the natural shortcut and it merges
 strangers. A multi-tenant identity provider commonly serves every tenant from one
@@ -502,7 +486,7 @@ a deployment <bcp14>MUST</bcp14> supply one.</t>
 </section>
 <section anchor="descriptive-metadata"><name>Descriptive Metadata</name>
 
-<t>A requesting agent <bcp14>MAY</bcp14> additionally present descriptive metadata, so that an
+<t>A client <bcp14>MAY</bcp14> additionally present descriptive metadata, so that an
 owner who has never met it can be told something true about it:</t>
 
 <t><list style="symbols">
@@ -520,11 +504,11 @@ one confirmed by the grant, the connection handle is unchanged by the presence o
 absence of either, and an authorization server <bcp14>MUST NOT</bcp14> admit a request it would
 otherwise refuse on the strength of descriptive metadata alone. Failure to
 resolve descriptive metadata <bcp14>MUST</bcp14> leave the request where it was rather than
-refusing it; an operator's outage is not evidence about an agent.</t>
+refusing it; an operator's outage is not evidence about a client.</t>
 
 <t>A metadata document proves only that it claims its own URL. Anyone can publish
 one, so resolving it establishes a name to display and nothing more. What raises
-the metadata above a name is the operator directory, which the agent does not
+the metadata above a name is the operator directory, which the client does not
 control — see <xref target="U4APolicy"/>.</t>
 
 </section>
@@ -532,7 +516,7 @@ control — see <xref target="U4APolicy"/>.</t>
 <section anchor="proof-of-possession"><name>Proof of Possession</name>
 
 <t>The requesting party token issued under this profile is a proof-of-possession
-token. A requesting agent <bcp14>MUST</bcp14> prove possession of the confirmed key on every
+token. A client <bcp14>MUST</bcp14> prove possession of the confirmed key on every
 request to the protected resource, and an enforcement point <bcp14>MUST</bcp14> verify it.</t>
 
 <section anchor="signature-profile"><name>The Message Signature Profile</name>
@@ -542,6 +526,13 @@ request to the protected resource, and an enforcement point <bcp14>MUST</bcp14> 
 <t>A signature <bcp14>MUST</bcp14> cover at least the components <spanx style="verb">"@method"</spanx>, <spanx style="verb">"@authority"</spanx>,
 <spanx style="verb">"@path"</spanx> and <spanx style="verb">"authorization"</spanx>. A signer <bcp14>MAY</bcp14> cover more, and a verifier <bcp14>MUST</bcp14>
 accept a superset rather than requiring an exact set.</t>
+
+<t>On a request that carries no <spanx style="verb">Authorization</spanx> header, such as a resource server
+introducing itself or an owner's own signed request, the <spanx style="verb">"authorization"</spanx>
+component is covered with the empty string as its value, so the covered set is
+the same on every request. <xref target="RFC9421"/> Section 2.5 would otherwise treat covering
+an absent field as an error; this is a departure from it, and the signer and the
+verifier apply it identically.</t>
 
 <t>Requiring an exact list is the intuitive implementation and it is wrong. It makes
 this profile and <xref target="I-D.meunier-webbotauth-httpsig-protocol"/> unable to coexist on
@@ -565,6 +556,10 @@ reconstructing the base, rather than re-serializing it from parsed components.</
 <t>Where a request carries meaning in its body, the signature <bcp14>MUST</bcp14> cover a
 <spanx style="verb">Content-Digest</spanx> <xref target="RFC9530"/> header, and the verifier <bcp14>MUST</bcp14> recompute the digest
 from the received body as well as verifying the signature over it.</t>
+
+<t>A request carries meaning in its body whenever it has one. That includes every
+tool call, whose operation and arguments are in the body, and every request to
+the owner or protection API that sends a body.</t>
 
 <t>The four required components say who is asking and what they are asking of. They
 say nothing about the bytes. That is adequate for a request whose meaning is in
@@ -601,6 +596,12 @@ the body accepts that statement without testing it.</t>
 }
 ]]></sourcecode></figure>
 
+<t>A client presents the token in the <spanx style="verb">Authorization</spanx> header as <spanx style="verb">PoP</spanx> followed by
+a space and the token, on a request signed as <xref target="signature-profile"/> specifies.
+The <spanx style="verb">PoP</spanx> scheme is this profile's; it is not registered in the HTTP
+Authentication Scheme Registry, and a binding that carries the token elsewhere
+says where.</t>
+
 <t>The requesting party token <bcp14>MUST</bcp14> be a JWT <xref target="RFC7519"/> signed by the authorization
 server, and <bcp14>MUST</bcp14> carry:</t>
 
@@ -608,7 +609,7 @@ server, and <bcp14>MUST</bcp14> carry:</t>
   <dt>cnf:</dt>
   <dd>
     <t><bcp14>REQUIRED</bcp14>. A confirmation claim whose <spanx style="verb">jwk</spanx> member is the public key the
-requesting agent must prove possession of. This is the key that signed the
+client must prove possession of. This is the key that signed the
 claim token, and the key the enforcement point verifies requests against.</t>
   </dd>
   <dt>permissions:</dt>
@@ -621,6 +622,12 @@ carried here as a claim rather than being visible only through introspection.</t
   <dd>
     <t><bcp14>REQUIRED</bcp14>. The resource owner on whose behalf this token was issued. See
 <xref target="owner-scoped"/>.</t>
+  </dd>
+  <dt>contract:</dt>
+  <dd>
+    <t><bcp14>REQUIRED</bcp14> where the grant was issued on an agreement under <xref target="U4ATerms"/>.
+<spanx style="verb">s256</spanx> over the agreement's JWS compact serialization, the same value the
+receipt of <xref target="U4ATerms"/> carries as <spanx style="verb">agreement</spanx>.</t>
   </dd>
 </dl>
 
@@ -646,8 +653,9 @@ Such a token <bcp14>MUST</bcp14> carry:</t>
   <dt>operation:</dt>
   <dd>
     <t><bcp14>REQUIRED</bcp14>. An object with a <spanx style="verb">tool</spanx> member naming the operation and a
-<spanx style="verb">params_s256</spanx> member carrying <spanx style="verb">s256</spanx> over the canonical JSON serialization of
-the exact parameters approved, with object keys sorted.</t>
+<spanx style="verb">params_s256</spanx> member carrying <spanx style="verb">s256</spanx> over the parameters approved, serialized
+as <xref target="RFC8785"/>: the <spanx style="verb">params</spanx> member of the agreement's <spanx style="verb">operation</spanx>
+<xref target="U4ATerms"/>.</t>
   </dd>
 </dl>
 
@@ -656,7 +664,7 @@ the exact parameters approved, with object keys sorted.</t>
   "single_use": true,
   "operation": {
     "tool": "execute_trade",
-    "params_s256": "s256:mNTA0Zjg1YTBkYzQxZWY4YjkyMWM4ZGIy"
+    "params_s256": "s256:ogtS-uV8x6mcllHxtXOVD9IRgj46zju5wnPAZDDyTNM"
   }
 }
 ]]></sourcecode></figure>
@@ -740,7 +748,7 @@ under replication, and it cannot be tested for in a single-process deployment �
 which is where the specification has to carry it, because the implementation will
 not.</t>
 
-<t><xref target="UMAGrant"/> Section 3.3.1 says a permission ticket is single-use and does not say
+<t><xref target="UMAGrant"/> Section 5.5 says a permission ticket is single-use and does not say
 where in enforcement it is spent, nor what "single-use" means when the
 authorization server has more than one replica. Both are stated here.</t>
 
@@ -753,7 +761,7 @@ it <bcp14>MUST</bcp14> distinguish a reason that further negotiation cannot chan
 it can.</t>
 
 <t>An enforcement point receiving a reason of the first kind <bcp14>MUST</bcp14> refuse without
-issuing a fresh challenge. A bare <spanx style="verb">{"active": false}</spanx> sends a requesting agent
+issuing a fresh challenge. A bare <spanx style="verb">{"active": false}</spanx> sends a client
 around a negotiation whose outcome the owner has already settled, which wastes
 the agent's time and puts a request in front of the owner that she has already
 answered.</t>
@@ -769,14 +777,14 @@ business.</t>
 </section>
 <section anchor="connections"><name>Standing Connections</name>
 
-<t>A connection is the standing relationship an owner has with one requesting agent,
+<t>A connection is the standing relationship an owner has with one client,
 keyed by the handle of <xref target="identity-levels"/>.</t>
 
 <t>An authorization server implementing this profile <bcp14>MUST</bcp14>:</t>
 
 <t><list style="symbols">
   <t>refuse to grant, and instead put the request to the owner as a <spanx style="verb">connection</spanx>
-pending request, where no active connection exists for the requesting agent's
+pending request, where no active connection exists for the client's
 handle, whatever the owner's policy would otherwise decide;</t>
   <t>record the connection when the owner approves, retaining at least the handle,
 the identity level, and the time of first contact;</t>
@@ -828,7 +836,7 @@ NOT</bcp14> hold a static owner credential of its own.</t>
 <t>The second form is what lets the owner's authority be reached by something she
 runs — a personal agent on her own device — without a browser session and
 without an identity provider in the path. It is the same message-signature
-profile the requesting agent uses, pointed the other way. Every handler <bcp14>MUST</bcp14> act
+profile the client uses, pointed the other way. Every handler <bcp14>MUST</bcp14> act
 on the owner the credential proved rather than on one the request named. What
 that software can ask her authority to do is specified in <xref target="U4AOwner"/>.</t>
 
@@ -870,9 +878,10 @@ required to reject. Aliases are resources too.</t>
 </section>
 <section anchor="profiles-and-extensions"><name>Profiles and Extensions</name>
 
-<t>This document is both a profile and an extension of <xref target="UMAGrant"/> in the sense of
-its Section 4: it restricts UMA's available options in two places and defines new
-use of its extensibility points in several.</t>
+<t>Each departure below is labelled, in the sense of <xref target="UMAGrant"/> Section 4, as a
+profile (it restricts an option UMA 2.0 leaves open), an extension (it uses one
+of UMA 2.0's extensibility points), or a divergence (it replaces something UMA 2.0
+specifies).</t>
 
 <t>The complete list of departures from <xref target="UMAGrant"/> and <xref target="UMAFedAuthz"/> follows.
 Anything not named here, in this document or in another document of this set, is
@@ -881,94 +890,117 @@ intended to be stock UMA 2.0.</t>
 <texttable title="Departures from UMA 2.0.">
       <ttcol align='left'>#</ttcol>
       <ttcol align='left'>Departure</ttcol>
+      <ttcol align='left'>Kind</ttcol>
       <ttcol align='left'>Baseline</ttcol>
       <ttcol align='left'>Where specified</ttcol>
       <c>1</c>
       <c>The authorization server proffers claim <em>content</em>, dereferenceable and counter-signed</c>
+      <c>extension</c>
       <c>The server names acceptable claim formats</c>
       <c><xref target="U4ATerms"/></c>
       <c>2</c>
       <c>Proof-of-possession requesting party token carrying <spanx style="verb">permissions</spanx> as a claim</c>
+      <c>profile, extension</c>
       <c>Bearer token; permissions visible only through introspection</c>
       <c><xref target="rpt"/></c>
       <c>3</c>
       <c><spanx style="verb">operation</spanx> and <spanx style="verb">single_use</spanx> claims</c>
+      <c>extension</c>
       <c>Per-permission scopes and expiry only</c>
       <c><xref target="operation-binding"/></c>
       <c>4</c>
       <c>Owner intervention as two kinds of pending request</c>
+      <c>extension</c>
       <c>Resource-owner intervention out of scope</c>
       <c><xref target="connections"/></c>
       <c>5</c>
       <c>A standing connection keyed by an identity handle, owner-visible and owner-revocable</c>
+      <c>extension</c>
       <c>Nothing directly; the persisted claims token is the ancestor</c>
       <c><xref target="connections"/></c>
       <c>6</c>
       <c>Discovery in more than one binding encoding from one registry, and challenge corroboration</c>
+      <c>extension</c>
       <c>Metadata documents predate this; the challenge carries <spanx style="verb">as_uri</spanx> on faith</c>
       <c><xref target="corroboration"/>, <xref target="U4AFedAuthz"/></c>
       <c>7</c>
       <c>Public metadata stays structural; owner-bound instances served only to the owner's authority</c>
+      <c>extension</c>
       <c>The resource server pushes owner-bound registrations under the protection token</c>
       <c><xref target="U4AFedAuthz"/></c>
       <c>8</c>
       <c>The challenge is a set of parameters; each binding says how they travel</c>
+      <c>divergence</c>
       <c><spanx style="verb">WWW-Authenticate</spanx> is mandated</c>
       <c><xref target="challenge-parameters"/></c>
       <c>9</c>
       <c>Enforcement obligations stated as a conformance profile, not a component</c>
+      <c>profile</c>
       <c>Obligations named, host unnamed</c>
       <c><xref target="obligations"/></c>
       <c>10</c>
       <c>Consumption ordering normative; introspection carries a reason</c>
+      <c>profile, extension</c>
       <c>Unspecified where a single-use token is spent</c>
       <c><xref target="ordering"/>, <xref target="introspection"/></c>
       <c>11</c>
       <c>Descriptive agent metadata, display only</c>
+      <c>extension</c>
       <c>The agent is its key, or its issuer's token</c>
       <c><xref target="descriptive-metadata"/></c>
       <c>12</c>
       <c>Structured remediation in the challenge, plus the two members that let a third party decide</c>
+      <c>extension</c>
       <c>The challenge carries <spanx style="verb">as_uri</spanx> and <spanx style="verb">ticket</spanx></c>
       <c><xref target="remediation"/></c>
       <c>13</c>
       <c>A resource server introduces itself to an owner's authority by signing as its own origin</c>
+      <c>extension</c>
       <c>How a resource server comes to hold a protection token is unspecified</c>
       <c><xref target="U4AFedAuthz"/></c>
       <c>14</c>
       <c>Every owner-scoped artifact carries its owner; the authority is the owner's choice</c>
+      <c>profile</c>
       <c>One authorization server per protected resource, owner implicit in the deployment</c>
       <c><xref target="owner-scoped"/></c>
       <c>15</c>
       <c>A depth limit on the owner's pending queue, in two lanes</c>
+      <c>extension</c>
       <c>No opinion on how many pending requests an owner may be made to hold</c>
       <c><xref target="U4APolicy"/></c>
       <c>16</c>
       <c>Owner-side refusal at operator granularity</c>
-      <c>No notion of the party operating a requesting agent</c>
+      <c>extension</c>
+      <c>No notion of the party operating a client</c>
       <c><xref target="U4APolicy"/></c>
       <c>17</c>
       <c>Assurance may only tighten; only the owner's own decisions may relax</c>
+      <c>extension</c>
       <c>No vocabulary for either</c>
       <c><xref target="U4APolicy"/></c>
       <c>18</c>
       <c>An agent holding a connection may introduce a sibling, which then negotiates its own grant</c>
+      <c>extension</c>
       <c>No object between "a stranger" and "the same client"</c>
       <c><xref target="U4ALineage"/></c>
       <c>19</c>
       <c>A layer above the resource owner that may only narrow</c>
+      <c>extension</c>
       <c>The resource rights administrator is named and given no wire surface</c>
       <c><xref target="U4AMultiParty"/></c>
       <c>20</c>
       <c>Several owners of equal standing, with signed verdicts carried in the grant</c>
+      <c>extension</c>
       <c>Exactly one authorization server per protected resource</c>
       <c><xref target="U4AMultiParty"/></c>
       <c>21</c>
       <c>The owner's own credential to her authorization server: a designated identity provider, an enrolled key, or both, each independently sufficient</c>
+      <c>extension</c>
       <c>Silent on how the owner authenticates</c>
       <c><xref target="owner-authentication"/></c>
       <c>22</c>
       <c>The owner's API: the surface through which her portal, her tools or her own agent operate her authorization server</c>
+      <c>extension</c>
       <c>Left to the deployment</c>
       <c><xref target="U4AOwner"/></c>
 </texttable>
@@ -1072,7 +1104,7 @@ authority that owner named.</t>
 <section anchor="the-record-names-a-counterparty"><name>The Record Names a Counterparty</name>
 
 <t>An authorization server implementing this profile keeps a record of what was
-promised, decided and done, and that record names the requesting agent. It is
+promised, decided and done, and that record names the client. It is
 the owner's record of her own decisions and it is also a per-agent history, which
 is a more sensitive object than either half. Retention is deployment policy; this
 profile requires only that a decision the owner did not personally take <bcp14>MUST NOT</bcp14>
@@ -1081,7 +1113,7 @@ be recorded as one she did.</t>
 </section>
 <section anchor="a-stated-purpose-is-not-evaluated"><name>A Stated Purpose Is Not Evaluated</name>
 
-<t>Where a requesting agent states why it wants access, the authorization server
+<t>Where a client states why it wants access, the authorization server
 records it and shows it to the owner. It <bcp14>MUST NOT</bcp14> parse it, compare it to the
 purpose in the owner's terms, or let it affect the decision other than by its
 absence. An authority that reads a stated purpose and rules on whether it is
@@ -1093,162 +1125,9 @@ decision, which makes the same request answerable two ways. See <xref target="U4
 </section>
 <section anchor="iana-considerations"><name>IANA Considerations</name>
 
-<section anchor="profile-identifiers"><name>Profile Identifiers</name>
+<t>This document has no IANA actions. The identifiers it uses are listed in
+<xref target="used-identifiers"/>.</t>
 
-<t><xref target="UMAGrant"/> Section 4 asks that a profile or extension be given a uniquely
-identifying URI and that an authorization server supporting one advertise it in
-<spanx style="verb">uma_profiles_supported</spanx>. There is no IANA registry for these; they are recorded
-here.</t>
-
-<texttable title="Profile identifying URIs.">
-      <ttcol align='left'>Document</ttcol>
-      <ttcol align='left'>Identifying URI</ttcol>
-      <c>This document</c>
-      <c><spanx style="verb">https://u4a.ai/spec/core/1.0</spanx></c>
-      <c><xref target="U4ATerms"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/terms/1.0</spanx></c>
-      <c><xref target="U4AFedAuthz"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/fedauthz/1.0</spanx></c>
-      <c><xref target="U4APolicy"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/policy/1.0</spanx></c>
-      <c><xref target="U4ALineage"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/lineage/1.0</spanx></c>
-      <c><xref target="U4AMultiParty"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/multiparty/1.0</spanx></c>
-      <c><xref target="U4AOwner"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/owner/1.0</spanx></c>
-      <c><xref target="U4AMCP"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/mcp/1.0</spanx></c>
-      <c><xref target="U4AAAuth"/></c>
-      <c><spanx style="verb">https://u4a.ai/spec/aauth/1.0</spanx></c>
-</texttable>
-
-</section>
-<section anchor="json-web-token-claims-registration"><name>JSON Web Token Claims Registration</name>
-
-<t>IANA is asked to register the following in the "JSON Web Token Claims" registry
-established by <xref target="RFC7519"/>.</t>
-
-<dl>
-  <dt>Claim Name:</dt>
-  <dd>
-    <t><spanx style="verb">permissions</spanx></t>
-  </dd>
-  <dt>Claim Description:</dt>
-  <dd>
-    <t>Permissions granted to the requesting party, as defined by <xref target="UMAFedAuthz"/>
-Section 5.1.1</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="rpt"/> of this document</t>
-  </dd>
-  <dt>Claim Name:</dt>
-  <dd>
-    <t><spanx style="verb">owner</spanx></t>
-  </dd>
-  <dt>Claim Description:</dt>
-  <dd>
-    <t>The resource owner on whose behalf a token was issued</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="owner-scoped"/> of this document</t>
-  </dd>
-  <dt>Claim Name:</dt>
-  <dd>
-    <t><spanx style="verb">single_use</spanx></t>
-  </dd>
-  <dt>Claim Description:</dt>
-  <dd>
-    <t>Whether the token may be spent exactly once</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="operation-binding"/> of this document</t>
-  </dd>
-  <dt>Claim Name:</dt>
-  <dd>
-    <t><spanx style="verb">operation</spanx></t>
-  </dd>
-  <dt>Claim Description:</dt>
-  <dd>
-    <t>The single operation and parameter digest a token is bound to</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="operation-binding"/> of this document</t>
-  </dd>
-</dl>
-
-</section>
-<section anchor="authorization-details-type-registration"><name>Authorization Details Type Registration</name>
-
-<t>IANA is asked to register the following in the "OAuth Authorization Server
-Metadata" sub-registry for authorization details types established by
-<xref target="RFC9396"/>.</t>
-
-<dl>
-  <dt>Type Name:</dt>
-  <dd>
-    <t><spanx style="verb">urn:uma4agents:authorization-details:tool-call</spanx></t>
-  </dd>
-  <dt>Type Description:</dt>
-  <dd>
-    <t>An attempted invocation of one named operation on a protected resource</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="remediation"/> of this document</t>
-  </dd>
-</dl>
-
-</section>
-<section anchor="oauth-authorization-server-metadata-registration"><name>OAuth Authorization Server Metadata Registration</name>
-
-<t>IANA is asked to register the following in the "OAuth Authorization Server
-Metadata" registry established by <xref target="RFC8414"/>.</t>
-
-<dl>
-  <dt>Metadata Name:</dt>
-  <dd>
-    <t><spanx style="verb">terms_endpoint</spanx></t>
-  </dd>
-  <dt>Metadata Description:</dt>
-  <dd>
-    <t>URL of the resource owner's terms roster</t>
-  </dd>
-  <dt>Change Controller:</dt>
-  <dd>
-    <t>IETF</t>
-  </dd>
-  <dt>Specification Document(s):</dt>
-  <dd>
-    <t><xref target="U4ATerms"/></t>
-  </dd>
-</dl>
-
-</section>
 </section>
 
 
@@ -1263,17 +1142,133 @@ Metadata" registry established by <xref target="RFC8414"/>.</t>
 
 
 
-<reference anchor="RFC6749">
+<reference anchor="RFC8785">
   <front>
-    <title>The OAuth 2.0 Authorization Framework</title>
-    <author fullname="D. Hardt" initials="D." role="editor" surname="Hardt"/>
-    <date month="October" year="2012"/>
+    <title>JSON Canonicalization Scheme (JCS)</title>
+    <author fullname="A. Rundgren" initials="A." surname="Rundgren"/>
+    <author fullname="B. Jordan" initials="B." surname="Jordan"/>
+    <author fullname="S. Erdtman" initials="S." surname="Erdtman"/>
+    <date month="June" year="2020"/>
     <abstract>
-      <t>The OAuth 2.0 authorization framework enables a third-party application to obtain limited access to an HTTP service, either on behalf of a resource owner by orchestrating an approval interaction between the resource owner and the HTTP service, or by allowing the third-party application to obtain access on its own behalf. This specification replaces and obsoletes the OAuth 1.0 protocol described in RFC 5849. [STANDARDS-TRACK]</t>
+      <t>Cryptographic operations like hashing and signing need the data to be expressed in an invariant format so that the operations are reliably repeatable. One way to address this is to create a canonical representation of the data. Canonicalization also permits data to be exchanged in its original form on the "wire" while cryptographic operations performed on the canonicalized counterpart of the data in the producer and consumer endpoints generate consistent results.</t>
+      <t>This document describes the JSON Canonicalization Scheme (JCS). This specification defines how to create a canonical representation of JSON data by building on the strict serialization methods for JSON primitives defined by ECMAScript, constraining JSON data to the Internet JSON (I-JSON) subset, and by using deterministic property sorting.</t>
     </abstract>
   </front>
-  <seriesInfo name="RFC" value="6749"/>
-  <seriesInfo name="DOI" value="10.17487/RFC6749"/>
+  <seriesInfo name="RFC" value="8785"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8785"/>
+</reference>
+
+<reference anchor="I-D.ietf-oauth-client-id-metadata-document">
+   <front>
+      <title>OAuth Client ID Metadata Document</title>
+      <author fullname="Aaron Parecki" initials="A." surname="Parecki">
+         <organization>Okta</organization>
+      </author>
+      <author fullname="Emelia Smith" initials="E." surname="Smith">
+         </author>
+      <date day="6" month="July" year="2026"/>
+      <abstract>
+	 <t>   This specification defines a mechanism through which an OAuth client
+   can identify itself to authorization servers, without prior dynamic
+   client registration or other existing registration.  This is through
+   the usage of a URL as a client_id in an OAuth flow, where the URL
+   refers to a document containing the necessary client metadata,
+   enabling the authorization server to fetch the metadata about the
+   client as needed.
+
+	 </t>
+      </abstract>
+   </front>
+   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-client-id-metadata-document-02"/>
+   
+</reference>
+
+<reference anchor="I-D.meunier-webbotauth-registry">
+   <front>
+      <title>Registry and Signature Agent card for Web bot auth</title>
+      <author fullname="Maxime Guerreiro" initials="M." surname="Guerreiro">
+         <organization>Cloudflare</organization>
+      </author>
+      <author fullname="Ulas Kirazci" initials="U." surname="Kirazci">
+         <organization>Amazon</organization>
+      </author>
+      <author fullname="Thibault Meunier" initials="T." surname="Meunier">
+         <organization>Cloudflare</organization>
+      </author>
+      <date day="26" month="June" year="2026"/>
+      <abstract>
+	 <t>   This document defines the &quot;Signature Agent Card&quot;, a JSON metadata
+   document that a signature agent using [DIRECTORY] publishes to
+   describe itself: its identity, purpose, rate expectations, and
+   cryptographic keys.  Its parameters are drawn from the OAuth Dynamic
+   Client Registration Metadata registry [DCR], the same namespace used
+   by [CIMD], extended with a single web_bot_auth object.  This document
+   registers that object with IANA and establishes a registry for its
+   members.
+
+	 </t>
+      </abstract>
+   </front>
+   <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-registry-03"/>
+   
+</reference>
+
+<reference anchor="I-D.ietf-oauth-identity-assertion-authz-grant">
+   <front>
+      <title>Identity Assertion JWT Authorization Grant</title>
+      <author fullname="Aaron Parecki" initials="A." surname="Parecki">
+         <organization>Okta</organization>
+      </author>
+      <author fullname="Karl McGuinness" initials="K." surname="McGuinness">
+         <organization>Independent</organization>
+      </author>
+      <author fullname="Brian Campbell" initials="B." surname="Campbell">
+         <organization>Ping Identity</organization>
+      </author>
+      <date day="21" month="May" year="2026"/>
+      <abstract>
+	 <t>   This specification provides a mechanism for an application to use an
+   identity assertion to obtain an access token for a third-party API by
+   coordinating through an identity provider that the downstream
+   Resource Authorization Server already trusts for single sign-on
+   (SSO), using Token Exchange [RFC8693] and JWT Profile for OAuth 2.0
+   Authorization Grants [RFC7523].  This pattern is informally referred
+   to as Cross-App Access (XAA).
+
+	 </t>
+      </abstract>
+   </front>
+   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-identity-assertion-authz-grant-04"/>
+   
+</reference>
+
+<reference anchor="I-D.ietf-oauth-rar-metadata-remediation">
+   <front>
+      <title>OAuth 2.0 RAR Metadata and Error Remediation</title>
+      <author fullname="Yaron Zehavi" initials="Y." surname="Zehavi">
+         <organization>Raiffeisen Bank International</organization>
+      </author>
+      <date day="23" month="August" year="2026"/>
+      <abstract>
+	 <t>   OAuth 2.0 Rich Authorization Requests (RAR) [RFC9396] standardizes
+   the exchange and processing of authorization details but does not
+   define metadata for describing authorization details types.
+
+   In addition, no interoperable guidance is offered to clients, to
+   remediate failures by resource servers due to insufficient
+   authorization details.
+
+   This document addresses this interoperability challenge, allowing
+   clients to dynamically discover metadata instead of relying on out-
+   of-band agreements, as well as standardizes failure signaling
+   including interoperable remediation when insufficient authorization
+   details are the cause of failure.
+
+	 </t>
+      </abstract>
+   </front>
+   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-rar-metadata-remediation-00"/>
+   
 </reference>
 <reference anchor="RFC6750">
   <front>
@@ -1550,64 +1545,6 @@ Metadata" registry established by <xref target="RFC8414"/>.</t>
   <seriesInfo name="DOI" value="10.17487/RFC9449"/>
 </reference>
 
-<reference anchor="I-D.ietf-oauth-rar-metadata-remediation">
-   <front>
-      <title>OAuth 2.0 RAR Metadata and Error Remediation</title>
-      <author fullname="Yaron Zehavi" initials="Y." surname="Zehavi">
-         <organization>Raiffeisen Bank International</organization>
-      </author>
-      <date day="23" month="August" year="2026"/>
-      <abstract>
-	 <t>   OAuth 2.0 Rich Authorization Requests (RAR) [RFC9396] standardizes
-   the exchange and processing of authorization details but does not
-   define metadata for describing authorization details types.
-
-   In addition, no interoperable guidance is offered to clients, to
-   remediate failures by resource servers due to insufficient
-   authorization details.
-
-   This document addresses this interoperability challenge, allowing
-   clients to dynamically discover metadata instead of relying on out-
-   of-band agreements, as well as standardizes failure signaling
-   including interoperable remediation when insufficient authorization
-   details are the cause of failure.
-
-	 </t>
-      </abstract>
-   </front>
-   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-rar-metadata-remediation-00"/>
-   
-</reference>
-
-<reference anchor="I-D.ietf-oauth-identity-assertion-authz-grant">
-   <front>
-      <title>Identity Assertion JWT Authorization Grant</title>
-      <author fullname="Aaron Parecki" initials="A." surname="Parecki">
-         <organization>Okta</organization>
-      </author>
-      <author fullname="Karl McGuinness" initials="K." surname="McGuinness">
-         <organization>Independent</organization>
-      </author>
-      <author fullname="Brian Campbell" initials="B." surname="Campbell">
-         <organization>Ping Identity</organization>
-      </author>
-      <date day="21" month="May" year="2026"/>
-      <abstract>
-	 <t>   This specification provides a mechanism for an application to use an
-   identity assertion to obtain an access token for a third-party API by
-   coordinating through an identity provider that the downstream
-   Resource Authorization Server already trusts for single sign-on
-   (SSO), using Token Exchange [RFC8693] and JWT Profile for OAuth 2.0
-   Authorization Grants [RFC7523].  This pattern is informally referred
-   to as Cross-App Access (XAA).
-
-	 </t>
-      </abstract>
-   </front>
-   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-identity-assertion-authz-grant-04"/>
-   
-</reference>
-
 <reference anchor="I-D.meunier-webbotauth-httpsig-protocol">
    <front>
       <title>HTTP Message Signatures for automated traffic</title>
@@ -1632,61 +1569,6 @@ Metadata" registry established by <xref target="RFC8414"/>.</t>
       </abstract>
    </front>
    <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-httpsig-protocol-02"/>
-   
-</reference>
-
-<reference anchor="I-D.meunier-webbotauth-registry">
-   <front>
-      <title>Registry and Signature Agent card for Web bot auth</title>
-      <author fullname="Maxime Guerreiro" initials="M." surname="Guerreiro">
-         <organization>Cloudflare</organization>
-      </author>
-      <author fullname="Ulas Kirazci" initials="U." surname="Kirazci">
-         <organization>Amazon</organization>
-      </author>
-      <author fullname="Thibault Meunier" initials="T." surname="Meunier">
-         <organization>Cloudflare</organization>
-      </author>
-      <date day="26" month="June" year="2026"/>
-      <abstract>
-	 <t>   This document defines the &quot;Signature Agent Card&quot;, a JSON metadata
-   document that a signature agent using [DIRECTORY] publishes to
-   describe itself: its identity, purpose, rate expectations, and
-   cryptographic keys.  Its parameters are drawn from the OAuth Dynamic
-   Client Registration Metadata registry [DCR], the same namespace used
-   by [CIMD], extended with a single web_bot_auth object.  This document
-   registers that object with IANA and establishes a registry for its
-   members.
-
-	 </t>
-      </abstract>
-   </front>
-   <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-registry-03"/>
-   
-</reference>
-
-<reference anchor="I-D.ietf-oauth-client-id-metadata-document">
-   <front>
-      <title>OAuth Client ID Metadata Document</title>
-      <author fullname="Aaron Parecki" initials="A." surname="Parecki">
-         <organization>Okta</organization>
-      </author>
-      <author fullname="Emelia Smith" initials="E." surname="Smith">
-         </author>
-      <date day="6" month="July" year="2026"/>
-      <abstract>
-	 <t>   This specification defines a mechanism through which an OAuth client
-   can identify itself to authorization servers, without prior dynamic
-   client registration or other existing registration.  This is through
-   the usage of a URL as a client_id in an OAuth flow, where the URL
-   refers to a document containing the necessary client metadata,
-   enabling the authorization server to fetch the metadata about the
-   client as needed.
-
-	 </t>
-      </abstract>
-   </front>
-   <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-client-id-metadata-document-02"/>
    
 </reference>
 
@@ -1841,8 +1723,100 @@ Metadata" registry established by <xref target="RFC8414"/>.</t>
 </references>
 
 
-<?line 1169?>
+<?line 1074?>
 
+<section anchor="used-identifiers"><name>Identifiers Used by This Document</name>
+
+<t>This appendix lists the identifiers this document defines. It is informative and
+requests no registration.</t>
+
+<section anchor="profile-identifiers"><name>Profile Identifiers</name>
+
+<t><xref target="UMAGrant"/> Section 4 asks that a profile or extension be given a uniquely
+identifying URI. The identifying URIs of this set are:</t>
+
+<texttable title="Profile identifying URIs.">
+      <ttcol align='left'>Document</ttcol>
+      <ttcol align='left'>Identifying URI</ttcol>
+      <c>This document</c>
+      <c><spanx style="verb">https://u4a.ai/spec/core/1.0</spanx></c>
+      <c><xref target="U4ATerms"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/terms/1.0</spanx></c>
+      <c><xref target="U4AFedAuthz"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/fedauthz/1.0</spanx></c>
+      <c><xref target="U4APolicy"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/policy/1.0</spanx></c>
+      <c><xref target="U4ALineage"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/lineage/1.0</spanx></c>
+      <c><xref target="U4AMultiParty"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/multiparty/1.0</spanx></c>
+      <c><xref target="U4AOwner"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/owner/1.0</spanx></c>
+      <c><xref target="U4AMCP"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/mcp/1.0</spanx></c>
+      <c><xref target="U4AAAuth"/></c>
+      <c><spanx style="verb">https://u4a.ai/spec/aauth/1.0</spanx></c>
+</texttable>
+
+</section>
+<section anchor="json-web-token-claims"><name>JSON Web Token Claims</name>
+
+<texttable title="JWT claims used by this document.">
+      <ttcol align='left'>Claim</ttcol>
+      <ttcol align='left'>Meaning</ttcol>
+      <ttcol align='left'>Defined in</ttcol>
+      <c><spanx style="verb">permissions</spanx></c>
+      <c>Permissions granted, as <xref target="UMAFedAuthz"/> Section 5.1.1</c>
+      <c><xref target="rpt"/></c>
+      <c><spanx style="verb">owner</spanx></c>
+      <c>The resource owner on whose behalf a token was issued</c>
+      <c><xref target="rpt"/></c>
+      <c><spanx style="verb">contract</spanx></c>
+      <c>Digest of the agreement a grant was issued on</c>
+      <c><xref target="rpt"/></c>
+      <c><spanx style="verb">single_use</spanx></c>
+      <c>Whether a token may be spent once</c>
+      <c><xref target="operation-binding"/></c>
+      <c><spanx style="verb">operation</spanx></c>
+      <c>The single operation, and the digest of its parameters, a token is bound to</c>
+      <c><xref target="operation-binding"/></c>
+</texttable>
+
+</section>
+<section anchor="authorization-details-type"><name>Authorization Details Type</name>
+
+<texttable title="Authorization details type used by this document.">
+      <ttcol align='left'>Type</ttcol>
+      <ttcol align='left'>Meaning</ttcol>
+      <ttcol align='left'>Defined in</ttcol>
+      <c><spanx style="verb">urn:uma4agents:authorization-details:tool-call</spanx></c>
+      <c>An attempted invocation of one named operation on a protected resource</c>
+      <c><xref target="remediation"/></c>
+</texttable>
+
+</section>
+<section anchor="other-values"><name>Other Values</name>
+
+<texttable title="Other values used by this document.">
+      <ttcol align='left'>Identifier</ttcol>
+      <ttcol align='left'>Kind</ttcol>
+      <ttcol align='left'>Defined in</ttcol>
+      <c><spanx style="verb">insufficient_authorization</spanx></c>
+      <c>Error value of the challenge</c>
+      <c><xref target="challenge-parameters"/></c>
+      <c><spanx style="verb">PoP</spanx></c>
+      <c>Token type</c>
+      <c><xref target="rpt"/></c>
+      <c><spanx style="verb">authorization_server</spanx></c>
+      <c>Member of <spanx style="verb">authorization_remediation</spanx></c>
+      <c><xref target="remediation"/></c>
+      <c><spanx style="verb">ticket</spanx></c>
+      <c>Member of <spanx style="verb">authorization_remediation</spanx></c>
+      <c><xref target="remediation"/></c>
+</texttable>
+
+</section>
+</section>
 <section anchor="implementation-status"><name>Implementation Status</name>
 
 <t>This section records the status of known implementations in the sense of
@@ -1859,9 +1833,9 @@ Metadata" registry established by <xref target="RFC8414"/>.</t>
   <dd>
     <t>A running deployment of this profile and the rest of its set: an authorization
 server, an enforcement point in two hosting shapes, a protected resource, an
-operator key directory, and requesting agents at both identity levels. It runs
+operator key directory, and clients at both identity levels. It runs
 under container orchestration and on a single host, against both an in-memory
-and a replicated store. It carries two requesting-agent implementations that
+and a replicated store. It carries two client implementations that
 share no code — one in Python, one in TypeScript — which meet on the wire and
 nowhere else; the second was written from these documents rather than from
 the first, and found one defect in the enforcement point on its first run.</t>
@@ -1919,404 +1893,403 @@ token and UMA's permission ticket are the same object minted on opposite sides.
   </back>
 
 <!-- ##markdown-source:
-H4sIAAAAAAAAA+19+5bbZnLn/3gKbOsPzWhJqls32604mbYk2/LoFrUcjSdn
-jgiSYDfcIMAAYLc4knL2IfYB9ln2UfZJtupXVd8FBNvyONmT5GxOZqYF4vJd
-6l6/qm88Hidd0ZX5cXrwY5s34+dZlZ3li/RkPs/bNv3dj89Pfp/emRymr5p6
-WZR5uqyb9GTT1VW9qjdtenKWV117kGSzWZNf8luen+B+3Kc/Lup5la3oG4sm
-W3bjs2w1G29W2b0Mv4/ndZOPDw+TedblZ3WzPU7bbpG0m9mqaNuirrrtmp59
-+uTNt0mxbo7Trtm03Z3Dw68O7yRZk2fH6Wk+3zRFt00u8u1V3SyO03+mcYzS
-bNOd103x16yj19A/8b1RusjL/EyvrZu6Xo7p/9d12+b43l+StsuqxbusrCv6
-8DZvk3VBr+zq+Sht66Zr8iW9pd2u+I+/JPKV4yRNx/SfNC2q9jh9MUm/o3ni
-gkz+RTG/8Nfq5iyrdGTH6fOiWnyXNYu8Sp89e4Qb8lVWlMdpRU/xgv3hjP89
-mder+DtPJunzrMyb4ENPLvPgWvyhf8qrKv02m3e0zklVNyu6fpnz2F9/++jB
-F/e+cn/eP9Q/v7h/dN//+YX/0+794sHdL92fD+7on1/eO7qnf35196sH9ue9
-O0f25/279omvvriDN9CmfddkVXeMkX8eYeIBkNtLostzXDsJ9/0AL/ObxP83
-Hli8fQvo7n7Od8/PN2V20XuALhf5z/1f9bEfJunrYn6+85UfiIqLKvxtQQxw
-nN45PPpyfHg0PvwCF2nyRd4W1bK2wf+RJpw1RPavcyKHVV4tME9Zs6w5y7vj
-9Lzr1u3x7dvEeu3kQh4oqqIrsN8TIorbxIG3r85uN/l8XPPqMEuOz3g1x7SG
-k/NuVcqWfJsveEH/Gu8KXc0bGvAiXm3sxLU79v/341fsx9JWecyX/hrtzL2T
-N3mzauNteXlV0dqztF7mDa0+bvlNmxJKsn3S7NftoK3rnQd7VvRp1eVNlXfj
-x6ww9umNjqfGimNooTf3sklW3G7X+fz29Y8H6/nrKX1AFf7nW0giMqGuv3kt
-gzfIcvIgYuXy1YO7950SED3zdPx4UuTdUum9yZrxKu8ymlU2bvJVvihEa+3e
-WpCmpO3ZjjNS2g3fpPxxZuqDH1jlm6ogor/KZ7O6w4OYUnE2JrVP6rwur7m1
-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
-56t5ucGae8nH8qWdpFCNRZeUecY2Mb0rFnGwZ1T+EbXIYxDlDe+HmqK4gcn0
-rCEuPiYrlz6/JPuMly9FXiRQEOvNjHjrXB2bbkB5siykcdOzpPjqZsFGpFhl
-/AEI9/O8xA7MyFSBoVWYTqenyKxgl6oQNoF+IKrgVaSRJ6zh3mO/nXBmHc7T
-y0SGkyicseHMtLCMpDBpXaEfo2ISEDTbq3rDwxEtz7IYdrZ5cjIuesOMLotv
-kWe8EuzlmC2XgEnGZJOtmbb09SxcHor0BiVmMrSi23QScYbd+/hVbRx+j2UA
-2dEltpOnQlIK36ZdZdEAEdh3U+gRfpkbBmuIji1+GknW5rw8gUDaMOfp5+4c
-QQmTwssWobWHPcxYbCarDVEKVGW42RHX11UpggF3wGeSRYveSDNJVjlbaEW7
-AjOYiuGEJNmAiwJJSvYYhCKwfswAQidiSDFZ8z7yqiVeGsV717Jt6vcBVI5N
-pjc0G9aMwdfIzwEhGOuQUSAS/1RUz1xkw2m+4+M7pdOA1OAyTcS+QaKVFpc/
-jQuWTORrdPvrJ//449PXTx4nIdOmjDE5Ewu0eyik6z7W1Wc51hxWvjB0d6Xs
-ApLCaJyrtA4gOkEQQWIXNEGMSlJMrHfEKpN4v/u3D/WHU0H0Wefx8tWbpy9f
-nDxLvDZ2XGdD1yV5/ugVPcR70sa2EQxj4viqXddNBzsFDyA+S4/AuYiiAt1W
-nGij0rTMtnnzMIXnY9ve8gATZpOCaULEVW/7zCQz15We3/JjqvJrkpdq0fGf
-IuMDD5RswXI7sh3JVZSD5BaLQkQwpBpiJDwmevFrLy8xp+PkGE6IC++QkWYO
-p7LbBDYBTCJMgYUy8wUH3WREPlr46VOS4qOLpl6zNBJSys1razL+gMqXRcED
-ETVW1tliPMvVq2Q7nviM3tX0xivmksYZus8Iz6gl0NK77HviVAyFZEYWwiKP
-vN6QIpuVJiv1NQhBpakFodIX6uUXVUxWZAe2/U/IBNQFZgOJdoipg9/HX4e0
-dg9Gd7OhxCqjYuJ4Ca+PI5SydxpNYhJqNlWr+in6KLSIV54qzmqyxMEvOa8g
-LxGbFsKkiCSIg1rr9zRUpV8zncwanYbnnS++iZYR8/o//+N/klzK04jfcdWW
-E+6CeFaBLVRU6w00MA+IvkOzftKP6tj02QqlhanU0aJdJjnfnOW2/mKajdXm
-IW1WnKmBQoI3FQr2AvIYEzcW4HS5Glqc7nIxS2iZetYxcIYXmbfQuROpeCmj
-0OHgMBpPmRzTTQtbsvfd1Bt090CrROF568mkKFnwkHF6lZPIuKVa6pZy+Ers
-JbcUIydxQKxCkxfkPcOfwzpdZVsEAnajZc9PfhKDhNYpv4LTxyxTdbJg4arS
-IjTRBd6wvFwi8iOKkQhhpAbIWoJqIt+Ic7ANGTI1lwIrUIHH/MzgyTY9eP7j
-6ZuDkfxv+uIl/jb9xX+ffn/y7Jn7I9E7Tr9/+eOzx/4v/+Sjl8+fP3nxWB6m
-q2l0KTmgyR/I6h2Yejlw3O2kN6w9OGvwY0gcdPAYEwsLwhn65tGr//2/ju7R
-Vv83snjuHB2xgSX/+PLoi3v0D3KY1VyBHSP/ZD2QkHQnachvYYd0nq0Lsqpa
-uGjtOXEE7BNayVv/zCvzl+P072bz9dG9v9cLPOHooq1ZdBFrtntl52FZxIFL
-A59xqxld7610PN6Tn6J/27oHF//uHxCzHR99+Q9/nyTJN2RZPri3aUqi3nnt
-rLBWfQcsPqxMBowGvHVH1CUHI9esJIkPheAqJcZ02t65/+B3738/pVfRRbOE
-4f+l0wP+9fhgqrrWe3IzG1BiA9r50shELS3xmF5DLH4GR0iu1vOOJf/0/XRn
-SD9fdL+72Dci+nFoQD+8/SMJx81qtqb7ukQW48HdL2kx9IM/nL58kb7NZ+kf
-idmmF1OR9ZdZuSHWX3ZqchNlL4v3ZmzCju7ca9Md70FcfFbRkNw89CkbicsC
-CCz29cmOrBcPg5cnq6y5gFyC6iAbfVHm/fBj8AoWH73Qx6nI9ueKgEqSk75C
-UenP76lJTrN4r2ON7dWjC44k135FJs7YYjZZJdEkGxCZaY72YFtie0LzVDZ7
-cLDgY/HAc1tRA3lh/bBZyXQoz8tuwe2jyeFUZJeEz95ZCOtdu1mzuYvoGEe+
-RAbxBxP7ICJmkgbj/FP64+unTDrI9/iIkklG9mMkzhmEOluOjw4sxT3a6QtN
-e5kRTqL0rLjkIG66qQoyX0gc9j/PC6hP6hLpPNQ2grG+uGQUXht4MfqVmy2/
-BIY5InQQExzAzapszI5MsdAkGflOui/epnYLv8pXM0k1EF9zyCJBlOId7b4z
-S0yCCU/9+PqZ43INsUhgg4yDDsHYnuDyLhxr6CQdJg+3zDy8yO+LCYdpbB8/
-mKoIls1yiRxcZe2OFKMmIzWIVnTJVUFaCVqdTKJ15+kneJOEeoO38T37X6eh
-Ag1XkPNAz9Hz2YyFqMVWK7K/jocsXBAfZ4NgUZKzr9mZwWlzhIutK3UEIs3O
-lRYatyJqIgdtRdNLeOgZR8/d9Mhd2XRjmb6kx1aZc08wsg2JE3gQ7Gar15FV
-CZnoxn1q0N8AmTxyidIPN4hWxi5x+gn20iuXCh2x7URr8D1Sn3S3u3Ps86Wf
-kmHeuzu5Y+Gr2EBOfVCQrJlNU7kU673DI0nnZPsi9JqF7QV7os/c8kOD0ZrA
-0YE0sUhJyxklBCNJI5FLfpmXQroDJipT2pzNxm3P9w0yxmxN8cLD5ma3JwmC
-wekVQuHLmECIm5s8K1fMxGYxEQ+2Fia/fwjRkJNH3cT3eOU5JTdos1wWcw7X
-votez7o9a99tmmL3YfIdNszVhjxoTGYMUrC4OkLGLCACMEXhQRQamitaETz0
-dXFNdr8+4L0g4ucpaMJLI699Z8Jw9z2BrFPfiSPGNhwnRB27ifHwxR02THhO
-7Pq4zHo0Fx2Qv90o+v7kaNiRoXeBTtg9koCDfXW547X4VQ8DjZw4WxFls9dT
-j8DjkhgaGsdd/M6GjEWTu/ir8J40Q97/ImKtfjitpAogPWYMprDovyN0dcQw
-UVFHym5qgQyMb3JXmPvnnN31aisRK9pXJDlivXWStuuMvOZFXhargjdRk1oy
-Wn6gVT8Ssc2WqLNdalpDhGa+cITp905YKBhTEuMY3kVg+5C6ThFGCH4GSZ4E
-4fTYnsPWi1o1qdLmoXhgO0Ds1UVg/gBvA58LL+RAJ9untAAxoUMyBiFgMV5g
-UHhxzJbZp08PwxCkZTcy97AAK3wI0muyGLBCe7fgnAZJXbVONHlr1OwCfWKu
-Z5yjRwGQBjNESJPxBsNAAraLfF3WWxhrKWArZXHBphcsqXodQxz2xAuaTVUB
-oVRxeYFAWSRNHPGYaBVEn+pVRoYO/bIpOwsOBFMlek/YPRm/fvVIHQZ1Cxpd
-GM2Z1ymHiQbUEnkz33DY3ryxNqFBmim8FxxgISy2AIakrnnqebJjfnCuu0Wq
-QKIbjkQMdBpqaZBFkrxkQc43jYZRS6Bg1cVTVsI/Vg40RIa7AG6S3bnbRl9J
-Ygq5ofk5vZnpYgp9Lak39zO4QkLWij4yJkHQedC++ES68l//9V8TngB5Gkdp
-f4TJoK2QQr9+fZCVBYmXy4wo4GBEggIq9euD/boTd4ny/PrAXB55S9ZO8vcZ
-7yVuEgX29cHzt6/LF399cu/PP591z7/76fDl6eHhi8dnd3DTji7zL23c625P
-rvKyHF8QwVW3gdKsXRUNVNvYXnN7NV/jvRCNXx8QOxOLHefv8/mmk2HtlXNf
-H+TbH84Xf3pdz+7+sM5X3x5mb7/a/OnO63Lx3bfr2ffPi8lkcoDF/nAsqNav
-D04CYF1thDRBSUk6ozW+EAHHsoHM0XWZbRFimhyINXnaNZs5Zy9IrvmREJWG
-AjZJpnsHPbWYgCMJ1m8fPnxmIRW7zAZt9ArQhVHGYFyiIUQp6hlUltg8DGA2
-KWrZj6va5TyyUj20VoPX8iwD8PqqZkHjKsq2Z+tV4hHvmIap3K4vNBPg7lcP
-PBiQ53IlRgxbDk4PDig5lUDxtxF8mqYu3zknY6Ei1iklWMPQcCJ4HQ6sieng
-jKa6Ljp3ju2jWJxtF0lzs3w+q5BfhJ10dU46Hhp/Z6wi+sKBphbEcGrhV9uv
-sF68BUvanbdfg09CV1Ph9aknsEHzdXcwA68y2FD4KmKn9GdSn8kHGszB4Doe
-HKf//AFsf8D+K/3zgGTxsUdhH0ePjY2guroux7RtJfieni5ryePijQNy5uAv
-eqNfPf5YICNvqyR5B8Fi7xX8jLw1vsFeyHzHY5d7elLpL3TPJ9x5sIc+eRSI
-eT6Yv37wL29Wj35+0B6efnX/+ftHy8XyavmnH75cHQy8QHaZn75WUh/IxvB9
-e4V18mlH8rEZxKG2vcJJKR/C7o1LVu+KCIjIK7GULjj0YdAXSSsSXTULTXhZ
-Knfya2QcrBaDTMF+p5eSTCgZAE/Wi4DUOA1/SxNdt/YYHoJEIW5lY+mqbi7E
-u40MLEYtcua5I7uxXuVsxQB87JDYGMLNPTERMawc6puHh9DNJHmRrUxKW/xq
-v3V0ro/PsvkFzxYbHEdzE1uCkekQpAtNXhg4gqRjtHL4ZOtw1QgmYT2SK2Yb
-hRKJ0wZrnJOGjAG0wYcSG4D2TZmRrT8ns7cdtsD0WyOG0SO3lRiqkU2CXvwk
-kHy24uInKR5ls+UHmhzgTM7GpyeJzi1GiLJu+XwSY6wvjwnme6Jr6G0Dy0Lw
-gBFHfX7C3l2ASlaAON3NtkOTz/MCCCCSGouEpsOQ4B3ETabpC1aYi74acuJj
-Kulsh7Kz1OqKvU9QV6sqgMlZ/GKPHGWKZCJ2QQwgnGxGDKVvbWtV8ort/agm
-W3JWB9D5wTg+WeT+Rlg7J7thRdjgy7ybn8e+vCA4SUpMdwxJ0r7wJOkbxXJr
-UfHW3zl1MWSjmLbPyBgAXGdJK36Gbx+EYCXgxcvuyQBS0HRqsqhzRYW5NKPo
-Y50fsfh0SKIbUpah8UpYvDOC0AVhsBuXa7hDpda1IVhAVJNNFWKyFubBsE+m
-s1l4OAp/GVGWmNLhvJF0UfwVkQkHi+ntc/q6hNbDVb4JeZu+eXbqzfmUhnnG
-0JM34Ztp9VfybplIJ9hTc7stXiaTVYnGdCs2CP/LSCNx9KOSHCawiwC/8CUx
-5uD3yFFxJ23w4VSQQ4OrfFOxCoklJ9KNY5kpmzIsYo7F+zuGpDmWrivoc7QD
-uE4FcE30uCe0fJdDcVEM2BGaVEfgy+G7OAYh36CxSrHSmGm30eynAxis8qzS
-ME8I+E4GAN8BCpwYrGBfmV4yLSrakGLxDp+fqqhANuINshHfIoLfctEHBxei
-KXpUzhAtI8AomQBE7IIcR3JLEgPtrVEcnvLGCDENXi8AJtZ9qvboJbQot+Zc
-x1p1t3hlsy4Jcm9h1VQvcWT4Gmcmh1C/6xJCJz/pTBTPtpuvaSOk4CR9WbHx
-n5BRwkVWYisY+LLwOMUMlkiaC16C80M+9qTAaGkOsyyalkx8utfj7ay1Rm/Q
-Ugawoy2vb8nBCTJFuFjyhp21ZIqpvsNUNboSXnons5+y47WHd3Cf8E6xGP+c
-nU1HrspEFmCvPwS5zfq4c4lwWXlJf0XIQyxWIO45fxc8mnCSO28ar0Mm+1Vb
-m5tx6KoVQYn5ey1nwpa0XBqFujtdzwSyHumG3A+O8XecRJUMjpijCJzTfJDB
-P0PAwQTWmQGVEjcNG85KcJnuhSwEQIJOkAliHaPYA2+/6cH/AEiJVB+keq3V
-4W1yn2RLsijLhKZR5JfkVz5d8rU5wt2oAeB8lSvekenQN8OFPOO5V76kjFWd
-LP4luRkoI8Lr5jVpmrkUL66YKfLcRLezJRnuqXBgFpUoxKKNfSUaIQqjBOzC
-hDT9+aoDtjJvTJBL0B7lW+EOJjb7m23wEoFtGRDRI+AURQgQKtbOQzt3XqhW
-Gul8X/+KOEdQPMHYf1MXjPnjWIx7UTScS9RvBMhcIPQRSIdXICAU8mbwcOns
-EXWyRonT1VoFwoFJ4bcC7+HyBt5YYL/ZSVzkHEvnTIGjds4a69UEMsvXLMrr
-JckPmK7mbTTjrJTmgJTxHKziB8A/gwDv0e6N3aX1B2zk9XHCsXpO3rAnzKkP
-q3Qw0FAQQ2F5MVRJZZ9DjlvQ84ZctuJhorgZIxSz9kLDTXQp4S3dsq2Cqr58
-cQ0vSt7GZ9Dhul8AuM0FwTncSwvAB1IQHjwPhO9Ns0vyByz5HnquzsPXmrXj
-hOVlJWtkkNIdWdl3jnfroIMsK15hJauMv5TaV79IoDtxd+g6uJCBAJri8sMR
-HIqr3b52dNnw4Hollq4eWKHVSM/rOKzi0rwtQEzn7COHamTHtHI0wUpVs2dV
-OkU8/50ERteS+1ae0hTMps3KhH11K4oyTzVnu9n7br06ZsYOG5tltMpkJ8Lj
-z9+f0zVOOqrB6FDL/OusrOdMj/z0XjNOIY0s1ts6qChPkASY5bxRi93VZwc8
-pNfMZocq2eLsvIOkm9ckmZn9E/YNCnMBhNvfZgU/nwyZs4KjhV8l+Vup4JSs
-GUcZQUTkWfOUWWoGQ0wCcAwK3qX8DUVkGuRRmYgKNVuCcyMavi/drNX/T6TH
-Aa+l0JVPYuqDPt8qXODjaS425Tc1kcpjRiI/FEFsNkfIIOe7MH3WshI44ftb
-wYlHyWBMWDm89TOBoGDDTwUDb7UTYCKPxffmu5mUqrifxc4wbOGMzbKdO51Z
-IBEQD7iS5ICMwufOMUyFJWUd3s07isu2i1ZBylvHvWkR5Acgi6emEtaAoFcN
-G2Faj2+OZlAFIp3IOO9jl8YYsqSJnpqye0YmEBk0H24427rEleGoiXNTBQ2e
-ovDSuk1IoI+EurxBCAV/JwuOza+QH4cxg3iPYQ5MvHn5aFhRRVu4dgtsFrX5
-ZlFXWy47MrnZGxsRL+tB4D7nAMwaZPgLBt7xE6griS0a/EDSc3cUReugutyc
-xHUQ2ft5bykaNsySKGrscCafFzEw/unLDnQgCDUMkuUaC24NrkMCZ5ns5H8n
-828aYgxnW5Q97GsNyKk5DRfNq+Xk56sLl+tD0og+TZ+0ddivw8P4VzBVS7Ij
-K2WgW5Ark3OqSzCySBZ0lOes3SyT1fgJDHaaSqp7pIulKJCmUEt3d9tcMZCt
-Pdd2KVOFYU+IbgHd2PTtEXzkXzZZWSgX66sR1o6KaMkXWGfACLzxt4ndGvac
-CRw0lhWzXKewkNEyUWAMT/F9McISlihcfyPlO9z+1ddGZvRgTrqJaWXNDo/U
-Rz1EksPg3GP6lYReZNvQ2M5yNAdQDxAjo9XTpgmbauQcJwtNhaYO2X7uqRZT
-hkXMJjy73ReqhGZ5cFWqvxBGYt29RDeb2dbjTFjW/6MsN4IN22D/bnLlUms4
-TqVbFOoR7bVEqt18o8VcpJ1zrhNK2A4mvdOgthNt8cZdXmVhxZ/zY9y6gtS1
-00eqt2N3GB8iQ2CVQKZDKx5txkqDB8sUIObFVa1Ptjdt31w5Hzw5JcTEVQnz
-pDwNj1wjFjRwMAnZN/lkaTPEx9+q5yOEs1N4pQys2gSerzg6LlSz1sagsD8S
-bv/gJAdqvPsBQHrJDF1KeM00XAVj2viNHaMxo8uEZ7PwYxKj2MCFUqwsOl6I
-UcnttBwY/8bCX3a5kj1BfQ5yhfE3pd00eIWL2YathRJX3++hxnyjmnOo1mND
-jNNvoo66htPQEsPpyNcYeyhfhADUKvjKiTEGUrJnXF4qi7jnnj728eQ0RFJ+
-fmdYEfGFJDWuFeIyhDzMLUAybqoScYAgJyLmEIMS5MvvCrJdV1mHwF6n2FDN
-zyGjouLsIRZlemr1tGOYJFOd0DXdcMm31XBjXNBIQ4ByibwAV95hMzdbEOXl
-3l6ykJEvQk81yCOxTN9+7IWar8UAG6F+0dsQ2F/owyIP6jPxaHmVyVgT5W0u
-dPHjQbxmtEd30fObSoxm94AMkPsPNEk20z+XqQxWzfZfrgZYFV04To0YJYgJ
-X3HwVnNMdaXGGbklZww5WQ4ykYjjSfoteeUbIPcSo6zB2zESdJaINsVtBPxG
-r5wTK6tE0QfnKHXbb6LzFPfYVTs+ZymObsbgSdNNcB520ckaatIwowRYESZq
-ndtERM2Bqm2tLcWUzngzITk8D3NUteUEgRXhCi65dvis0IzlTijaY6PJCg4D
-hXkkHj0zpboBPVJ3vBAwueuDJfE1jnl0DUnswQJd+AmvuNcD7+crX0794cZQ
-B4idXFXc3o6k/ELaDsUZkH2N7xI8GPuxoUWETen14FP2UNZhljMTxWH+1SzZ
-RaU7ntiDwFQ7tug8svM5fZmJysksdybJhxtOcIx1op84SKtrGYwaJQmAiO68
-LWqRAdL0zQa08kGbaBGLtJ3OXkt/yQs5+IOAZg84FXbwB0tbbg84X3bwB7Y/
-DgQDOo1xOwdTIL+54ZukguRDTIzm8KsUE2GRaKqIe4uwi9lDeoj1LhaJOIBo
-UiFdCHo/AF5uvlbVbQoIhD5AV8w29E6ouYj6qSB3mDvC3BqaRXxm23XSIpvK
-AgLzOn8PnHsFaeyijBZxkm6HCzRJC+vOc82WLQrB/UvrnUn6iNePbdadhXYu
-lZ4Xw4OnJezQOTFckytnaIgBdBJvAfrccCR3M++cjyakwmjKMOHrCWGquWms
-ZRKkZtj67GeWOK5aBE0Tpt+TcetAxnVjzus2Ifa54pNjFq4eyKcZu62gVPq9
-F2L1qQFxjmpxwyj2Qn1ZWOYXCz3OhCAZM59peTwuC/QR4pi27JjNtl3Olm4J
-ubZhQ9sDNwI/RFIRvHpo8KGo2qQlCqs6LdYeuM21AcQ4Ws/TS9J9asupSIHj
-lyiKv/KdJHg4ZX3Wat5qd89zWhldRKB1iJH/EMgd5CRtj+nJGdHcCuNNAmox
-umAyGfX4dmxYU1VcWBIG3CBlZZLG4DZC43jZN/ViC2QNctZjAQl9spy6tygs
-R2NpfZ31jB4f9cg4lHjJ9JG++THePFVJef8uV5VYL1Dzf3YZZbXm7kewWvF8
-EpCjriQPgaMlHPTl/5W9cvk1N6xa+ty5QtFN4ytwAmEsSUJpKiLubtA9Uvq9
-2A/1EhbjNuFnHMxtJiAbrgPqJImpvsKCvpZpL6csMJFQsmLLyqUYaB3Lxjd/
-eVO12VIekkLHndvdRrg+Hfx1S7y2YoSxVy/OEHKnW7aSGvbqMvT0k1gfP1dy
-WKIR0I6HC3G4g4EAALIxBo+Y1Jt7fpE3FdpyaiYpwJBwdwhZeuu9Rb500NtD
-/FPYnK913x1WTOruh3c+sSwEC6te4QzjLXjtfCcYqyfPrOOGNXqyEqsEENKx
-GESqV2XJYzC3YB4Rf4iJ1gerk1tKXrfCWYRsu6J9YWie6OSiEwmlDothGDMd
-hnQirVeFIE/QaUsD3U1OrgRZ5Rx8hTSWVpfXVWKiO2XmfKkdLrWgH+iYSavo
-Elv3IeBaTM2eHlReC+VKdadWSuGtrMExlML1o5nE8kmXLYhnIkLiUWsWaUzA
-buy/dtzcadA8jN26mHJhzENtozQocTOX7dHEqf+u0V2nBq+Ym7A2pS23FAUL
-gsUZokEgX86+ECjThxvNmu96yWlOzdjvy3pJ/m7R9us9o7zxfVFnyVSgMAxx
-mQKK9ap+NT3eAdPjkwKbYWx3vv3hMP/TSfGy+OH8p9MjlLr88c767uLR0/bp
-6tv2z9unD7jERSDh7gv8KL1fLpNFxcnKdwW/8e6Dw0PFhV/nezgOSn94+8ZF
-99HlTnoaD/VhTEI0s1A3JzU5T1wte7UicWsLARBo6Bxhc98rAK6HZBokIJAP
-NbcCFw74N94G6sKIgs5CXhYAtbwG1G8N0K4jWx1E6xgmSYLOqLsVvlId43MJ
-exsZcV3uEXSI9IwQQ55HanU/HjtbKGpP/ym4aXFRrCY1nRIJ8F0Fg7DgvFSz
-5ZQ/oO8sYHhCnzr4VNScHak9Rt6wRFWnnoy3s/O4NSzn3OUMlP7ce30+0SGS
-d5tzw6XWnwrpsdUuri/S+ki4yMEgmNvCileBytnvO8dZIq235W4pqGA/ryFg
-1sUc/VOSzTpAoaJbQdCWUOORtSR3Xb+3zqofmLbqTZsp0IJN8Jb8O1oW9j86
-+WwI0dEQAglYt59RS92iQtmqIMCHbHCOO1xJK6pW4lwBCoA7R6GLfVOsH8b7
-4/C4Ae92W9kNnzQWoBPr7I6D2dwxOVwd34Mx7C6ucfNK10VtebFzX7oe+t8E
-rR1PgVnlgxVI6jqoxliTdM7yHUAy7OAvJAGiLdYi5EUU6wJpt9gkq67eK9xF
-Alp3TAXeWjhbQR2nSO2EItMEnuBx37EXFbHCN3XNbUjTKUe3p32ISlRLV1t2
-mnFU9AA96cRiFdSVROcTcFx7Kl7MOymJ0ye85PjVlXKQgvCqwxJwzTntrZfb
-qRPzS3KA019zKCc3fLpoBWM0U+i+obqtYG6uwmr14s3J4Z9/Pjv66c03Fz/9
-9R/f//ntT/d++vli+/zt83t//u7plg8n+WRa7xGTACkT6VXEi8YQNq3LdzW4
-Qim50gpkW3pweh4k29AiTsYmTc/agJT49wZm8IGA4FzbUrTEtZCQS/+o511u
-Ex1ICDnRYAeZGrE2k6p1NspoUZeb0mVmJKvpGzbzzcDZwTAK2wF+uBEIFzGO
-XoaugLRLeWOnNBCf+l+tT0qgwM4K64Db742SuS4IYRtBb+rBX0+icFw60JRw
-1cuRwQq0LGGr7a7gVszzxPVIkhSUB5OOBYEdR8i4G6PiSa612IEXyq7rb2iR
-WymbSEx48RRdcl7b1btC16APiTRHlBMj+p1FtM+UiXSMA04KWqDzt2f5spZe
-7NrRFPpo11OYwRLhAskJC9pOK4gg4LV74Ui7RRXoP9KeEw2V0nWJXECaDIrp
-5OgPVohWcOCanRiGpZBDLGjvQdycALLkkzv/A6JefEDtspAGTRGCXgumiTLX
-+X//nn5OYwah+WYhjg4RuP756ToaoJ1hKhPGcg10aEfXrevrhRf5M0fwT3F+
-3ZGaydFEDkyRzfQ5KLedvhceB582K/FvtEm5pURcggU9KyGuLq120cGqAmQC
-2VyFhINFwSP7TersziR9Er8z4uR+bRXqnzDf2HrR7gqpVvSrPSDuJ9Rtj+Z7
-CDD/LkWJwXrFxMxyHWk6yznoknUL1o8YZkV7e3eS/pMEDNcDeYTQtWZz31em
-kb/i2r/FBlSaOtjmJLkXAjP9oUPsG0y9upu6SpwBP5iLD1r1Q4KVCbR6WNwz
-6m96vJ7uKX6Z5Y+n7upEbAi32n1TwIVzAj3PkbISZBW8JzQwJsl9DhQwcQbr
-cK0E5dj4XJ/IwtKlSIIxN5EntOdFMntZPZe13FmvXmxE6oq0K7FiAh3g3c9v
-uq+7q7bO0oHL26LXhLseHenh098wmVTeIu4Hzg3oYM9UxI0SO9QfkKIJXVU4
-NOB+vCWJgvbcaSVYHQeJYjazXIZ+GyAgrUE1h4A/klj8U3JSzSWcRg+gcU6F
-m77yf/h21jIzBQM8coINUR3a9KPdbBaOJdNDjxZOTzGQOkO7IVVTk0TzyRw3
-rmcKNAq5k0P0SBkXzrQ+y5oZJxFdBOpYuYHv49MouNgV1RpWUOmjBM5Vsspb
-HBCmwBdxh0rS9SSNON7MmjgxILXfZ+fhKNgUwBpnZ4rlxw3fmpKDm/p8haxI
-izaHJAEysg8aO8GIiQrwM41ZagSQJi8Cf0FSpKkDlMS17Hr5+RJUWu4IUDI+
-M6Z/iBbfbZGHoOWRKj2HG1Im8+VmjkTEgEaUpgF63f12N3WAcTGdUdgDcK9o
-+6fogu46Q3+4UUQXPkna2HEJu5RstUtQf8gqkzZU0aFzsSjgSItHzVRyRJWc
-ixSSgW/rodVqc3Ry1qP53CjLPOGJBnqTaJWcrtZA6ZIEDHx6iCi5lvkqW3gJ
-bjhckHhitwGL1QUShkkqFKZBHlJr5DhDGbTSzdCkH1gF5R93xKAadYj6A2MN
-gEatQWSkSCQtQTKPT0rAkFr5xNSN92tigBLa1ZUaYdRbaxvAaEIJHHmA5NzE
-j1pwbGddseCAdF0qxoZDH8hV4rguM3Tgngkag2WDVpTZeTnGdwxky1vta4km
-1EZLu8Ys6CIoqDJToo1OsNCD2qRApOii8936Tgzq7qQ2Yn8lk+iPAUqWiXvC
-59MILGZFzyQKIoolhQhjlXsVgmtENgf+PQdIkrUu67vn+L1MDzHSTgm5LbL2
-I8sa9fYW1r/7xo3AeOY3ucIvsHTwy6dfaOOqDV9Rcir5tVByWZWOdoJ+cOfT
-p8SaAsDUDqPVUyNKV8kzFLSR4CLxG5e5VMVqs0qsxqJfD4MMNzhxuWnAzuHx
-j1YML+k9A9EKZwtN7hPtYuyJF6ZfUTQQIgVSCxZyvDWPYDNAHhNgtCv2Z/GB
-uoDphwNZmINj4dFPU5SnDp2vQKyOYGV8qqUsL30NktzrR2CgTdPmXVeKNcUM
-REKq0wiCFY6wD5DK+Q1dhB30TfmDd0tewIDW8pHEVd19RiNg677pdAG/R3wx
-gFB7IRGloeviCLFpF51+48YsLIX7b6rg04oirUqTg+jEtV4GmioMSHOLE4GN
-6bmz0ZmYTFFAscuDjIJ3pw6KifXQ6ZQiqNNQM5Vm6bz01mw3Tehzit6CYWJL
-ucMwqi2SflyVctP1NuZChxkDc6SojruxqeH5yNf+CYrCVQKyegoAoJbAHCxI
-dLl5JgIHh+kT7SgB3t+SYAopRfVov8jn0zWUE7Wh3unACcizadva0KxQNnry
-03oT1Uz1ywc4auznPcVBGzZlBWeJQGfsgdBpsExAc7VBv9d+XRa9TyY+gsTP
-zYvsxeqF8Dz6VQych5gbmzcShPbfddggnYao7pZPgHNnhoToPR2Dxqld1QGW
-39vpEAW0QSLbOP9CM+ZB+K4R+r0di0wFV1g6INaF/Bz63Nong019KW4ocdLe
-Z8A75ZBls1bxKmfsiVXrxxIvmKwkIoYQ3pm1+8uiVc3ggF4WcjReLgXZmqPi
-0Cg3lWqQWB27EIPVfsdviqosZPV5DHxECo1aCUlrO2SiblXAMUqDvRX9NxqJ
-2qKX2jWut2o9Vl8EfhRMZ799zhdp3Sl9DglsrZhCrE4MwhNS+plT0jzIRZNf
-+QQayX25q9NycohX3mLX+pgsX0Z6Gr1LXEvOiXUzE3hFGxmDPdaTEwMztk6T
-3+1AlX9vchfnNZkCdCVH7C3ykXkNjHkV1yyb7SinTGjNo6wMDv5GgnitHBSg
-oG8hhX6BvXU44UMxIfNJQzAOWzsSJw5xZ4cm6tEBrk3vzq7SD8Y2sTisuDzL
-DuOeIeCchsdujwYS3lo5vCdFmMipQBJOcjGUSy7urua+Of1L3RT63/SRz0h/
-uKG+ie/eJJZqtEBQoTGgTTsy9zPq8cl8nKwWNT1obXsfQkFrYTPjvfOVSmQ7
-EtkyA3pytzUeW+An8SrAoTgh+XtfBnLOffgTE8wug6xeTlCH+0s2lyGoTRtY
-fWwUk8/aKAcTQAJcJZ7sAxEzkIQmzjVj4pv6sJcpZUhVbKW5CtShZi6BOSHn
-gWeIACqGBH2+XQwl69yjN8MCT86qPpQPhwdA9gCVoSUgQ3IYFhlDXjXcLIW+
-Dp1jbdDV5ABr7iLwPwXH5O1g08KDn/VEsB589ZOcVrqN0Ktbkf9s3nGjQQDD
-LcATbJAFTIhLc7ZcBDvsmxyrLRT86Dm8h8SGUU6uSIneilI1Ki3c0+tIjM/E
-snwfy4JirksZkpHrjaKiT5uoIT9kbVJcE6xeF0hUzbs2DrNtUP7Wcm6Lz6Rz
-USdEBn0ZqfI3kRXYkG/zCBA9r9xxIos/9+sQqar5gBJbPYHMqdaVVFmMfWGX
-z6wO9NTg8oyRttdXVEinzQom6ROwnLUkVz7ukigKCpXgV1hjN3EjRXVzPckj
-eSNqQmLyDqczR/ulCyxYoKdrcn+GG4HpQZmQ4Ph7fArkUXqikcDWSW+FJInV
-EWe8NfjsPR8RnwolikMdeJlm9ZgdcNw9XGD+Qc7+lVZpgQs4RLa2wC5mqdnI
-OBfOs5YZyRmdsuwewJLC1JAiM8O8KK6LxFCcpOs18YtKH6Xf5f4me6meW7ES
-UilgkfdoKjCZGa2joDOu1cGIpmJg+Ad3WoraT7/2UI1etaOcU+i6lqe+D/y1
-7R71hMHolOj5eY1cRXLr1pt9KyO5SIQPfZ/GIhYi8h51cq7qRImFo/TVLgKD
-VZnUzV3VYSCBXGk+Qd6ViiQBhMKV1sD4rnrRxhEinXLSJyJPm44D+f4Mjyw4
-JIEE6Bb2eXDuZ2TqsHui7R36Q8fbNXy2c8KAxSrQxMErdB+cmKSK0woGU7QR
-AJ0YJCxet368LZknRc5ap6xbyy/rgoiQIqdlzB0A+EDz0qEZEu88H/fcg17F
-4U0Fj+5rNiQ7QsLcBHTwIFZemggiscj7FUQPLfF1ZQ158iSOK7fn0kFN48qT
-sNRk6DQVRjtGUuvH189GIq9QnyzQQDko1mNALICw3jTrurXDeAMuc0Jvlxvd
-GTQI6+0pgp7sPbLlPPMNdF1lgW8kqtzre8tGDWt8Z7WiVXuvQD/jWixfIcXE
-w+f8OVjiRZUFfV66WAtZWjdm889xQzBbAXC4Shh34AzZKHyrdirz+qSrays3
-xdF0WMkn/jxnlJzilzH9MvYnPX8aOBBbcihRHSAQaNYxc8dz02hFXqFvGgpl
-3CF1x3J2FJ+0yMqSHmM6d33F6rWE6fgdJIuQ25XRuwPs86tkIw3Z+MU6DM3X
-aTFNwbKSFjYr1fCyg84c0oz4nZSHVJCxBInPgEalYwxf01ZzyCKLkLKGQQt/
-qHl86JnmePRoouDAotQO94N0YQWHMw7FxSEnl+xQPfKbhv8xvZF+TB/beOlv
-PqcTIOCPCjHxZsrH5ON4PI7+Qy84ojv3ahPtjtoqtNs1Rh1xdxRrOZ3Zcdsa
-EBgrSF7eG+ildrdjq/U3/Ri3UuWB3aGLr3ZrlfeFxebDkOgAmE6LI9hvPPAw
-sEXaz4CoY4hc4yGju0v/DpAfgjEKU7cav6A50IoEZo8BRll6cYGFHBKCt+9i
-meVb9+jXl6KbeH314F64qAON+pxl+5ETW4Jxq3efDpF1+HrUBA/fvU/XTwa7
-QLkwdugTWFRXLFxbUcQ8ccWHUT66Q7ytn+VDsw6Hoj+q+1yUZ3i0D5gTihaA
-MRygHCsd6+Hkjq91SS9rbjGyije1mqJe5fTy5309g9Cohv0KzWUEjxu2x07V
-qBEyJHEp4w8boZM6A/0HMoWn9AWTj5SwOCVH28FYaT1MJisf6urOkA7jiADW
-SfhODznuNWT0VsXHuMbCuH4DKyB8r66RoiOttUCUhZK9+jg4kS/1S5FJmuEI
-UyZcBxt7uHM8Yds/n5D5bvf8paLVk7cgd/adn4SxfEU3hFDmEFesieI+ItjU
-m2sB6KDGH0PYs0j8kXRD2lQi/8HYAfhZBnF0SD8Igmkt7GhIUgfz7JVgOHpy
-adeP6Y+Vl+5XaoPtwOIsyS4jMZQqKC5OduvIjqBRfIcQrZNyvXnCs41Md5yp
-NaBtsoBsQZmjNYjyxDHYM0g/zSI/OCYpPF5E7Qa3ryNS/xtnqbrTRTqNmvSO
-EtETD/pEuMOikOLWgP1j//A7GeRdSMU+z2ApuWev68AXuMhx4GbrmrplvqmJ
-tMGnV39P5L7ryXA+u3VdJ7NdvkNfmkDXD7LhEWuSJ0HwUr155/W7w6Q7Zf+H
-e9yQyJNkLthzfhuSvkMNQFQjrRiq4ZNYgaf1cad8S6YgSoluJEGKgxLTMAbE
-DpCqQVKCG7W8uPNhxvYhKx4yI4sKLFdBtuBkjJ7ubH10g0MosxxnUrr1/xhn
-RGRgD0xLC6LcOpK6VB+xBOdiucZIRC8NhcRJ4QEU2qNZrAAFWPRiZINfZjVx
-QpzWQFatjDc7boTKho7r2W1LJOE/6RPaarqnzN7LmIJzWuAaS8ulwQ+zWD+p
-eumtKNfG73asAek0K+EOuTY5lQNweLrTlL7sllQIzfLuipscH7AGlN5xWj7j
-wo3iJx3YUPlcNhqZjfUr0I00jJBePgPJEC3N0wWUOpm+kmx4WVtAxyvRibXg
-8yHueUhyMGVVp9yqzXqi2rCec7wAlcNm57IqOBWPJPWhGAConfEV9Lagj9C9
-C3hIHgmJ2diyPQk6f/4Krtw/RHMSQgIKqyTrMEgafeoY8RNLYOwGkPUgRskw
-ON3BXqWGCPZG8WnRgLUzPg5ydlFKywuSXspM53anN7eTV08l+GIbZ+6AkCxP
-FA1QypGWEdYlOjFYXF0D7eDifO+60Eef5UuHvegJPh9MpjH6c7ge9xxTcwRx
-wiC70dKq5VF0sro5ueG1vR3L7w/6t/brF9JafdI7qD3zbubcHYgc1cnEpwE9
-rQCsegHoxyNGan1rmNs3diar5kTizjoIK7ncbh60ttnBqd1sY+g4Eofu9ihL
-4OD1UlG2pxeNomwZmUEPJ0G02bqIDyTBeu14uLGP5f2CFheZS7ZGzXgklX5e
-121ubV+8vfi0leIjFTnPspaWTMbhbbwYnarbotFSDVoB7t1I4xGJWQHkvdGy
-bNSTWofKzwOJs7HpYFmkf5eBaCraRGxRrdXooj3m4Cr3kkAKl0/M9IW+zxkT
-cbppLtkife1RtDbnHhJbFr6HcbUUhsGK6wguKqkuwIprMRmsWpIN8tKBColz
-fKOSwp0BLRG8Nj2Q6RecmprnBz4+K0fvwuetyaXLx3qjQYavabRJe831lBET
-2cSHzWkgsnd6V+502Ysb7CVBg72oM54CSB9qZtg3fgxfY6XxWqPearcTMWt9
-TjrTVr5ctwJ3XMyLbF9HR8UAS7tdqdGwzmH60jAUOgcKd1lupOGgM3IGyCGx
-KlF2Zix5ULLLbE0CvULRiLe0GJPp2k0zqSa0A/L8R6QNiTtiB/A0RrYjbqUN
-XXmR0YBC4XqF4tgVpKwdY08alotSq0DOw2MfedsPdOi1v9xtdRxjGnTuAoPV
-LrEAB7x5dopRamNa1w1Dzk6yBp8T3Kd2uD2OnU+UiVBrQRK1Dk/tYkBTVVdj
-a8DqWuQ21uxyEZftJlE3W9/GFvFeefhhel03W4UuheklPYRNAa2Ctyjzs8xy
-0A5o4g5XQ6+AXOxm6QCdaCdhJZrHL07tRBEHuyIePunqVTE3xo3PnEifGLpt
-B2vm0GUG6dJT/AwAmGQmSJkkXft/h2OYBb/6UjxRy0xXlZz/pn1tRNJy09D0
-EaOrFi67sx8MHjVYla5ACgmLOk7xevGBDklnH0WZRB8r7gMcAfBdHxFWTueb
-blwvl0nrYwX4rNtG9E3z1VQOmKmlqK7wkdjfqjTQbNxPo7MuGdriaQ382IS4
-r9qOZ9ux1kCTxLFuu4UEdVdFa1U1RWfH3pgQiww9BslVHqWlZkFZs8AtARDZ
-VDgHe+yxoupVtpOgH5Ea73rGIvaP1cVrRvB1AZBMfDfN4RiCrpeJjNKUckao
-pXZ8btKVrhRt4gOR8YmjC9LGpCKO+1FCxqrHMAINYDi0VdALIaiRceWWPZSt
-HXEvZjlPEJVtPdWvyPbgHIpFvpLTeBSot86QPPNnHkm5nHam2qV8aH45JXEg
-+wopozVNGFmEyRoZbEV4Ug5AxIZCzS8WaL9AnHcqcaIxSuT0eD4UIenJuM41
-id7PYdU2bJmWv88bkgr0RtdxWRVITydOQonFpJCdGd+I9z2UQG9NhEq5z7kr
-uNmp348SrkiJSKDFTv8ehByi5CqN4BP9nrasVjs5LM9alqevmuIym/8mX+iB
-ejvptd5OsuvtaMg+tN9OHZtYP3ifj800dCBQLSalNkKgBcZTJz2GopM7kx9f
-P53shPu8pgShkYnbKS/K4JzJZNUngncMjurEUSCjAK8S5BaKLmgGUAwlGyKP
-xjAsCrYKZBeQ/C8kN0h7hfwhwmB/S/WD4GozKxCAwhYpzjCmVYEKXAkFL7RI
-zUwC15y0WTjkzS5ETRFuScjx/mMeWGeRtaDmmE+vAxpvrNGyog36RSdIhyBh
-xZlxqV3WyBfkqZrJ3POKmbTTJN7QOQEPY+CW63nkW2oHh257G9f66AalxOhD
-a5SYAHDIc5UECdDnrNCKhRkTp5I9eSWIDXNbnsjhUoElsRvW1HYsbBACqQE4
-zy90WkpcmasgOslIv2r1iBY3LeyYYyaYBSiF5AxOJtBipVfFmTi8jG4vTpRD
-TKqUQwey5dJ6brhVrL3i00NVtA183//31fSZ5Zrsuyjc3ZTYqPBoZt7KMtuI
-vGfzdA2g5s+bxZk6nUB323kbZVadbdB9XYqj+15VYoPePUEQ2sjsHwFTi7Yk
-X5g75lucIz7yNNntY/705MVJT/ByZWVWZeNY9ErjIGvk7c7vado9Vaj3GI/Z
-GhE7BHIT4E2ISiX8mpGcLGgu5TZR3wfoABKWnuH3deVnh6GW04DgcC4u2SjQ
-w1WrZLpZZe8MI/NOb84XU2iKRhvfyypYbtngTG3+UJKZ4uMIOyXq831MH5tU
-/mir4QYdoDeSj2mMw/moZ1gc3769uZdNsuI2i//b9Pb89tHkcIpAZwywGH4C
-1N57JMwhDT+1zBc47LX3oM8VDD8m4qr3UBC1H36qlBt6j8Uh6+EngdSDcuk9
-7EKtw89BFPS/9+jVNR+ar3u3n/AK7n8Ap0HZIz7ca4zRo99W4r03pPHa23ym
-LUgfCWbidZCqTxJQoRROGjZMW0h1kVWjYu9g8J0Hjo4Tf56CPxldOnxO0CKt
-WEGdc1e6CIhjPz72xxPyPa8CDI71I+zqvvLFpo3iA7X6Qeokjdtg0geluPmR
-BKRK6S759Mmbb8mwjgCNxnW/a3/PtxjMx7BYxmY78xMg8Z6ZRTmj4eaV5vr4
-ct3fMuhesvQXRx+AlfZM4W3Q21FGqslQieH68+U4EvUbBj4Ae/rltXfQq2vW
-X6bYa3XoACHWmTjzKXQBu5BR/+8+nZ2kyGMu2yvb9M12nf9GHpYOhfHrT/XQ
-a/VJDvicq3GknWJNuNDhcFfgNo25PhE/7u5XD8D1GLHbGD6nm/TjPQmJHUdv
-HetbjzlpNuYsx1Qf720eW00uSFNUzidViLr4S35b68pDIoJ85m8SARHwY3D/
-9i+zd/3+H2yk28Qh0fzlvaN72CQ3IrdR0PXvrMn8NLiltxmcDlCEQizQzDxO
-m5on8VuW25smSUImTsr1VjAle3Ec+t8NjMno+rjFdcMnt64DhzgIMG7lSZoH
-Qmo7Df/6uOQPH/6BNdtX9+4Y1rywOkMiDRQWaQ5LHGrXeYtsSnpQXCLOzzJr
-nUh4+LULu8TTSpKXzVlW6Q5jzXzSO0n6vGGn8oWunxFoiMPWDXPHcLd5d7zr
-D6SutHMwwqvwGYa0SXVZtkafnD2n+tDrHNolyhWNtDNR7Pi1HNIAhDwuwG/h
-t3EZG71QAt2ovS+gRhuOuHaBSK99txyMdOSKIwWezoHo8Yq2reFzOKV62Vrx
-cKesDkc/PfVxRp5y/3jWHZLRIiSJeFV8ks1Cyumk6VL6akvrTH6W/pPl3Ck2
-UmruNDCcOwAT0CIZztAkEoUnwU0sHiphojqQTQUX7tJEdZsHiNQ952fqaelI
-gkPH8aDImMrnDnu1u/e11PhK7wPaDCJqHErLBLVif5P2C+2HaQgZbYqe0Bmz
-rIaNiXUGWhAGyVPXADM8YU9P+FvlerRjTYPxHaPVE3SnOuPYAdorHpOg3ByY
-MkrT7oDxi9bHSBXVTExSrxC1SCUpPeL+ojm6gMJdtyitBJN9FXSNztKq+uP9
-UGgEV4QJmxqSxh/vomaj6/LKzTIGPTuHTZ1ss1UpMauRALYyRBfddPUkO54D
-iCFMDGroBCEWF/nWPtx8qAMOKeVkw7Nizg52dQYJtOa8ppYgPJKeGE6MPzv5
-hoX4C5IOaGVvyKahrfY7IGdARQ2qrIcfN7XoNasKmQDEmTnWwBlVuzjXGB0w
-QsnxAF5D0S87zVhsURHqy4xx7JhUbjqhIrnbZYCoPcA2DU85ieuqpEaJjxve
-FKXUYiOccjJnlVXmizMsHjmI1YbRrvni6wO0STowxedjfsxyda9QbgDZE7Qk
-QTiLQY6k/P5ID5CVDP31lpv1ftfUmzVaKm9aDbOcKyOulOsXeWaBmdhKSORA
-di0lMYshOvsISUS8LOwOK+U/zCB3Do8O0YWfTwnTGvrYXNV6AUxPfFZ+BpbP
-dccuS2q40CSOivng7GfWYWbGJ6uc22UV8zZWteBerrLyJ3lBPgE2EyJPOl/U
-m2ijJ2kiDtBqv6ValNXVULDWu7LFu6Zvcps8jqYRg37OyZ3RXIe1tL0oONO0
-yRp/mmlsFUcvDMHa62xb1pkE2ZK+LY1YHVllnIvyyO1J8n8BYzIVvo7UAAA=
+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
+zvt859zxeJx0RVfmx+nBL23ejJ9mVXaWL9KT+Txv2/TLX56efJXemtxMXzT1
+sijzdFk36cmmq6t6VW/a9OQsr7r2IMlmsya/wChPT/j3/Dv9clHPq2xF71g0
+2bIbn2Wr2Xizyo4y/n48r5t8fPNmMs+6/KxutsdpUS3rpN3MVkXbFnXVbdf0
+8ONHr75PinVznHbNpu1u3bx57+atJGvy7Dg9zeebpui2ybt8e1k3i+P0X2gi
+ozTbdOd1U/wt62gY+ie/cJQu8jI/08/WTV0vx/T/67ptc37fX5O2y6rFm6ys
+K3rxNm+TdUFDdvV8lLZ10zX5kkZptyv88ddE3nKcpOmY/pfS9Nvj9Nkk/YEW
+yh/I6p8V83f+s7o5yyqd2XH6tKgWP2TNIq/SJ08e8A/yVVaUx2lFT2HH/nCG
+f0/m9Sp+z6NJ+jQr8yZ40aOLPPgsftEf86pKv8/mHW10UtXNij6/yDH3l98/
++Obrb+7gz8fjh5Mi72hbsLTxvCxo38bFYrzKu2yRddmYjnSzog/t16t8UxVE
+P5f5bFZ3/FSTnxVtR8e5O2BB6ySy244z2vIGExvj87+Nz5rMjxk80GSNf3eT
+r/JFIeuRed/9+s5N/fPrO4d3/J9f+z/v2Z93b3/j/rx7y1Z+dHikf967fe+u
+/Xl069D+vHPbXnHv61s8AlHYDzbfNP08NuIHmDmeExed82cnIZEe8GCeovB/
+44GT3nfa7tdP8ev5+abM3vUeoI+L/G3/W33sp0n6spif77zlJ2K5ogq/o7Og
+z2/dPPxmfPNwfPNr/pAWX+Qt+Ncm/zMtOGuIR1/mRLtEMwtep+xZ1pzl3XF6
+3nXr9vjGDaKqdvJOHiiqoiuYOCdEwTdIXty4PLvR5HMlCfpAyGVMezg571al
+HMn3+QIb+rf4VOjTvKEJL+Ld5pO48sT+/3n8hvNY2i4rO4cnc3TyKm9WbXws
+zy8r2nvolmXe0O7zT/6uQwnF7j7R+9tO0Pb11t09O/q46vKmyrvxQ6i3fVqu
+w9Kg5oY2enOUTbLiRrvO5zeufjzYz99O6QOK+z/fRhKRCXX97r0MRpDtxCRi
+TXjv7u07Tgkc3btCzfFri7Mx2RFkH9Sl/fSctHk3zvg34Xd0cC/qsphvBzgh
+lW9G6Unbbki2zfOU7JD0pOugL/9OcfUf9kDXvOjff5zu+YA3nhRVTl/He8w0
+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
 
 -->
 
