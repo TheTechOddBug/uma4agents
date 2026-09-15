@@ -2,6 +2,7 @@
 title: "Agent Lineage for User-Managed Access (UMA) 2.0"
 abbrev: "Agent Lineage"
 docname: draft-gamb-uma4agents-lineage-00
+date: 2026-09-15
 category: info
 submissiontype: IETF
 ipr: trust200902

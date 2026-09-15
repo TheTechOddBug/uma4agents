@@ -33,7 +33,7 @@ async function api(path, opts) {
 }
 
 function toast(title, detail, kind = "") {
-  const t = el(`<div class="toast ${kind}"><div class="t">${title}</div><div class="d">${detail || ""}</div></div>`);
+  const t = el(`<div class="toast ${esc(kind)}"><div class="t">${esc(title)}</div><div class="d">${esc(detail)}</div></div>`);
   $("#toasts").appendChild(t);
   setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 5200);
 }
@@ -1144,6 +1144,8 @@ window.previewOrganization = async () => {
       headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
   } catch (e) { box.innerHTML = `<div class="note warn" style="margin-top:14px">${esc(e.message)}</div>`; return; }
   const changes = p.changes || [];
+  // The version she is shown is the one she agrees to; joining sends it back.
+  window.PREVIEWED_CHARTER_VERSION = (p.envelope || {}).charter_version;
   box.innerHTML = `
     <div class="card" style="margin-top:18px;background:var(--surface-2)">
       <div class="section-head"><h2>${esc(p.envelope.name)}</h2>
@@ -1237,7 +1239,7 @@ window.joinOrganization = async () => {
   try {
     const res = await api("/api/agent/organization", { method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, agreed }) });
+      body: JSON.stringify({ code, agreed, charter_version: window.PREVIEWED_CHARTER_VERSION }) });
     closeConsent();
     toast("Joined " + res.name, (res.changes || []).length
       ? `${res.changes.length} of your terms were narrowed to its ceiling`

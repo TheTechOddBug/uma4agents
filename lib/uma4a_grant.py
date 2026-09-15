@@ -101,7 +101,9 @@ class AgentKeys:
     """
 
     key: Ed25519PrivateKey = field(default_factory=Ed25519PrivateKey.generate)
-    keyid: str = "agent-req-1"
+    # Defaults to one derived from the key, so two agents publishing to the
+    # same operator directory never overwrite each other's entry.
+    keyid: str = ""
     agent_token: str | None = None  # aa-agent+jwt when enrolled
     stable: Ed25519PrivateKey | None = None  # long-term key (identified mode)
     # Optional CIMD URL describing who operates this agent. Display metadata
@@ -120,8 +122,11 @@ class AgentKeys:
         authorization server attribute a key it has never seen before.
         """
         try:
+            import os
+            token = os.environ.get("UMA4A_OPERATOR_REGISTER_TOKEN")
             r = client.post(f"{operator_origin}/register",
                             json={"keyid": self.keyid, "jwk": self.public_jwk()},
+                            headers={"Authorization": f"Bearer {token}"} if token else None,
                             timeout=5.0)
             r.raise_for_status()
             return f"{operator_origin}/.well-known/http-message-signatures-directory"
@@ -158,6 +163,14 @@ class AgentKeys:
         Enroll with uma4a_enroll.enroll() to obtain the agent_token."""
         return cls(key=Ed25519PrivateKey.generate(),
                    stable=cls._load_or_create_key(path))
+
+    def __post_init__(self) -> None:
+        if not self.keyid:
+            import base64, hashlib
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+            raw = self.key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+            self.keyid = "agent-" + base64.urlsafe_b64encode(
+                hashlib.sha256(raw).digest()).rstrip(b"=").decode()[:16]
 
     def public_jwk(self) -> dict:
         return json.loads(OKPAlgorithm.to_jwk(self.key.public_key()))
@@ -410,8 +423,12 @@ def provider_trust(ca_bundle: str = ""):
         return True
     try:
         import certifi
-        combined = "/tmp/u4a-agent-provider-trust.pem"
-        with open(combined, "w") as out:
+        import tempfile
+        # A private file, not a fixed shared path: anyone who could write a
+        # predictable /tmp name could add a CA this agent then trusts for its
+        # enterprise credentials.
+        fd, combined = tempfile.mkstemp(prefix="u4a-provider-trust-", suffix=".pem")
+        with os.fdopen(fd, "w") as out:
             out.write(open(certifi.where()).read())
             out.write("\n")
             out.write(open(private).read())
@@ -470,7 +487,8 @@ def identity_ask(body: dict) -> dict | None:
     return None
 
 
-def id_jag_request(ask: dict, enterprise: "Enterprise") -> tuple[str, dict]:
+def id_jag_request(ask: dict, enterprise: "Enterprise",
+                   as_uri: str | None = None) -> tuple[str, dict]:
     """Where to go and what to ask for.
 
     The resource side contributes everything about where an assertion will
@@ -482,6 +500,15 @@ def id_jag_request(ask: dict, enterprise: "Enterprise") -> tuple[str, dict]:
     """
     from urllib.parse import urlparse
 
+    # The assertion is minted for an audience, and it is only ever sent back
+    # to the server this agent is negotiating with. An ask naming another
+    # audience would have this agent fetch an assertion meant for a different
+    # authorization server and hand it to whoever asked.
+    if as_uri is not None and (ask.get("audience") or "").rstrip("/") != as_uri.rstrip("/"):
+        raise GrantDenied(
+            f"the resource asks for an assertion addressed to "
+            f"{ask.get('audience') or 'no audience'}, not to {as_uri}, the "
+            "authorization server this agent is negotiating with")
     idp = ask.get("identity_provider") or {}
     pinned = (enterprise.issuer or "").rstrip("/")
     named = (idp.get("issuer") or "").rstrip("/")
@@ -562,7 +589,7 @@ def run_grant(
             raise GrantDenied(
                 "this resource is governed by an organization that federates "
                 "identity, and this agent carries no enterprise credentials")
-        endpoint, payload = id_jag_request(ask, enterprise)
+        endpoint, payload = id_jag_request(ask, enterprise, as_uri)
         on_status(f"identity required — exchanging at {endpoint}")
         # A client of its own, trusting the provider's world as well as this
         # deployment's — see `provider_trust`.
@@ -636,7 +663,7 @@ def traceparent() -> str | None:
 
 
 def signed_headers(method: str, authority: str, path: str, rpt: str,
-                   keys: AgentKeys) -> dict[str, str]:
+                   keys: AgentKeys, body: bytes | None = None) -> dict[str, str]:
     """Authorization + RFC 9421 signature headers for a resource request.
 
     When the agent has published its key, the signature also covers a Web Bot
@@ -646,8 +673,12 @@ def signed_headers(method: str, authority: str, path: str, rpt: str,
     where that key was published.
     """
     authorization = f"PoP {rpt}"
+    # With the body, the signature covers an RFC 9530 Content-Digest over the
+    # exact bytes sent, so nothing between the agent and the enforcement point
+    # can change a call's arguments without breaking the signature.
     sig = sign(method, authority, path, authorization, keys.key, keys.keyid,
-               signature_agent=keys.signature_agent, tag="web-bot-auth")
+               signature_agent=keys.signature_agent, tag="web-bot-auth",
+               body=body)
     headers = {"Authorization": authorization, **sig}
     # W3C Trace Context: deliberately *not* covered by the signature. It is
     # diagnostic metadata a proxy may legitimately rewrite, and binding it
@@ -696,7 +727,7 @@ async def run_grant_async(
             raise GrantDenied(
                 "this resource is governed by an organization that federates "
                 "identity, and this agent carries no enterprise credentials")
-        endpoint, payload = id_jag_request(ask, enterprise)
+        endpoint, payload = id_jag_request(ask, enterprise, as_uri)
         on_status(f"identity required — exchanging at {endpoint}")
         async with httpx.AsyncClient(verify=provider_trust(enterprise.ca_bundle),
                                      timeout=30.0) as idp:

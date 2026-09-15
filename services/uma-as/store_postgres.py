@@ -162,6 +162,26 @@ class PostgresStore:
         """
         self._listener = await asyncpg.connect(self._dsn)
         await self._listener.add_listener("owner_events", self._on_event)
+        # A failover or restart closes this connection, and nothing else would
+        # notice: the owner's live feed would simply stop. Reconnect and
+        # listen again.
+        self._listener.add_termination_listener(self._on_listener_closed)
+
+    def _on_listener_closed(self, _conn) -> None:
+        asyncio.create_task(self._relisten())
+
+    async def _relisten(self) -> None:
+        delay = 1.0
+        while True:
+            try:
+                await self._start_listener()
+                print(json.dumps({"event": "store.listener_reconnected"}), flush=True)
+                return
+            except Exception as exc:                            # noqa: BLE001
+                print(json.dumps({"event": "store.listener_reconnect_failed",
+                                  "error": str(exc)[:160]}), flush=True)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30.0)
 
     def _on_event(self, _conn, _pid, _channel, payload: str) -> None:
         # asyncpg calls this from the event loop but not as a coroutine, so
@@ -691,6 +711,15 @@ class PostgresOwnerStore:
             "INSERT INTO organizations (owner, record) VALUES ($1, $2) "
             "ON CONFLICT (owner) DO UPDATE SET record = EXCLUDED.record",
             self._o, json.dumps(record))
+
+    async def update_organization(self, fields: dict) -> bool:
+        # One statement merging only the keys given, so a membership refresh
+        # writing the envelope and an administrator's block writing `blocked`
+        # cannot overwrite each other from different replicas.
+        row = await self._pool.fetchrow(
+            "UPDATE organizations SET record = (record::jsonb || $2::jsonb)::json "
+            "WHERE owner = $1 RETURNING owner", self._o, json.dumps(fields))
+        return row is not None
 
     async def clear_organization(self) -> bool:
         row = await self._pool.fetchrow(

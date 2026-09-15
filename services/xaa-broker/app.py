@@ -64,7 +64,7 @@ ISSUER = os.environ.get("XAA_ISSUER", "https://northwind-xaa.uma.lab")
 # The realm holding Northwind's employee directory. A subject token signed by
 # anything else is not an employee assertion, whatever it claims.
 IDP_ISSUER = os.environ.get("XAA_IDP_ISSUER",
-                            "https://keycloak.uma.lab/realms/northwind")
+                            "https://northwind-idp.uma.lab/realms/employees")
 KEY_PATH = os.environ.get("XAA_KEY_PATH", "/keys/xaa-ed25519.pem")
 CA_BUNDLE = os.environ.get("UMA4A_CA_BUNDLE") or os.environ.get("UMA4A_CACERT")
 # Short by construction. An ID-JAG is spent immediately at one authorization
@@ -127,6 +127,10 @@ CLIENTS: dict[str, str] = {}
 # A dev token so the lab can seed connections without driving a login. The
 # same affordance org-authority ships, and the same caveat: it is a lab.
 ADMIN_TOKEN = os.environ.get("XAA_ADMIN_TOKEN", "xaa-admin-dev-token")
+# The client administration tokens are issued to. A token for Dana from any
+# other client of the realm — the public research agent, say — is not an
+# administrator acting at this console.
+ADMIN_CLIENT = os.environ.get("XAA_IDP_ADMIN_CLIENT", "northwind-idp-admin")
 
 _JWKS_CACHE: tuple[float, list] = (0.0, [])
 JWKS_TTL = 300
@@ -183,7 +187,7 @@ def verify_subject_token(token: str, client_id: str) -> dict:
 
     aud = claims.get("aud")
     aud = [aud] if isinstance(aud, str) else list(aud or [])
-    if client_id not in aud and claims.get("azp") != client_id:
+    if claims.get("azp") != client_id or claims.get("typ", "ID") != "ID":
         raise ValueError("subject token was not issued to this client")
     if not claims.get("sub"):
         raise ValueError("subject token has no subject")
@@ -378,6 +382,9 @@ def require_admin(request: Request) -> str:
                                 algorithms=[head.get("alg", "RS256")],
                                 issuer=IDP_ISSUER,
                                 options={"verify_aud": False})
+            if claims.get("azp") != ADMIN_CLIENT:
+                raise ValueError("that token was not issued to the "
+                                 "administration client")
             who = claims.get("preferred_username") or claims.get("sub") or ""
             if who in ADMINS:
                 return who

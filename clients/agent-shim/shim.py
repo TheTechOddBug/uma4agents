@@ -220,7 +220,8 @@ class Upstream:
                     "continuing challenge-driven")
         return self._prm
 
-    async def _post(self, msg: dict, headers: dict | None = None) -> httpx.Response:
+    async def _post(self, msg: dict, headers: dict | None = None,
+                    content: bytes | None = None) -> httpx.Response:
         # No session id: 2026-07-28 removed sessions, and all the state a
         # server needs rides in the message.
         h = {"accept": "application/json, text/event-stream",
@@ -236,6 +237,8 @@ class Upstream:
             h["Mcp-Name"] = name
         if headers:
             h.update(headers)
+        if content is not None:
+            return await self.client.post(GATEWAY, content=content, headers=h)
         return await self.client.post(GATEWAY, json=msg, headers=h)
 
     @staticmethod
@@ -255,14 +258,25 @@ class Upstream:
             ) from None
 
     async def request(self, method: str, params: dict | None = None,
-                      headers: dict | None = None, notification: bool = False):
+                      headers: dict | None = None, notification: bool = False,
+                      sign: tuple | None = None):
         p = dict(params or {})
         p["_meta"] = {**CLIENT_META, **(p.get("_meta") or {})}
         msg: dict = {"jsonrpc": "2.0", "method": method, "params": p}
         if not notification:
             self._id += 1
             msg["id"] = self._id
-        r = await self._post(msg, headers)
+        if sign is not None:
+            # Signed over the bytes that are sent: serialise once, sign those,
+            # post those.
+            rpt, keys = sign
+            content = json.dumps(msg, separators=(",", ":")).encode()
+            headers = {**(headers or {}),
+                       **signed_headers("POST", AUTHORITY, MCP_PATH, rpt, keys,
+                                        body=content)}
+            r = await self._post(msg, headers, content=content)
+        else:
+            r = await self._post(msg, headers)
         return r, self._payload(r)
 
     async def ensure_discovered(self) -> None:
@@ -314,8 +328,12 @@ class Upstream:
                 data={"grant_type": GRANT_TYPE, "ticket": held["ticket"]})
             body = r.json()
         except Exception as exc:                                # noqa: BLE001
-            log(f"could not poll the held ticket: {type(exc).__name__}")
-            return "gone", None
+            # A poll that did not arrive says nothing about the ticket. The AS
+            # spends the ticket on a poll it answers, so dropping it here and
+            # negotiating again would put a second request in front of her.
+            log(f"could not poll the held ticket: {type(exc).__name__}; "
+                "still waiting")
+            return "waiting", None
         if body.get("error") == "request_submitted":
             # The AS rotates the ticket on every poll; keep the current one or
             # the next check is presenting something already spent.
@@ -385,9 +403,8 @@ class Upstream:
                 raise PendingHandback(held["as_uri"], held["ticket"])
             if state == "granted" and resumed is not None:
                 OUTSTANDING.pop(key, None)
-                headers = signed_headers("POST", AUTHORITY, MCP_PATH, resumed, keys)
                 r, payload = await self.request("tools/call", params,
-                                                headers=headers)
+                                                sign=(resumed, keys))
                 if r.status_code == 200 and not (payload or {}).get("error"):
                     try:
                         return payload["result"]["content"][0]["text"]
@@ -410,13 +427,20 @@ class Upstream:
             # already in front of her rather than starting a second one.
             log(f"challenged by {as_uri}; negotiating")
             prm = await self.resource_metadata()
-            if prm is not None:
-                try:
-                    validate_resource_metadata(prm, GATEWAY, as_uri)
-                    log("challenge corroborated against the resource's "
-                        "published metadata")
-                except DiscoveryMismatch as exc:
-                    raise RuntimeError(f"refusing to negotiate: {exc}")
+            if prm is None:
+                # Without the resource's own metadata nothing corroborates the
+                # authority the challenge named, and core requires refusing
+                # rather than negotiating with an uncorroborated as_uri.
+                raise RuntimeError("refusing to negotiate: the resource's "
+                                   "metadata could not be read, so the "
+                                   f"authorization server {as_uri} is "
+                                   "uncorroborated")
+            try:
+                validate_resource_metadata(prm, GATEWAY, as_uri)
+                log("challenge corroborated against the resource's "
+                    "published metadata")
+            except DiscoveryMismatch as exc:
+                raise RuntimeError(f"refusing to negotiate: {exc}")
             # 2026-07-28 deprecated the logging capability (SEP-2577), which
             # was the only way to narrate progress to the requesting human
             # mid-call. Nothing replaces it for narration — the structural
@@ -445,8 +469,7 @@ class Upstream:
                 OUTSTANDING[key] = {"as_uri": pend.as_uri, "ticket": pend.ticket}
                 raise
             OUTSTANDING.pop(key, None)
-            headers = signed_headers("POST", AUTHORITY, MCP_PATH, rpt, keys)
-            r, payload = await self.request("tools/call", params, headers=headers)
+            r, payload = await self.request("tools/call", params, sign=(rpt, keys))
 
         if r.status_code != 200:
             raise RuntimeError(f"call failed: {r.status_code} {r.text[:300]}")

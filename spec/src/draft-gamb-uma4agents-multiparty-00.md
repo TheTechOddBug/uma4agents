@@ -2,6 +2,7 @@
 title: "Multi-Party Authorization for User-Managed Access (UMA) 2.0"
 abbrev: "Multi-Party Authorization"
 docname: draft-gamb-uma4agents-multiparty-00
+date: 2026-09-15
 category: info
 submissiontype: IETF
 ipr: trust200902

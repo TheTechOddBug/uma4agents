@@ -11,8 +11,10 @@ services:
     init: true
     image: docker.io/hickorydns/hickory-dns:0.25.2
     ports:
-      - "53:53/tcp"
-      - "53:53/udp"
+      # Loopback only, as the kind cluster maps them: published on every
+      # interface, anyone on the same network reaches the lab by name.
+      - "127.0.0.1:53:53/tcp"
+      - "127.0.0.1:53:53/udp"
     volumes:
       - ./dns/named.toml:/etc/named.toml:ro
       - ./dns/uma.lab.zone:/var/named/uma.lab.zone:ro
@@ -22,7 +24,7 @@ services:
     image: envoyproxy/envoy:v1.34-latest
     command: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "warn"]
     ports:
-      - "443:443"
+      - "127.0.0.1:443:443"
     volumes:
       - ./edge/envoy.yaml:/etc/envoy/envoy.yaml:ro
       - ./certs/edge-server.pem:/certs/edge-server.pem:ro
@@ -474,6 +476,7 @@ services:
     environment:
       AGENT_OPERATOR_ORIGIN: https://alice-agent.uma.lab
       AGENT_OPERATOR_NAME: Alice's own agent
+      AGENT_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:9030/health')\""]
       interval: 3s
@@ -757,6 +760,7 @@ services:
       - --
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       PS_ADMIN_TOKEN: ${PS_ADMIN_TOKEN:-uma4agents-ps-admin}
       UMA4A_ALICE_OPERATOR: https://alice-agent.uma.lab
@@ -780,6 +784,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/intent_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA_AS_MAX_REASON: ${UMA_AS_MAX_REASON:-512}
     volumes:
@@ -797,6 +802,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/subagent_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA4A_ALICE_OPERATOR: https://alice-agent.uma.lab
       UMA4A_AGENT_OPERATOR: https://agent.uma.lab
@@ -815,6 +821,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/first_party_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA4A_ALICE_OPERATOR: https://alice-agent.uma.lab
       UMA4A_AGENT_OPERATOR: https://agent.uma.lab
@@ -835,6 +842,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' cryptography && exec python /driver/xaa_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       ORG_ADMIN_TOKEN: ${ORG_ADMIN_TOKEN:-org-admin-dev-token}
       ORG_JOIN_CODE: ${ORG_JOIN_CODE:-NW-7K2F-QX}
@@ -855,6 +863,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' cryptography && exec python /driver/establishment_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./clients/demo-driver/establishment_check.py:/driver/establishment_check.py:ro
@@ -871,6 +880,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/multi_owner_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA4A_ALICE_OPERATOR: https://alice-agent.uma.lab
       UMA4A_AGENT_OPERATOR: https://agent.uma.lab
@@ -891,6 +901,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/org_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       ORG_ADMIN_TOKEN: ${ORG_ADMIN_TOKEN:-org-admin-dev-token}
       ORG_JOIN_CODE: ${ORG_JOIN_CODE:-NW-7K2F-QX}
@@ -913,6 +924,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/joint_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA4A_TALLY: https://joint-tally.uma.lab
     volumes:
@@ -930,6 +942,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/assurance_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       UMA_AS_PEND_BUDGET: ${UMA_AS_PEND_BUDGET:-5}
     volumes:
@@ -990,6 +1003,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' 'aauth==0.3.2' && exec python /driver/flow_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
       PS_ADMIN_TOKEN: ${PS_ADMIN_TOKEN:-uma4agents-ps-admin}
     volumes:
@@ -1044,6 +1058,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' cryptography && exec python /kwaai/check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./kwaai:/kwaai:ro
@@ -1064,6 +1079,7 @@ services:
       - pip install -q httpx 'pyjwt[crypto]' && exec python /driver/embedded_check.py
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./clients/demo-driver/embedded_check.py:/driver/embedded_check.py:ro
@@ -1102,6 +1118,7 @@ services:
       - --
     environment:
       PYTHONPATH: /driver/lib
+      UMA4A_OPERATOR_REGISTER_TOKEN: ${OPERATOR_REGISTER_TOKEN:-uma4agents-operator-register}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./clients/demo-driver/rotation_check.py:/driver/rotation_check.py:ro

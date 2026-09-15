@@ -219,6 +219,27 @@ async def a_holders_verdict() -> None:
     check("so is a holder's weight", bool(holder_joint.moved(record, reweighted)))
     check("and an unchanged mandate is not", holder_joint.moved(record, dict(MANDATE)) == [])
 
+    print("\n== a folded agreement, against her own terms ==")
+    hers = {"resources": ["joint/*"],
+            "terms": {"expires_in": 600, "scope": ["read"], "prohibited": ["resale"]}}
+    fair = {"expires_in": 300, "scope": ["read"], "prohibited": ["resale"]}
+    check("a fold inside her terms passes",
+          holder_joint.verdict_problems(fair, hers, "joint/read") == [])
+    check("a fold that widens her terms is refused",
+          bool(holder_joint.verdict_problems({**fair, "scope": ["read", "write"]},
+                                             hers, "joint/read")))
+
+
+async def an_unreachable_organization() -> None:
+    print("\n== an organization that cannot be reached ==")
+    import org as org_mod
+    # Nothing listens on port 9, so the call fails as an outage would.
+    gone = org_mod.OrgClient("https://127.0.0.1:9", "membership-token", {})
+    decision = await gone.decide({"resource_id": "northwind/book/get_positions"})
+    check("an organization that cannot be reached refuses the request",
+          decision.get("effect") == "refuse" and decision.get("governed") is True,
+          str(decision))
+
 
 async def main() -> int:
     app.STORE = MemoryStore()
@@ -227,6 +248,7 @@ async def main() -> int:
     await agreements_and_grants()
     await whose_approval()
     await a_holders_verdict()
+    await an_unreachable_organization()
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     return 1 if FAILED else 0
 

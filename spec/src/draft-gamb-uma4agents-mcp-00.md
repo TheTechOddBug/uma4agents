@@ -2,6 +2,7 @@
 title: "Model Context Protocol Binding for User-Managed Access (UMA) 2.0"
 abbrev: "MCP Binding for UMA"
 docname: draft-gamb-uma4agents-mcp-00
+date: 2026-09-15
 category: info
 submissiontype: IETF
 ipr: trust200902

@@ -129,19 +129,13 @@ action she personally approved. **Click** Revoke on the agent — then re-run
 ### 5. The part that needs a cluster
 
 ```bash
-make k8s-policy-test            # expect 11 passed, 0 failed
+make k8s-policy-test            # expect 22 passed, 0 failed
 ```
 
-**Notice** the eight refusals. A policy suite that only proves the allows
-passes on a cluster with no policy at all. The sharpest line:
-
-```
-ok   cannot read Alice's policy
-```
-
-The enforcement point **can** reach `/jwks` on that same port and workload,
-and is refused `/owner/*`. Same service, different path — that is what the
-waypoint is for.
+**Notice** how many of them are refusals. A policy suite that only proves the
+allows passes on a cluster with no policy at all. A refusal counts only when the
+mesh actually refused, with a 403 or a reset connection; a service that is down
+or a port that answers nothing fails the check instead of passing for one.
 
 ```bash
 make k8s-load                   # 24 agents at once; expect 3 passed
@@ -302,6 +296,8 @@ and why rec 9 in [FINDINGS.md](../FINDINGS.md) exists: single-use has to mean
 
 **The key directory is provisioned, not collected.** Sterling & Vance's
 operator runs two replicas, and that is only correct because
+Alice's operator directory requires `AGENT_OPERATOR_REGISTER_TOKEN` to publish a key, from the `operator-register` Secret `make kind-up` generates; the person server's admin token comes from the generated `ps-admin` Secret. Neither is committed.
+
 `AGENT_OPERATOR_KEYS_FILE` hands it a published JWKS to serve: the directory
 is read-only, identical on every replica, and the server refuses
 `POST /register` outright once it has one. The agent is given the private half

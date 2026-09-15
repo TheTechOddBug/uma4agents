@@ -2,6 +2,7 @@
 title: "Federated Authorization for Autonomous Agents"
 abbrev: "FedAuthz for Agents"
 docname: draft-gamb-uma4agents-fedauthz-00
+date: 2026-09-15
 category: info
 submissiontype: IETF
 ipr: trust200902

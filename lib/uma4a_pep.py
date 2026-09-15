@@ -71,6 +71,9 @@ CA_BUNDLE = os.environ.get("UMA4A_CA_BUNDLE")
 # Short: a holder leaving should stop counting in seconds, not at a
 # restart.
 MANDATE_TTL_S = float(os.environ.get("UMA_PEP_MANDATE_TTL_S", "30"))
+# How long past its expiry a cached organization or mandate answer may stand
+# while its source is unreachable. After that the answer is refused.
+STALE_GRACE_S = float(os.environ.get("UMA_PEP_STALE_GRACE_S", "300"))
 # How long a co-owner's published keys are reused for verifying her verdicts.
 # The window is a rotated-away key still verifying, which is the ordinary key
 # rotation window and can be longer than the electorate's.
@@ -85,6 +88,10 @@ CLOCK_SKEW_S = float(os.environ.get("UMA_PEP_CLOCK_SKEW_S", "60"))
 REQUIRE_CONTENT_DIGEST = os.environ.get(
     "UMA_PEP_REQUIRE_CONTENT_DIGEST", "").lower() in ("1", "true", "yes")
 
+
+
+class MembershipUnavailable(Exception):
+    """The organization could not be read and no recent answer stands."""
 
 class Pending(Exception):
     """The authority knows this resource server and the owner has not yet
@@ -424,9 +431,17 @@ class Enforcer:
                 return r.json()
         except Pending:
             return {"active": False}
+        except (httpx.HTTPError, ValueError):
+            # Not an answer about the token. Told apart from an inactive one,
+            # so the caller neither errors out nor sends the agent to
+            # negotiate a grant it may already hold.
+            return {"active": False, "error": "introspection_unavailable"}
 
-    async def consume(self, token: str) -> bool:
-        """Burn a single-use RPT, once everything else has verified."""
+    async def consume(self, token: str) -> bool | None:
+        """Burn a single-use RPT, once everything else has verified.
+
+        True when this call spent it, False when it was already spent, None
+        when the authorization server could not be asked."""
         try:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
@@ -437,7 +452,9 @@ class Enforcer:
                 )
                 r.raise_for_status()
                 return bool(r.json().get("consumed"))
-        except (httpx.HTTPError, Pending):
+        except (httpx.HTTPError, ValueError):
+            return None
+        except Pending:
             return False
 
     async def report_access(self, family: str, tool: str, summary: str) -> None:
@@ -484,12 +501,13 @@ class Enforcer:
         except httpx.HTTPError as exc:
             self.event("org.membership_unreadable", owner=self.owner,
                        error=str(exc))
-            # The previous answer stands rather than either extreme. Treating
-            # an unreachable organization as "no organization" would drop the
-            # ceiling exactly when something is wrong; treating it as a denial
-            # would make the organization's uptime a precondition for every
-            # owner's grant loop, including owners who are not members.
-            return cached
+            # A recent answer stands for a grace window, so a brief outage is
+            # not a precondition for every grant. Past it, or with nothing
+            # cached, there is no answer: reading that as "no organization"
+            # would drop the ceiling exactly when something is wrong.
+            if cached_at and cached_at > time.time() - MEMBERSHIP_TTL_S - STALE_GRACE_S:
+                return cached
+            raise MembershipUnavailable(str(exc)) from exc
         self._membership = (time.time(), doc)
         return doc
 
@@ -684,7 +702,12 @@ class Enforcer:
         except (httpx.HTTPError, ValueError) as exc:
             self.event("joint.mandate_unreadable", account=account,
                        error=str(exc)[:160])
-            return cached[1] if cached else None
+            # A mandate that expired a moment ago still says who counts; one
+            # past the grace window may not, and an electorate that cannot be
+            # established is refused rather than taken from an old copy.
+            if cached and cached[0] > time.time() - STALE_GRACE_S:
+                return cached[1]
+            return None
         self._mandates[account] = (time.time() + MANDATE_TTL_S, doc)
         return doc
 
@@ -738,7 +761,11 @@ class Enforcer:
         server, which she chose and may run herself, issuing more than the
         organization's charter allows over the organization's own resources.
         """
-        doc = await self.membership()
+        try:
+            doc = await self.membership()
+        except MembershipUnavailable:
+            return ("the organization could not be reached to establish the "
+                    "ceiling over this resource")
         if not doc.get("member") or not claims_match(rid, doc.get("claims")):
             return None
         for permission in info.get("permissions", []):
@@ -824,6 +851,10 @@ class Enforcer:
             if reason == "connection_revoked":
                 return Decision(outcome="deny", status=403, error="access_revoked",
                                 description="the resource owner revoked this agent")
+            if reason == "introspection_unavailable":
+                return Decision(outcome="deny", status=503, error="temporarily_unavailable",
+                                description="the authorization server could not be "
+                                            "asked about this grant")
             return await self.challenge(f.tool, rid, scopes)
 
         # 2. Does the grant cover this resource, with the scopes this tool
@@ -914,12 +945,14 @@ class Enforcer:
         #    organization's clause is an exception for one act.
         if f.tool in self.single_use_tools or info.get("single_use"):
             op = info.get("operation") or {}
-            actual = s256(json.dumps(f.args or {}, sort_keys=True).encode())
-            if not op and f.tool in self.single_use_tools and not override:
+            # RFC 8785 form, the one the authorization server hashed.
+            actual = s256(json.dumps(f.args or {}, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=False).encode())
+            if not op and f.tool in self.single_use_tools:
                 # A tool this deployment treats as single-use takes a grant
-                # bound to one operation. A grant without the binding is
-                # authority to perform the tool, which is what the tool being
-                # listed here exists to prevent.
+                # bound to one operation, and a break-glass override is no
+                # exception: the organization's clause is for one act, and an
+                # override naming no operation is authority over the tool.
                 self.event("access.denied", reason="operation-binding-missing",
                            tool=f.tool)
                 return Decision(outcome="deny", status=403, error="operation_required",
@@ -932,6 +965,11 @@ class Enforcer:
             # 5. Only now spend it. Check-then-act, so the burn is last and
             #    atomic; losing the race means someone else got there first.
             spent = await (self.org_consume(rpt) if override else self.consume(rpt))
+            if spent is None:
+                self.event("access.denied", reason="consume-unavailable", tool=f.tool)
+                return Decision(outcome="deny", status=503, error="temporarily_unavailable",
+                                description="the grant could not be spent because the "
+                                            "authorization server could not be reached")
             if not spent:
                 self.event("access.denied", reason="consume-lost-race", tool=f.tool)
                 return Decision(outcome="deny", status=403, error="already_consumed",

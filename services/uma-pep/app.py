@@ -252,7 +252,18 @@ def route_of(path: str) -> tuple[str, str]:
         return tail.split("/", 1)[1], "shared"
     if tail.startswith(f"{joint_leaf}/"):
         return tail.split("/", 1)[1], "joint"
-    return (tail if tail in ALL_OWNERS else OWNER), "own"
+    if not tail:
+        return OWNER, "own"
+    first = tail.split("/", 1)[0]
+    if first in ALL_OWNERS:
+        # Named the way the gateway routes: an owner's path prefix covers
+        # everything beneath it, so a suffix stays with the owner whose
+        # backend the gateway forwards it to.
+        return first, "own"
+    # Not an owner, a shared resource or a jointly held account this gateway
+    # knows. Never the primary owner: a path the gateway sends elsewhere must
+    # not be judged under her authority.
+    return first, "unknown"
 
 
 def owner_for_path(path: str) -> str:
@@ -319,6 +330,10 @@ def event(name: str, corr: str | None = None, **details) -> None:
             }
         )
     )
+
+
+# The largest request body this host reads to decide a call.
+MAX_BODY_BYTES = int(os.environ.get("UMA_PEP_MAX_BODY_BYTES", str(1024 * 1024)))
 
 
 def deny(status: int, body: dict, headers: dict | None = None) -> Response:
@@ -523,7 +538,12 @@ async def shared_enforcer(owner: str, fresh: bool = False) -> Enforcer | None:
     enforcer = SHARED.get(owner)
     if enforcer is None:
         enforcer = SHARED[owner] = _shared_enforcer_for(owner)
-    doc = await enforcer.membership(fresh=fresh)
+    try:
+        doc = await enforcer.membership(fresh=fresh)
+    except Exception:                                           # noqa: BLE001
+        # Unreachable past the grace window: nothing is shared that cannot be
+        # established as shared.
+        return None
     if not doc.get("member"):
         return None
     enforcer.tools = shared_tools(doc.get("grants") or [])
@@ -579,8 +599,21 @@ async def check(request: Request, rest: str = "") -> Response:
     for this host means a status line and, on a challenge, the UMA header.
     """
     original_path = rest or "/"
-    body = await request.body()
     h = request.headers
+    # Bounded before anything reads it. Unbounded, one request can hold as
+    # much memory as it likes before any credential is looked at.
+    declared = h.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        return deny(413, {"error": "invalid_request",
+                          "error_description": "request body too large"})
+    chunks, size = [], 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            return deny(413, {"error": "invalid_request",
+                              "error_description": "request body too large"})
+        chunks.append(chunk)
+    body = b"".join(chunks)
 
     # The gateway buffers the body up to a configured ceiling and, past it,
     # forwards a prefix with this header set rather than refusing the call.
@@ -627,6 +660,11 @@ async def check(request: Request, rest: str = "") -> Response:
         content_digest=h.get("content-digest"),
     )
     owner, kind = route_of(original_path)
+    if kind == "unknown":
+        event("access.denied", reason="unknown-route", path=original_path)
+        return deny(404, {"error": "invalid_resource_id",
+                          "error_description": "this gateway serves no "
+                          "owner, shared resource or account at that path"})
     if kind == "joint":
         enforcer = joint_enforcer(owner)
         if enforcer is None:
@@ -771,11 +809,23 @@ async def sidecar(request: Request, rest: str = "") -> Response:
                 headers=headers,
                 params=dict(request.query_params),
             )
-    except httpx.RequestError as exc:
-        event("upstream.unreachable", error=str(exc))
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        # Never delivered. The grant was spent deciding the call, but the
+        # resource did not receive it.
+        event("upstream.unreachable", error=str(exc), delivered=False)
         return deny(502, {"error": "upstream_unreachable",
-                          "error_description": "the protected resource did not "
-                                               "answer"})
+                          "error_description": "the protected resource could not "
+                                               "be reached; the call was not "
+                                               "delivered"})
+    except httpx.RequestError as exc:
+        # Sent, and no answer came back. The resource may have acted on it, so
+        # this must not read the same as a call that never left: an agent that
+        # retried this blindly could execute a trade twice.
+        event("upstream.unreachable", error=str(exc), delivered=True)
+        return deny(504, {"error": "upstream_timeout",
+                          "error_description": "the call was delivered and no "
+                                               "answer came back; it may have "
+                                               "been carried out"})
     # `up.content` has already been decoded, so the upstream's
     # content-encoding and content-length describe a body that no longer
     # exists — forwarding them has the client decompress a second time and
