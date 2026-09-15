@@ -470,7 +470,10 @@ k8s-paios-check: k8s-paios
 ## k8s-reset: rewind the story without rebuilding the cluster
 .PHONY: k8s-reset
 k8s-reset:
-	@kubectl -n alice exec uma-as-db-1 -- psql -U postgres -d u4a -q -c \
+	@# The primary, not a fixed instance: after a failover (make k8s-chaos, or
+	@# CloudNativePG's own) uma-as-db-1 is a read-only standby.
+	@primary=$$(kubectl -n alice get cluster uma-as-db -o jsonpath='{.status.currentPrimary}'); \
+	kubectl -n alice exec $$primary -c postgres -- psql -U postgres -d u4a -q -c \
 		"TRUNCATE tickets, negotiations, rpts, connections, ledger, owner_events;" >/dev/null
 	@kubectl -n alice rollout restart deploy/uma-as >/dev/null
 	@kubectl -n alice rollout status deploy/uma-as --timeout=180s >/dev/null

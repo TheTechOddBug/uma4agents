@@ -20,6 +20,14 @@ description: Release notes for the UMA for Agents reference architecture, newest
 Calendar versioning in `vYYYY.MM.N` format, where `N` is the sequential
 release within that month. One entry per release.
 
+## September 15 2026
+
+### v2026.09.11
+
+#### Bug fixes
+
+- **Kubernetes:** `make k8s-reset` truncated grant state on `uma-as-db-1` by name, which fails once a failover has made that instance a read-only standby. It now runs against the cluster's current primary.
+
 ## September 14 2026
 
 ### v2026.09.10
