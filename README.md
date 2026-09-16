@@ -66,6 +66,16 @@ done to the resource, on whose terms. Cross App Access and this profile turn
 out to compose rather than compete — the assertion arrives as a UMA claim,
 because it proves identity and carries no entitlement.
 
+**[docs/CONSEQUENCE.md](docs/CONSEQUENCE.md)** is what an operation leaves
+behind: the resource that would have to undo an act declares whether it can be,
+and her policy reads it — so "ask me about anything that cannot be undone" is a
+rule that names no tool and holds for tools she has never seen.
+
+**[docs/CLEARANCE.md](docs/CLEARANCE.md)** is the authorization that is nobody's
+here to give. Whether a desk holds a current licence is a fact about the world,
+and the party asking has every reason to misstate it, so it travels from the
+organization to her authority and never through the agent.
+
 **[docs/KWAAI-BINDING.md](docs/KWAAI-BINDING.md)** puts her side inside a
 personal AI, and **[docs/FIXTURE.md](docs/FIXTURE.md)** is the minimal
 fixture the protocol is tested on with nothing underneath it.
@@ -124,6 +134,7 @@ then deciding as the owner.
 | [Two owners, one account](docs/cards/joint-ownership.html) | A jointly held account neither owner can release alone |
 | [Two owners, two authorities](docs/cards/multi-owner.html) | One agent asking two owners, who answer differently |
 | [Her own agent](docs/cards/first-party.html) | Being hers buys less friction and no more access |
+| [What an operation leaves behind](docs/cards/consequence.html) | One rule that names the act rather than the tool, and holds for tools she has never seen |
 | [Sub-agent grants](docs/cards/subagent-grants.html) | An agent spawns workers; none carry its key and each is authorized on its own |
 | [Her personal AI](docs/cards/personal-ai.html) | Standing consent answering, and refusing what it cannot ask her about |
 | [The firm's book](docs/cards/organization.html) | A resource that is hers to administer only while she is a member |

@@ -57,8 +57,10 @@ const nav = {
         { title: "Discovery, public and protected", to: "/docs/overview/discovery/" },
         { title: "Proof-of-possession", to: "/docs/overview/proof-of-possession/" },
         { title: "Single-use means indivisible", to: "/docs/overview/single-use/" },
+        { title: "What an operation leaves behind", to: "/docs/overview/consequence/" },
         { title: "Revocation and the ledger", to: "/docs/overview/revocation/" },
         { title: "Agent assurance", to: "/docs/overview/assurance/" },
+        { title: "Clearance", to: "/docs/overview/clearance/" },
         { title: "The owner's attention", to: "/docs/overview/attention/" },
         { title: "Many owners, one resource server", to: "/docs/overview/multi-owner/" },
         { title: "Shared ownership", to: "/docs/overview/shared-ownership/" },
@@ -106,6 +108,7 @@ const nav = {
         { title: "Her personal AI", to: "/docs/guides/demo-personal-ai/" },
         { title: "The firm's book", to: "/docs/guides/demo-the-firms-book/" },
         { title: "Sub-agent grants", to: "/docs/guides/demo-subagent-grants/" },
+        { title: "What an operation leaves behind", to: "/docs/guides/demo-consequence/" },
       ],
     },
     {
