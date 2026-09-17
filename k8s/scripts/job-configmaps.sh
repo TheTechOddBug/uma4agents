@@ -14,6 +14,11 @@
 # maps are rebuilt in full from the working tree on every run, so there is
 # nothing for a three-way merge to merge, and nothing worth spending the
 # ceiling on.
+#
+# It is well past that ceiling now — the scripts below total over 290 KiB — so
+# this is not a margin that can be won back by trimming. Anything that puts
+# `apply` back here fails on the next script added, and fails by leaving the
+# old ConfigMap in place rather than by saying so.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,10 +38,31 @@ kubectl -n "$NS" create configmap demo-driver \
   --from-file=joint_check.py="$ROOT/clients/demo-driver/joint_check.py" \
   --from-file=consequence_check.py="$ROOT/clients/demo-driver/consequence_check.py" \
   --from-file=clearance_check.py="$ROOT/clients/demo-driver/clearance_check.py" \
+  --from-file=embedded_check.py="$ROOT/clients/demo-driver/embedded_check.py" \
+  --from-file=flow_check.py="$ROOT/clients/demo-driver/flow_check.py" \
+  --from-file=rotation_check.py="$ROOT/clients/demo-driver/rotation_check.py" \
+  --from-file=xaa_check.py="$ROOT/clients/demo-driver/xaa_check.py" \
   --dry-run=client -o yaml | kubectl replace --force -f - >/dev/null
 
 kubectl -n "$NS" create configmap agent-shim \
   --from-file=shim.py="$ROOT/clients/agent-shim/shim.py" \
+  --from-file=test_shim.py="$ROOT/clients/agent-shim/test_shim.py" \
+  --dry-run=client -o yaml | kubectl replace --force -f - >/dev/null
+
+# The second implementation, built. `dist/` is committed for the same reason
+# the drafts' rendered output is: what the check runs has to be the artifact,
+# not a build step that could differ. Runtime needs no node_modules — the
+# agent imports node builtins and its own module, and TypeScript is a
+# development dependency only.
+# package.json comes along because it is what makes the two files ESM. The
+# agent is built as ES modules and imports its own module by path; without a
+# `"type": "module"` beside them Node reads the same bytes as CommonJS and
+# refuses the first import. Compose gets this for free by running inside the
+# package directory.
+kubectl -n "$NS" create configmap ts-agent \
+  --from-file=check.js="$ROOT/clients/ts-agent/dist/check.js" \
+  --from-file=uma4a.js="$ROOT/clients/ts-agent/dist/uma4a.js" \
+  --from-file=package.json="$ROOT/clients/ts-agent/package.json" \
   --dry-run=client -o yaml | kubectl replace --force -f - >/dev/null
 
 kubectl -n "$NS" create configmap demo-lib \

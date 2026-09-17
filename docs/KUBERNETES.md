@@ -218,7 +218,69 @@ binding — see [KWAAI-BINDING.md](KWAAI-BINDING.md).
 It starts at `replicas: 0` deliberately: while it is up, the requests it can
 answer never reach her portal, and the portal demo is the default.
 
-### 9. Look around
+### 9. The same claims, where the deployment can contradict them
+
+```bash
+make k8s-embedded-check         # expect PASS
+make k8s-flow-check             # expect PASS
+make k8s-ts-agent-check         # expect 9 passed
+make k8s-shim-test              # expect 8 passed
+make k8s-kwaai-check            # expect PASS
+make k8s-rotation-check         # expect 2 passed, then 5 passed
+make k8s-xaa-check              # expect 30 passed
+```
+
+Every check the compose stack runs, runs here. These seven are the ones where
+the deployment can contradict the claim, which is why they are worth reading
+one at a time rather than as a list.
+
+**Notice** what is *not* in the path in the first one. `embedded.uma.lab` is a
+second vault standing beside the gateway one, carrying the enforcement
+obligations in-process: no gateway, no ext_authz service, the same
+authorization server and the same grant. Core §8.1 states those obligations as
+a conformance profile any resource-side component may satisfy rather than as a
+topology, and proving that only on a stack with no topology to speak of proves
+it where it is easy. Here the mesh, the waypoint and the namespace boundaries
+are all still in force and the claim narrows usefully: no enforcement *hop*,
+same grant.
+
+It also arrives holding nothing. Meridian's Secret has an entry for the
+gateway and none for this one, so it introduces itself by signing with the key
+it publishes at its own origin, and waits for Alice to admit it — the ordinary
+case for a resource server nobody configured her authority against, and the
+one shape of the embedded host that no deployment had run before.
+
+**Notice** in the second one that the requesting side is arranged four ways —
+a bare key, an AAuth enrolment whose session key rotates, a CIMD document, a
+key in a Web Bot Auth directory — and that her terms, her grant and her
+`as_uri` come back identical from all four. The reason to run it here is that
+the requesting side is the half these two deployments differ on most: Bob's
+operator publishes a directory it was provisioned with and **refuses** a key
+offered at runtime, which is what lets it run two replicas. So the regime that
+needs the directory to hold its key signs with one that operator really
+issued. [FLOW.md](FLOW.md) is the argument.
+
+**Notice** in the rotation that three replicas share one signing key from a
+Secret. The check keeps a grant across the rollout, and afterwards the old
+grant still spends, a fresh one carries the new kid, and both kids are
+published. A rotation that reached one replica and not the others would put
+two JWKS behind one Service and fail about two thirds of the verifications —
+the failure a single process cannot exhibit, and the reason this one belongs
+here rather than under compose.
+
+**Notice** in the Cross App Access run that Northwind's directory is a
+*second* identity provider, in the enterprise's own namespace. That is what
+makes "a token from Meridian's own provider is not an employee assertion" a
+statement about two servers run by two parties rather than about two realms on
+one. [XAA.md](XAA.md) is the argument.
+
+The other two carry over unchanged from compose and are here because the
+requesting side belongs in the cluster too: a second implementation sharing no
+code with the Python client, and the adapter driven by a scripted MCP client
+through the elicitation path, the standing-config fallback, and the pend handed
+back as a wait rather than a call held open.
+
+### 10. Look around
 
 ```bash
 make k8s-status                 # what is running, per party
