@@ -70,7 +70,7 @@ rather than holding a call open across it.
 | `UMA_PEP_SIGNING_KEY` | `/keys/uma-pep-ed25519.pem`, and `/keys/vault-ed25519.pem` in the resource that enforces for itself | Key for `signed_metadata` and signed queries, and the one an authority fetches to decide whether this resource server is who it says it is. Two defaults because two hosts run this code: a deployment that shares one key between them has to name it in both |
 | `UMA_EXPECTED_AUTHORITY` | `gateway.uma.lab` | The authority used to rebuild the RFC 9421 signature base |
 | `UMA_ALLOWED_ORIGINS` | derived from the authority | Origins accepted on MCP requests |
-| `UMA_PEP_SCHEME` | `https` | The scheme of the URLs it publishes. `http` for a deployment with no certificate authority |
+| `UMA_PEP_SCHEME` | `https` | The scheme of the URLs it publishes. An authority reads a resource's metadata and keys only over https, so `http` suits nothing that registers with one |
 
 `UMA_EXPECTED_AUTHORITY` is the setting to get right. The signature base needs
 an authority, and taking it from the `Host` header gives the caller control of
@@ -85,6 +85,7 @@ configuration change fixes it after the fact.
 | `ENFORCEMENT_MODE` | `gateway` | `gateway` or `embedded` |
 | `UMA_EXPECTED_AUTHORITY` | `gateway.uma.lab` | As above, when enforcing in-process |
 | `UMA_AS_INTERNAL`, `UMA_AS_PUBLIC` | as above | Read by the embedded enforcement core |
+| `UMA_VAULT_TLS_CERT`, `UMA_VAULT_TLS_KEY` | unset | Under `embedded`, serve https with this certificate. For a resource with nothing in front of it to terminate TLS |
 
 Under `gateway` the resource holds no authorization code. Under `embedded` it
 runs the same enforcement core in-process and there is no gateway in the
@@ -96,7 +97,7 @@ authorization path.
 |---|---|---|
 | `UMA_AS_INTERNAL` | `http://uma-as:9000` | Where to reach the owner API |
 | `VAULT_MCP_URL` | `http://alice-vault-mcp:9020/mcp` | The resource, for her own reads |
-| `PORTAL_AUTH` | `oidc` | Authentication mode |
+| `PORTAL_AUTH` | `oidc` | `oidc`, or `none` for a stack with no identity provider. The portal refuses to start on any other value |
 | `OIDC_ISSUER` | `https://keycloak.uma.lab/realms/alice` | The issuer her tokens must claim |
 | `OIDC_METADATA_URL` | derived from the issuer | Where to fetch that provider's metadata |
 | `PORTAL_PUBLIC_URL` | — | The address her browser reaches the portal at |
@@ -135,9 +136,10 @@ of it set, every line of that layer is inert.
 | `OPA_URL` | `http://opa:8181` | The policy engine. The charter's declarative conditions and the administrator's own Rego are both evaluated there |
 | `ORG_ADMIN_ISSUER` | `…/realms/northwind` | The realm administrators sign in to. Deliberately not a member's realm — an identity provider that minted both would collapse the two layers |
 | `ORG_ADMIN_CLIENTS` | `meridian-org-console` | Which client's tokens the admin API accepts |
-| `ORG_ADMIN_TOKEN` | unset | A static credential for acceptance jobs with no browser. Never set where an identity provider is configured |
+| `ORG_ADMIN_TOKEN` | unset | A static administrator credential, for a stack with no identity provider. The service refuses to start with it and `ORG_ADMIN_ISSUER` both set; the lab's checks sign in as the administrator instead |
+| `CONSOLE_AUTH` | `oidc` | The administrators' console: `oidc`, or `none` for a stack with no identity provider. It refuses to start on any other value |
 | `ORG_RS_TOKEN` | `org-rs-dev-token` | What an enforcement point presents to read membership and check the grants this service signs |
-| `ORG_JOIN_CODE` | `NW-7K2F-QX` | The shared enrolment code. Invitations carry their own, addressed to one person |
+| `ORG_JOIN_CODE` | `NW-7K2F-QX` | The shared enrolment code. An invitation has its own, addressed to one person and shown once, to the administrator who creates it |
 | `ORG_BREAK_GLASS_AUDIENCE` | `https://gateway.uma.lab` | Who an override is issued *for*. Configuration rather than a field on the request: an audience the caller chooses is one it can aim at another resource server that also trusts this organization |
 | `ORG_OPA_GRACE_S` | `60` | How long a decision may be answered from cache when the engine cannot be reached. Past it the answer is a refusal — a charter is the organization's protection of its own data, and a request that slipped through while the engine was down is exactly what it exists to prevent |
 
@@ -184,6 +186,7 @@ none of it set, no account is jointly held and the whole layer is inert.
 | `TALLY_THRESHOLD_FLOOR` | `0` | A minimum the holders may not vote themselves below. A mandate under it is refused at startup, by name. This is what an account agreement or a regulator supplies in the world, and the only answer to what quorum sets the quorum |
 | `TALLY_RS_SECRET` | `tally-rs-dev-secret` | What an enforcement point presents to mint tickets and introspect. It buys nothing that matters: the verdicts inside a grant are checked against the holders' published keys, not against this |
 | `TALLY_SIGNING_KEY` | `/keys/tally-ed25519.pem` | Persisted, not generated per process — both holders' authorities cache what this service publishes, and a key that changed on restart reads as a broken mandate |
+| `TALLY_MAX_OPEN_NEGOTIATIONS` | `200` | Negotiations not yet agreed to, per account. Any caller the enforcement point challenges starts one, and each costs a quote from every holder's authority; past the cap a new one is refused with `503`. Abandoned ones are swept once their ticket has lapsed |
 
 And on the enforcement point:
 
@@ -206,7 +209,7 @@ with a code as before.
 | `XAA_ISSUER` | `https://northwind-xaa.uma.lab` | Its own origin. A member's authority verifies assertions against the keys published here, and accepts them only from the issuer her organization's charter names |
 | `XAA_IDP_ISSUER` | `https://northwind-idp.uma.lab/realms/employees` | The **customer's own** directory, not Meridian's. A subject token signed by anything else is not an employee assertion, whatever it claims — the provider that authenticates people into Meridian's surfaces has no standing to say who a client company employs |
 | `XAA_CLIENTS` | `{}` | Applications registered with the provider, and the secret each authenticates the exchange with |
-| `XAA_SEED_CONNECTIONS` | `[]` | The edges an administrator approved — one requesting application, one authorization server it may be sent to, one resource, and the widest scope the enterprise will assert for. Policy about which applications may talk at all, never about what may be done to a resource |
+| `XAA_SEED_CONNECTIONS` | `[]` | The edges an administrator approved — one requesting application, one authorization server it may be sent to, one resource, and the widest scope the enterprise will assert for. Policy about which applications may talk at all, never about what may be done to a resource. The broker holds connections in memory and applies these at every start, logging each as `connection.seeded`, so a withdrawal made at run time lasts until the next restart |
 | `XAA_ADMINS` | `dana` | Who may configure connections, by realm username |
 | `XAA_JAG_TTL_S` | `300` | How long an assertion lives. Short by construction — it is spent immediately at one authorization server and is not a credential anybody should hold |
 

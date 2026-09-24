@@ -106,10 +106,13 @@ def now() -> float:
     return time.time()
 
 
-def event(name: str, **fields) -> None:
+def event(name: str, corr: str | None = None, **details) -> None:
+    """One protocol event, in the shape every service here emits: `event` and
+    `corr` at the top, where the log pipeline promotes them to labels, and
+    everything else under `details`."""
     print(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                      "svc": "xaa-broker", "event": name, **fields}),
-          flush=True)
+                      "event": name, "corr": corr, "actor": "xaa-broker",
+                      "details": details}), flush=True)
 
 
 # ── Northwind's directory of approved edges ──────────────────────────────────
@@ -124,9 +127,6 @@ CONNECTIONS: dict[str, dict] = {}
 # Requesting applications registered with Northwind's identity provider, and
 # the secret each authenticates the exchange with.
 CLIENTS: dict[str, str] = {}
-# A dev token so the lab can seed connections without driving a login. The
-# same affordance org-authority ships, and the same caveat: it is a lab.
-ADMIN_TOKEN = os.environ.get("XAA_ADMIN_TOKEN", "xaa-admin-dev-token")
 # The client administration tokens are issued to. A token for Dana from any
 # other client of the realm — the public research agent, say — is not an
 # administrator acting at this console.
@@ -153,40 +153,49 @@ def idp_keys(fresh: bool = False) -> list:
     return _JWKS_CACHE[1]
 
 
+def realm_claims(token: str) -> dict:
+    """The claims of a token Northwind's realm signed, or ValueError.
+
+    One path for every realm token this broker reads. A key id it has not
+    seen is a rotated realm key rather than a bad token, so the keys are
+    fetched again once. The algorithm is the published key's, never the
+    token's own header: a token that names its own algorithm chooses how it
+    is checked.
+    """
+    try:
+        head = jwt.get_unverified_header(token)
+    except Exception as exc:
+        raise ValueError(f"not a JWT: {exc}")
+    keys = idp_keys()
+    kid = head.get("kid")
+    if kid and not any(k.get("kid") == kid for k in keys):
+        keys = idp_keys(fresh=True)
+    for jwk_dict in keys:
+        if kid and jwk_dict.get("kid") != kid:
+            continue
+        try:
+            return jwt.decode(token, jwt.PyJWK(jwk_dict).key,
+                              algorithms=[jwk_dict.get("alg") or "RS256"],
+                              issuer=IDP_ISSUER, options={"verify_aud": False})
+        except jwt.InvalidTokenError:
+            continue
+    raise ValueError("it does not verify against the realm")
+
+
 def verify_subject_token(token: str, client_id: str) -> dict:
     """An ID token from Northwind's realm, issued to the client presenting it.
 
     The audience check is the one that matters and the easy one to skip. A
     client that could exchange *any* employee's token it happened to obtain
     would be a confused deputy with an enterprise-wide blast radius, so the
-    token has to have been minted for this client."""
+    token has to have been minted for this client. And it has to be an ID
+    token: the realm signs access tokens with the same key and the same
+    `azp`, and Keycloak marks which is which in `typ`."""
     try:
-        head = jwt.get_unverified_header(token)
-    except Exception as exc:
-        raise ValueError(f"subject token is not a JWT: {exc}")
+        claims = realm_claims(token)
+    except ValueError as exc:
+        raise ValueError(f"subject token: {exc}")
 
-    keys = idp_keys()
-    kid = head.get("kid")
-    if kid and not any(k.get("kid") == kid for k in keys):
-        keys = idp_keys(fresh=True)  # a rotated realm key, not a bad token
-
-    claims = None
-    for jwk_dict in keys:
-        if kid and jwk_dict.get("kid") != kid:
-            continue
-        try:
-            key = jwt.PyJWK(jwk_dict).key
-            claims = jwt.decode(token, key, algorithms=[head.get("alg", "RS256")],
-                                issuer=IDP_ISSUER,
-                                options={"verify_aud": False})
-            break
-        except jwt.InvalidTokenError:
-            continue
-    if claims is None:
-        raise ValueError("subject token does not verify against the realm")
-
-    aud = claims.get("aud")
-    aud = [aud] if isinstance(aud, str) else list(aud or [])
     if claims.get("azp") != client_id or claims.get("typ", "ID") != "ID":
         raise ValueError("subject token was not issued to this client")
     if not claims.get("sub"):
@@ -364,34 +373,20 @@ async def discovery() -> dict:
 def require_admin(request: Request) -> str:
     """Dana, at Northwind's identity provider.
 
-    Either a realm token for somebody in the administrator list, or the lab's
-    seed token. Nothing about a connection is readable without one — the list
-    of approved edges is itself a map of what the enterprise integrates."""
+    A realm token for somebody in the administrator list. Nothing about a
+    connection is readable without one — the list of approved edges is itself
+    a map of what the enterprise integrates."""
     raw = request.headers.get("authorization", "")
     presented = raw.split(" ", 1)[1] if raw.lower().startswith("bearer ") else ""
     if not presented:
         raise ValueError("no bearer token")
-    if secrets.compare_digest(presented, ADMIN_TOKEN):
-        return "seed"
-    try:
-        head = jwt.get_unverified_header(presented)
-        for jwk_dict in idp_keys():
-            if head.get("kid") and jwk_dict.get("kid") != head["kid"]:
-                continue
-            claims = jwt.decode(presented, jwt.PyJWK(jwk_dict).key,
-                                algorithms=[head.get("alg", "RS256")],
-                                issuer=IDP_ISSUER,
-                                options={"verify_aud": False})
-            if claims.get("azp") != ADMIN_CLIENT:
-                raise ValueError("that token was not issued to the "
-                                 "administration client")
-            who = claims.get("preferred_username") or claims.get("sub") or ""
-            if who in ADMINS:
-                return who
-            raise ValueError(f"{who} does not administer this provider")
-    except jwt.InvalidTokenError as exc:
-        raise ValueError(f"token does not verify: {exc}")
-    raise ValueError("token does not verify")
+    claims = realm_claims(presented)
+    if claims.get("azp") != ADMIN_CLIENT:
+        raise ValueError("that token was not issued to the administration client")
+    who = claims.get("preferred_username") or claims.get("sub") or ""
+    if who in ADMINS:
+        return who
+    raise ValueError(f"{who} does not administer this provider")
 
 
 @app.get("/admin/connections")
@@ -454,5 +449,10 @@ async def boot() -> None:
         doc.setdefault("enabled", True)
         doc.setdefault("created", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         CONNECTIONS[doc["id"]] = doc
+        # Connections live in memory, so configuration is applied at every
+        # start — including over a withdrawal made since the last one. Said
+        # in the log, per edge, so an edge that is back is visibly back.
+        event("connection.seeded", id=doc["id"], client=doc.get("requesting_client"),
+              audience=doc.get("audience"), resource=doc.get("resource"))
     event("ready", issuer=ISSUER, idp=IDP_ISSUER, kid=KID,
           clients=sorted(CLIENTS), connections=len(CONNECTIONS))

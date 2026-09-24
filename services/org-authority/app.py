@@ -63,7 +63,7 @@ from jwt.algorithms import OKPAlgorithm
 
 import charter as charter_mod
 import uma4a_clearance as clearance_mod
-from uma4a_http_sig import VerifyError, verify
+from uma4a_http_sig import DIRECTORY_PATH, KeyDirectories, VerifyError, verify
 
 ISSUER = os.environ.get("ORG_ISSUER", "https://northwind-org.uma.lab")
 ORG_AUTHORITY = ISSUER.split("://", 1)[-1].rstrip("/")
@@ -89,9 +89,14 @@ ADMIN_METADATA_URL = os.environ.get(
     "ORG_ADMIN_METADATA_URL", f"{ADMIN_ISSUER}/.well-known/openid-configuration")
 ADMIN_AUDIENCES = {a for a in os.environ.get(
     "ORG_ADMIN_CLIENTS", "meridian-org-console").split(",") if a}
-# A static token for the acceptance containers, which have no browser to log
-# in with. Absent in any deployment that has an identity provider.
+# A static administrator token, for a stack with no identity provider at all.
+# Beside one it would be a second way to be an administrator that the
+# provider can neither see, revoke nor attribute, so the two are refused
+# together: a deployment with a realm signs its administrators in there.
 ADMIN_TOKEN = os.environ.get("ORG_ADMIN_TOKEN") or None
+if ADMIN_TOKEN and ADMIN_ISSUER:
+    raise SystemExit("ORG_ADMIN_TOKEN is for a stack with no identity provider; "
+                     "unset it, or set ORG_ADMIN_ISSUER empty")
 
 # What an enforcement point presents to read membership and check the grants
 # this service signs. The gateway is the firm's own, so a provisioned secret
@@ -142,15 +147,13 @@ def utcstamp() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def event(name: str, **fields) -> None:
-    # `name` rather than `kind`: a caller wanting to log *which kind of
-    # notice* it sent would otherwise collide with the positional argument
-    # and raise from inside the logging call — which is a spectacularly bad
-    # place for an exception to come from, since it takes the operation
-    # down with it and blames a line that was only trying to say what
-    # happened.
-    print(json.dumps({"ts": utcstamp(), "svc": "org-authority",
-                      "event": name, **fields}), flush=True)
+def event(name: str, corr: str | None = None, **details) -> None:
+    """One protocol event, in the shape every service here emits: `event` and
+    `corr` at the top, where the log pipeline promotes them to labels, and
+    everything else under `details`."""
+    print(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                      "event": name, "corr": corr, "actor": "org-authority",
+                      "details": details}), flush=True)
 
 
 # --- State -------------------------------------------------------------------
@@ -240,10 +243,22 @@ async def announce_charter(entry: dict) -> None:
     envelope", and after a republish that answer is about a document that is
     no longer the charter.
     """
+    notice = {"kind": "charter_changed", "charter_version": entry["version"]}
     for owner in list(MEMBERS):
-        MEMBERS[owner]["compliance"] = None
-        await notify_member(owner, {"kind": "charter_changed",
-                                    "charter_version": entry["version"]})
+        if (member := MEMBERS.get(owner)) is not None:   # she may have left since
+            member["compliance"] = None
+    # The charter is in force from the moment it was published. Telling its
+    # members is follow-up, sent together and not awaited: one unreachable
+    # member must not make the administrator's publish look as if it failed.
+    task = asyncio.gather(
+        *(notify_member(owner, notice) for owner in list(MEMBERS)),
+        return_exceptions=True)
+    _NOTICES.add(task)
+    task.add_done_callback(_NOTICES.discard)
+
+
+# Notices in flight, held so they are not collected before they finish.
+_NOTICES: set = set()
 
 
 # --- The engine --------------------------------------------------------------
@@ -521,15 +536,6 @@ async def discovery() -> dict:
 
 @app.on_event("startup")
 async def boot() -> None:
-    if ADMIN_TOKEN and ADMIN_ISSUER:
-        # Both configured. Correct for this lab — the acceptance job has no
-        # browser to log in with — and wrong anywhere else, because the static
-        # credential is a second way to be an administrator that no identity
-        # provider can see, revoke or attribute. Said out loud at startup
-        # rather than left in a comment somebody has to go looking for.
-        event("admin.static_credential_enabled", issuer=ADMIN_ISSUER,
-              note="a static admin token is accepted alongside the identity "
-                   "provider; do not do this outside a lab")
     # The engine first, and with patience: this service and OPA come up
     # together, and a charter published against an engine that is not yet
     # listening would be a charter in force with nothing evaluating it.
@@ -566,7 +572,7 @@ async def boot() -> None:
 # raise a floor.
 
 
-_DIRECTORY_CACHE: dict[str, tuple[float, str, list]] = {}
+_IDP_DIRECTORY_CACHE: dict[str, tuple[float, str, list]] = {}
 
 
 def _directory_of(idp: dict) -> tuple[str, list]:
@@ -585,7 +591,7 @@ def _directory_of(idp: dict) -> tuple[str, list]:
     A customer's employee directory belongs to the customer.
     """
     issuer = idp["issuer"].rstrip("/")
-    cached = _DIRECTORY_CACHE.get(issuer)
+    cached = _IDP_DIRECTORY_CACHE.get(issuer)
     if cached and cached[0] > now():
         return cached[1], cached[2]
     with httpx.Client(verify=CA_BUNDLE or True, timeout=5.0) as c:
@@ -600,7 +606,7 @@ def _directory_of(idp: dict) -> tuple[str, list]:
         jwks = c.get(conf.json()["jwks_uri"])
         jwks.raise_for_status()
     keys = jwks.json()["keys"]
-    _DIRECTORY_CACHE[issuer] = (now() + 300, directory, keys)
+    _IDP_DIRECTORY_CACHE[issuer] = (now() + 300, directory, keys)
     return directory, keys
 
 
@@ -818,25 +824,23 @@ async def member_invitation(owner: str = "") -> dict:
     mean if she said yes.
 
     Read by her authorization server, which was configured with this
-    organization's address and is asking on her behalf. It carries the
-    invitation's code, which is what makes the invitation self-contained: the
-    organization has already decided she may join, so nothing else has to
-    reach her out of band.
+    organization's address and is asking on her behalf, so her portal can
+    show her who is asking and why.
 
-    The honest limit, since this is unauthenticated and the alternative does
-    not exist: anyone who can reach this endpoint can learn whether a
-    *name* has been invited. Before enrolment there is no relationship to
-    authenticate — her authority has never spoken to this service and this
-    service has never heard of her. A deployment where that matters
-    federates the identity provider and issues invitations against it
-    instead of a name; the layer being demonstrated here is the same either
-    way.
+    Unauthenticated, and it has to be: before enrolment there is no
+    relationship to authenticate. So it says whether a *name* has been
+    invited and nothing that would let anyone act on it. The code that
+    accepts or declines reaches her from the administrator who invited her,
+    the way the shared enrolment code does; served here, it would let whoever
+    asked first join as her, with their own authorization server. A
+    deployment where even the name matters federates its identity provider
+    and invites against that instead.
     """
     invite = INVITES.get((owner or "").strip())
     if invite is None or invite["state"] != "open":
         return {"invited": False}
     return {"invited": True, "org": ORG_ID, "name": ORG_NAME, "issuer": ISSUER,
-            "code": invite["code"], "by": invite["by"], "note": invite["note"],
+            "by": invite["by"], "note": invite["note"],
             "created": invite["created"],
             "charter_version": current()["version"],
             "summary": charter_mod.summarize(current()["charter"])}
@@ -1003,7 +1007,8 @@ async def decision(request: Request) -> dict:
 # charter lists. Nothing else.
 
 VOUCHERS: dict[str, dict] = {}
-_DIRECTORY_CACHE: dict[str, tuple[float, list]] = {}
+# Operators' key directories, checked the way a member's authority checks them.
+DIRECTORIES = KeyDirectories(verify=CA_BUNDLE or True)
 # Signatures already spent, for as long as one could still be replayed.
 #
 # An RFC 9421 signature is valid for a window — sixty seconds here — and a
@@ -1016,13 +1021,6 @@ _SPENT_SIGNATURES: dict[str, float] = {}
 SIGNATURE_WINDOW_S = 60.0
 
 
-def _same_origin(a: str, b: str) -> bool:
-    from urllib.parse import urlparse
-
-    pa, pb = urlparse(a), urlparse(b)
-    return (pa.scheme, pa.netloc) == (pb.scheme, pb.netloc)
-
-
 def invoker_published_key(origin: str, jwk_thumb: str) -> bool:
     """Whether a listed operator publishes this key.
 
@@ -1031,26 +1029,12 @@ def invoker_published_key(origin: str, jwk_thumb: str) -> bool:
     proves nothing, and only the operator can put a key in the directory it
     serves.
     """
-    directory = f"{origin.rstrip('/')}/.well-known/http-message-signatures-directory"
-    cached = _DIRECTORY_CACHE.get(directory)
-    if cached and cached[0] > now():
-        keys = cached[1]
-    else:
-        try:
-            r = httpx.get(directory, timeout=5.0, follow_redirects=False,
-                          verify=CA_BUNDLE or True)
-            r.raise_for_status()
-            keys = r.json().get("keys") or []
-            _DIRECTORY_CACHE[directory] = (now() + 300, keys)
-        except Exception as exc:                                # noqa: BLE001
-            event("invoker_directory.unresolved", origin=origin, error=str(exc))
-            return False
-    for key in keys:
-        if key.get("kty") != "OKP":
-            continue
-        if _thumbprint(key) == jwk_thumb:
-            return True
-    return False
+    try:
+        found, _ = DIRECTORIES.publishes(f"{origin.rstrip('/')}{DIRECTORY_PATH}", jwk_thumb)
+    except Exception as exc:                                    # noqa: BLE001
+        event("invoker_directory.unresolved", origin=origin, error=str(exc))
+        return False
+    return found
 
 
 def _thumbprint(jwk: dict) -> str:
@@ -1171,14 +1155,18 @@ async def break_glass(request: Request) -> JSONResponse:
             detail="that request has already been redeemed. Sign a new one: "
                    "an override is issued once per request, not once per "
                    "signature that is still inside its window.")
-    _SPENT_SIGNATURES[signature] = now()
 
+    # Nothing is spent until everything has been checked. A voucher is read
+    # here and consumed below; consumed here, a request refused for its scope
+    # — or one naming another member — would burn the administrator's voucher.
     thumb = _thumbprint(signer)
     authorised_by = None
-    voucher = VOUCHERS.pop(req.get("voucher") or "", None)
+    voucher_id = req.get("voucher") or ""
+    voucher = VOUCHERS.get(voucher_id)
     if voucher and voucher["expires"] > now() and voucher["owner"] == owner:
         authorised_by = f"voucher from {voucher['admin']}"
     else:
+        voucher_id = ""
         for origin in glass.get("invokers") or []:
             if invoker_published_key(origin, thumb):
                 authorised_by = f"operator {origin}"
@@ -1204,6 +1192,12 @@ async def break_glass(request: Request) -> JSONResponse:
             status_code=403,
             detail=f"this charter does not allow {', '.join(asked)} over its "
                    f"resources, under break-glass or otherwise")
+
+    # Everything checked. Now, and only now, spend the signature and the
+    # voucher; a voucher someone else consumed in the meantime is not reused.
+    if voucher_id and VOUCHERS.pop(voucher_id, None) is None:
+        raise HTTPException(status_code=409, detail="that voucher has been used")
+    _SPENT_SIGNATURES[signature] = now()
     jti = f"bg_{uuid.uuid4().hex[:12]}"
     exp = int(now()) + ttl
     claims = {
@@ -1282,27 +1276,38 @@ async def membership(owner: str, request: Request) -> dict:
     return {"member": True, "since": member["joined"], **_envelope_doc(owner)}
 
 
+def _read_grant(token: str) -> tuple[dict | None, str]:
+    """An override this service signed and still holds, or the reason from
+    the introspection vocabulary the enforcement point already speaks."""
+    try:
+        claims = jwt.decode(token, SIGNING_KEY.public_key(),
+                            algorithms=["EdDSA"], issuer=ISSUER,
+                            options={"verify_aud": False})
+    except jwt.ExpiredSignatureError:
+        return None, "expired"
+    except jwt.InvalidTokenError:
+        return None, "invalid_signature"
+    if (claims.get("jti") or "") not in GLASS:
+        return None, "unknown_token"
+    return claims, ""
+
+
 @app.post("/introspect")
 async def introspect(request: Request, token: str = Form(...)) -> dict:
     """RFC 7662 over a grant this service signed. Shaped exactly like the
     member authority's answer, so the enforcement point's code path is the
     same one — only the issuer it asked differs."""
     require_rs(request)
-    try:
-        claims = jwt.decode(token, SIGNING_KEY.public_key(),
-                            algorithms=["EdDSA"], issuer=ISSUER,
-                            options={"verify_aud": False})
-    except jwt.InvalidTokenError as exc:
-        return {"active": False, "error": str(exc)}
-    rec = GLASS.get(claims.get("jti") or "")
-    if rec is None:
-        return {"active": False, "error": "unknown_grant"}
-    if rec["spent"]:
+    claims, err = _read_grant(token)
+    if err:
+        return {"active": False, "error": err}
+    if GLASS[claims["jti"]]["spent"]:
         return {"active": False, "error": "already_consumed"}
     if claims["owner"] not in MEMBERS:
         # She left. An override rests entirely on membership, so it stops the
-        # moment membership does — including for a token already issued.
-        return {"active": False, "error": "not_a_member"}
+        # moment membership does — including for a token already issued. The
+        # relationship it was issued under has ended: `revoked`.
+        return {"active": False, "error": "revoked"}
     return {
         "active": True,
         "family": claims["jti"],
@@ -1321,14 +1326,11 @@ async def introspect(request: Request, token: str = Form(...)) -> dict:
 @app.post("/consume")
 async def consume(request: Request, token: str = Form(...)) -> dict:
     require_rs(request)
-    try:
-        claims = jwt.decode(token, SIGNING_KEY.public_key(),
-                            algorithms=["EdDSA"], issuer=ISSUER,
-                            options={"verify_aud": False})
-    except jwt.InvalidTokenError as exc:
-        return {"consumed": False, "error": str(exc)}
-    rec = GLASS.get(claims.get("jti") or "")
-    if rec is None or rec["spent"]:
+    claims, err = _read_grant(token)
+    if err:
+        return {"consumed": False, "error": err}
+    rec = GLASS[claims["jti"]]
+    if rec["spent"]:
         return {"consumed": False, "error": "already_consumed"}
     rec["spent"] = True
     note("break_glass.spent", member=rec["member"], jti=claims["jti"],
@@ -1822,7 +1824,8 @@ async def admin_invite(request: Request) -> dict:
         "state": "open",
     }
     note("invitation.sent", member=owner, by=admin)
-    return {"invited": owner, "state": "open"}
+    # The one time the code is shown: to the administrator, to hand to her.
+    return {"invited": owner, "state": "open", "code": INVITES[owner]["code"]}
 
 
 @app.delete("/admin/invites/{owner}")

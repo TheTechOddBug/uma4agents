@@ -88,7 +88,7 @@ normative:
 informative:
   RFC9635:
   RFC9449:
-  I-D.meunier-webbotauth-httpsig-protocol:
+  I-D.ietf-webbotauth-httpsig-protocol:
   I-D.hardt-aauth-protocol:
   U4APolicy:
     title: "Owner Policy, Assurance and Attention for User-Managed Access (UMA) 2.0"
@@ -379,6 +379,41 @@ WWW-Authenticate: UMA realm="alice-vault",
 ~~~
 {: title="A challenge over HTTP. Line breaks are for display only."}
 
+## Refusals That Are Not Challenges {#refusals}
+
+Some refusals cannot be resolved by negotiating: the owner has ended the
+relationship, the request was malformed, or the grant was spent. A challenge
+there would send the client round a negotiation whose outcome is settled. An
+enforcement point refusing for such a reason MUST NOT include a challenge, and
+over HTTP MUST answer with the status below and a JSON object whose `error`
+member is the value below and which MAY carry `error_description`:
+
+access_revoked:
+: 403. Introspection gave a terminal reason ({{U4AFedAuthz}} Section 5); the
+  owner, or a layer above her, has settled it, and renegotiating cannot change
+  it.
+
+already_consumed:
+: 403. A single-use grant was spent by another request ({{indivisibility}}).
+
+operation_required, operation_mismatch:
+: 403. The grant is bound to no operation, or to a different one
+  ({{operation-binding}}).
+
+invalid_origin:
+: 403. The request came from an origin the enforcement point does not serve.
+
+request_body_too_large:
+: 413. The body was, or may have been, cut short before the enforcement point
+  read it.
+
+temporarily_unavailable:
+: 503. The authorization server could not be asked; the client MAY retry the
+  same request.
+
+A binding defines how these travel where there is no status line, and MAY add
+values for refusals of its own.
+
 ## Structured Remediation {#remediation}
 
 `authorization_remediation` is the parameter of
@@ -403,7 +438,7 @@ ticket:
 ~~~ json
 {
   "authorization_details": [{
-    "type": "urn:uma4agents:authorization-details:tool-call",
+    "type": "https://u4a.ai/spec/core/1.0#tool-call",
     "locations": ["https://rs.example"],
     "identifier": "alice-vault/execute_trade",
     "actions": ["execute_trade"],
@@ -602,7 +637,7 @@ an absent field as an error; this is a departure from it, and the signer and the
 verifier apply it identically.
 
 Requiring an exact list is the intuitive implementation and it is wrong. It makes
-this profile and {{I-D.meunier-webbotauth-httpsig-protocol}} unable to coexist on
+this profile and {{I-D.ietf-webbotauth-httpsig-protocol}} unable to coexist on
 one request, because each adds a component the other did not expect. Covering
 `"authorization"` is the security property; an exact list was never one.
 
@@ -668,6 +703,10 @@ says where.
 
 The requesting party token MUST be a JWT {{RFC7519}} signed by the authorization
 server, and MUST carry:
+
+iss, aud, jti, exp:
+: REQUIRED, as {{RFC7519}}. `aud` names the resource server the token is for;
+  `jti` is what consumption is recorded against.
 
 cnf:
 : REQUIRED. A confirmation claim whose `jwk` member is the public key the
@@ -836,13 +875,18 @@ around a negotiation whose outcome the owner has already settled, which wastes
 the agent's time and puts a request in front of the owner that she has already
 answered.
 
-An introspection response for an active token MUST carry the `consequence`
-claim where the grant carries one, so that an enforcement point can perform the
-comparison of {{consequence}} without decoding the token itself.
+An introspection response for an active token MUST carry `cnf` and
+`permissions`, and `single_use`, `operation`, `contract` and `consequence` where
+the token carries them, with the token's values. The steps of {{ordering}} read
+them from the introspection response and not from the token, so that what an
+enforcement point acts on comes from the same answer that said the token is
+active, and it never needs to verify the authorization server's signature
+itself.
 
 An authorization server MUST NOT describe a token as active to a resource server
 whose protection API access token was issued for a different owner than the
-token's, and SHOULD answer as it would for a token it does not know. A resource
+token's, and MUST answer as it would for a token it does not know
+({{U4AFedAuthz}} Section 5). A resource
 server holds one such token per owner it serves; the one it presents says whose
 resources it is asking about, and a grant against anybody else's is not its
 business.
@@ -1120,13 +1164,15 @@ identifying URI. The identifying URIs of this set are:
 | `contract` | Digest of the agreement a grant was issued on | {{rpt}} |
 | `single_use` | Whether a token may be spent once | {{operation-binding}} |
 | `operation` | The single operation, and the digest of its parameters, a token is bound to | {{operation-binding}} |
+| `consequence` | The declared class of the operation the grant was issued against | {{rpt}} |
+| `clearance` | A digest of facts a party other than the requesting one attested | {{rpt}} |
 {: title="JWT claims used by this document."}
 
 ## Authorization Details Type
 
 | Type | Meaning | Defined in |
 |---|---|---|
-| `urn:uma4agents:authorization-details:tool-call` | An attempted invocation of one named operation on a protected resource | {{remediation}} |
+| `https://u4a.ai/spec/core/1.0#tool-call` | An attempted invocation of one named operation on a protected resource | {{remediation}} |
 {: title="Authorization details type used by this document."}
 
 ## Other Values
@@ -1135,6 +1181,7 @@ identifying URI. The identifying URIs of this set are:
 |---|---|---|
 | `insufficient_authorization` | Error value of the challenge | {{challenge-parameters}} |
 | `PoP` | Token type | {{rpt}} |
+| `access_revoked`, `already_consumed`, `operation_required`, `operation_mismatch`, `invalid_origin`, `request_body_too_large`, `temporarily_unavailable` | Error values of a refusal | {{refusals}} |
 | `authorization_server` | Member of `authorization_remediation` | {{remediation}} |
 | `ticket` | Member of `authorization_remediation` | {{remediation}} |
 {: title="Other values used by this document."}

@@ -25,10 +25,14 @@ draft-gamb-uma4agents-core-00:
     verified: check
     targets: [pep-test]
     asserts: ["a grant issued before anything was declared is not refused for it"]
-  - text: "An introspection response for an active token MUST carry the consequence claim where the grant carries one"
+  - text: "An introspection response for an active token MUST carry cnf and permissions, and single_use, operation, contract and consequence where the token carries them"
     verified: check
-    targets: [pep-test, consequence-check]
-    asserts: ["the class it was issued against is honoured", "and the call she approved goes through"]
+    targets: [as-test, pep-test, consequence-check]
+    asserts: ["and is given what enforcement reads, from the answer rather than the token", "the class it was issued against is honoured", "and the call she approved goes through"]
+  - text: "REQUIRED, as [RFC7519]. aud names the resource server the token is for"
+    verified: check
+    targets: [as-test]
+    asserts: ["the grant carries iss, aud, jti and exp"]
   - text: "MUST include in its metadata the value https://u4a.ai/spec/core/1.0 in the uma_profiles_supported array"
     verified: check
     targets: [smoke-test, k8s-smoke-test]
@@ -86,7 +90,7 @@ draft-gamb-uma4agents-core-00:
   - text: "a Signature-Agent [I-D.meunier-webbotauth-registry] naming a directory of keys the operator publishes, which MUST be covered by the request signature where it is present"
     verified: check
     targets: [sig-test, smoke-test]
-    asserts: ["covers signature-agent, with tag + expires", "a swapped Signature-Agent must not verify", "signatures directory: OK"]
+    asserts: ["covers signature-agent, with tag + expires", "a swapped Signature-Agent must not verify", "a Signature-Agent the signature does not cover is refused", "signatures directory: OK"]
   - text: "an authorization server MUST NOT admit a request it would otherwise refuse on the strength of descriptive metadata alone"
     verified: check
     targets: [assurance-check, first-party-check]
@@ -97,7 +101,7 @@ draft-gamb-uma4agents-core-00:
     asserts: ["metadata that does not resolve buys nothing", "and is still worth nothing on the second try"]
   - text: "A client MUST prove possession of the confirmed key on every request to the protected resource, and an enforcement point MUST verify it."
     verified: check
-    targets: [sig-test, smoke-test, k8s-policy-test]
+    targets: [sig-test, smoke-test, k8s-smoke-test, k8s-policy-test]
     asserts: ["baseline round trip", "gateway challenge: OK", "the requesting party cannot reach the vault directly"]
   - text: "A signature MUST cover at least the components"
     verified: check
@@ -246,6 +250,10 @@ draft-gamb-uma4agents-core-00:
     verified: check
     targets: [store-test]
     asserts: ["revoke: the connection is deactivated", "revoke: a grant issued under it can no longer be spent"]
+  - text: "An enforcement point refusing for such a reason MUST NOT include a challenge, and over HTTP MUST answer with the status below"
+    verified: check
+    targets: [pep-test, smoke-test]
+    asserts: ["a reason this side does not recognise is refused without a challenge", "a spend someone else won is refused as already spent", "truncated body: OK"]
   - text: "it MUST refuse with a reason naming the truncation"
     verified: check
     targets: [smoke-test]
@@ -260,7 +268,7 @@ draft-gamb-uma4agents-core-00:
     asserts: ["and his approval is NOT recorded as one of hers"]
   - text: "It MUST NOT parse it, compare it to the purpose in the owner's terms, or let it affect the decision other than by its absence."
     verified: check
-    targets: [intent-check]
+    targets: [intent-check, rules-test]
     asserts: ["her purpose is still hers, not the agent's", "a stated reason costs nothing", "but it cannot buy anything either"]
 
 draft-gamb-uma4agents-fedauthz-00:
@@ -295,7 +303,7 @@ draft-gamb-uma4agents-fedauthz-00:
   - text: "MUST be able to learn what a resource server protects by fetching, and MUST NOT require the resource server to push resource descriptions"
     verified: check
     targets: [k8s-smoke-test, fixture]
-    asserts: ["the authorization server pulled what the resource publishes", "no IdP, no database, no gateway, no certificate"]
+    asserts: ["the authorization server pulled what the resource publishes", "no IdP, no database, no gateway, one certificate it made itself"]
   - text: "it MUST attempt a fresh pull before answering invalid_resource_id"
     verified: check
     targets: [establishment-check]
@@ -307,7 +315,7 @@ draft-gamb-uma4agents-fedauthz-00:
   - text: "The request MUST carry a Content-Digest [RFC9530] covered by the signature."
     verified: check
     targets: [establishment-check]
-    asserts: ["signed by a key that origin does not publish: refused", "the gateway did register itself, by signature and not secret"]
+    asserts: ["signed without covering the body it carries: refused", "the gateway did register itself, by signature and not secret"]
   - text: "The authorization server MUST verify the signature by:"
     verified: check
     targets: [establishment-check]
@@ -352,6 +360,17 @@ draft-gamb-uma4agents-fedauthz-00:
     verified: check
     targets: [subagent-check]
     asserts: ["and a revoked sub-agent's next call does not go through"]
+  - text: "An authorization server MUST answer unknown_token for a token issued against another owner's resources, whatever that token's state."
+    verified: check
+    targets: [as-test]
+    asserts: ["another owner's resource server is not told it was revoked", "nor told so when it tries to spend it"]
+  - text: "An extension MAY define further values, and MUST say whether each is terminal."
+    verified: binding
+    because: "a requirement on extension documents; draft-gamb-uma4agents-multiparty-00 defines organization_revoked and says it is terminal"
+  - text: "An enforcement point receiving a value it does not recognise MUST treat it as terminal."
+    verified: check
+    targets: [pep-test]
+    asserts: ["a reason this side does not recognise is refused without a challenge"]
   - text: "Introspection MUST NOT consume a single-use token."
     verified: check
     targets: [embedded-check]
@@ -364,6 +383,10 @@ draft-gamb-uma4agents-fedauthz-00:
     verified: check
     targets: [store-test, embedded-check]
     asserts: ["rpt: a later burn still loses", "and spent, it cannot be spent again"]
+  - text: "false means it was not spent by this caller, and MUST be accompanied by an error member saying why"
+    verified: check
+    targets: [as-test, pep-test]
+    asserts: ["nor told so when it tries to spend it", "a spend someone else won is refused as already spent", "a grant revoked between the check and the spend is refused as revoked"]
   - text: "An enforcement point MUST NOT be told, and MUST NOT report, the identity handle of the client."
     verified: check
     targets: [store-test, intent-check]
@@ -470,7 +493,7 @@ draft-gamb-uma4agents-mcp-00:
     asserts: ["challenged in-band"]
   - text: "Its content MUST be identical to what the HTTP binding would have encoded."
     verified: check
-    targets: [embedded-check]
+    targets: [embedded-check, pep-test]
     asserts: ["the remediation object is identical in both encodings", "the remediation object names the authorization server and the ticket"]
   - text: "A refusal for any other reason MUST use code -32002"
     verified: check
@@ -499,7 +522,7 @@ draft-gamb-uma4agents-mcp-00:
   - text: "An enforcement point MUST validate the Origin header [RFC6454]"
     verified: check
     targets: [pep-test, embedded-check]
-    asserts: ["a request from an origin the resource does not serve is refused"]
+    asserts: ["a request from an origin the resource does not serve is refused", "and so are an initialize and a stream GET from it, which no tool-call hook sees"]
   - text: "it MUST detect that the body it received was truncated and MUST refuse with a reason naming the truncation"
     verified: check
     targets: [smoke-test]
@@ -528,8 +551,8 @@ draft-gamb-uma4agents-multiparty-00:
     asserts: ["but not one written as a wildcard, which would reach anybody's", "a role that hands out somebody's personal account is refused"]
   - text: "The pattern language MUST be segment-wise, with a wildcard matching one segment and never crossing a separator"
     verified: check
-    targets: [org-test]
-    asserts: ["a wildcard stops at the separator", "and the organization's copy of the matcher is the same object"]
+    targets: [org-test, rego-test]
+    asserts: ["a wildcard stops at the separator", "and the organization's copy of the matcher is the same object", "every shared pattern vector matches as the vectors say", "rego: every shared pattern vector matches as the vectors say"]
   - text: "Each role MUST carry a delegation value, one of:"
     verified: check
     targets: [org-test]
@@ -597,23 +620,27 @@ draft-gamb-uma4agents-multiparty-00:
   - text: "The enforcement point MUST recognise it by issuer and MUST introspect it with the organization rather than with the member's authorization server."
     verified: check
     targets: [org-check]
-    asserts: ["including break-glass, when the charter has it"]
+    asserts: ["the override is honoured at the enforcement point", "and it is spent — an exception is for one act"]
   - text: "The member MUST be notified at the moment the window opens, before any data moves."
     verified: check
     targets: [org-check]
-    asserts: ["including break-glass, when the charter has it"]
-  - text: "The tally MUST publish, for each jointly held resource, a mandate carrying:"
+    asserts: ["the member is told before any data moves"]
+  - text: "The tally MUST publish, for each jointly held resource, a mandate, at the URI its authorization server metadata names as u4a_mandate_endpoint"
     verified: check
     targets: [joint-check, k8s-policy-test]
-    asserts: ["the tally publishes who is entitled to be counted", "who is entitled to be counted is published"]
+    asserts: ["the tally names where each mandate is published, and publishes it there", "the tally publishes who is entitled to be counted", "who is entitled to be counted is published"]
+  - text: "An organization MUST publish a metadata document at the path"
+    verified: check
+    targets: [org-check, xaa-check]
+    asserts: ["the organization publishes where to enrol, read the ceiling, ask it and check what it signed", "both are members — one by code, one by invitation"]
   - text: "An owner MUST NOT appear twice."
     verified: check
     targets: [joint-test]
     asserts: ["a mandate at or above the floor stands"]
   - text: "A holder's authorization server MUST store the mandate she agreed to, MUST re-ask her when the published mandate differs"
     verified: check
-    targets: [joint-check]
-    asserts: ["joining without agreeing is refused", "a holder who has written no terms cannot be counted"]
+    targets: [joint-check, as-test]
+    asserts: ["joining without agreeing is refused", "a holder who has written no terms cannot be counted", "a holder does not sign under a mandate she has not agreed to", "and her authority keeps what changed, for her to agree to again"]
   - text: "the tally MUST obtain each holder's terms over it from her authorization server and MUST fold them into one terms document"
     verified: check
     targets: [joint-check, joint-test]
@@ -770,11 +797,11 @@ draft-gamb-uma4agents-policy-00:
   - text: "MUST be treated as matching if its effect is ask or refuse and as not matching if its effect is auto"
     verified: check
     targets: [rules-test]
-    asserts: ["an unusable restriction is treated as matching", "an unusable relaxation is treated as not matching"]
-  - text: "An authorization server MUST NOT evaluate any rule until it has established that the client holds a standing connection"
+    asserts: ["an unusable restriction is treated as matching", "an unusable relaxation is treated as not matching", "a restriction naming a condition this server no longer knows still fires", "a relaxation naming one does not"]
+  - text: "It MUST otherwise put the first contact to the owner, whatever the rules would decide, and MUST record a refusal made in its place"
     verified: check
     targets: [first-party-check, assurance-check]
-    asserts: ["first contact still pends, and she connects it", "the nameless agent was admitted too — assurance is not a gate"]
+    asserts: ["first contact still pends, and she connects it", "the nameless agent was admitted too — assurance is not a gate", "a nameless stranger is turned away without reaching her", "and her record says her rule did it"]
   - text: "An authorization server MUST publish the conditions its rules may name, and for each MUST state whether it may relax."
     verified: check
     targets: [intent-check]
@@ -815,7 +842,7 @@ draft-gamb-uma4agents-policy-00:
     verified: check
     targets: [assurance-check]
     asserts: ["and the ones past the cap are refused with a reason, not queued"]
-  - text: "An agent that holds an active connection MUST NOT be counted against the bound and MUST NOT be refused for it."
+  - text: "An agent that holds an active connection MUST NOT be counted against the bound and MUST NOT be refused for it, unless it holds that connection by introduction"
     verified: check
     targets: [assurance-check]
     asserts: ["an established agent is unaffected by the queue being full"]
@@ -927,7 +954,7 @@ draft-gamb-uma4agents-terms-00:
     asserts: ["tier 3 pends, Alice approves, trade executes"]
   - text: "The agreement MAY carry the following, and MUST NOT carry anything else that affects the decision:"
     verified: check
-    targets: [intent-check]
+    targets: [intent-check, rules-test]
     asserts: ["but it cannot buy anything either", "but citing one can never widen access"]
   - text: "The authorization server MUST bound its length, MUST record it, and MUST NOT parse it"
     verified: check
@@ -1052,8 +1079,8 @@ draft-gamb-uma4agents-aauth-00:
   - text: "The alg parameter MUST be ed25519, and every key this binding mints or verifies is an Ed25519 key in OKP form"
     verified: check
     targets: [sig-test, smoke-test]
-    asserts: ["baseline round trip", "jwks: OK"]
+    asserts: ["baseline round trip", "a signature claiming another algorithm is refused", "jwks: OK"]
   - text: "Both documents MUST be generated from one registry of the resource's operations."
     verified: check
-    targets: [smoke-test]
-    asserts: ["resource metadata (alice): OK", "aauth-resource: OK"]
+    targets: [smoke-test, embedded-check]
+    asserts: ["resource metadata (alice): OK", "aauth-resource: OK", "its AAuth resource document is the binding's shape, and signed"]

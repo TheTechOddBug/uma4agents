@@ -188,12 +188,20 @@ proffered_by:
 
 A terms document MAY carry any other member; a member this document does not
 define is an undertaking the requesting side signs, not a control the
-enforcement point applies. One member is defined here:
+enforcement point applies. It is signed by citation: the agreement names the
+document by its `terms_uri`, whose content never changes ({{immutable}}), and
+does not echo it. Two members are defined here:
 
 per_operation:
 : OPTIONAL. Boolean. Where `true`, a grant under these terms is bound to one
   operation and spent once, as {{U4ACore}} Section 7.2, and the agreement MUST
   name the operation proposed.
+
+organization:
+: Present where a layer above the owner is in force over these resources
+  ({{U4AMultiParty}} Section 2.4), and absent otherwise. An object naming that
+  layer: its `name`, `id` and `issuer`, the `charter_version` the terms were
+  clamped under, and `requires`, a list of what it requires in sentences.
 
 ## Versions Are Immutable {#immutable}
 
@@ -221,8 +229,8 @@ the machine-readable one the same terms rather than two documents that may drift
 Where the authorization server requires agreement to terms before it will decide,
 it responds to a ticket presentation with `need_info` as {{UMAGrant}} Section
 3.3.6, carrying a required claim whose `claim_type` is
-`urn:uma4agents:claim:myterms-agreement` and whose `claim_token_format` array
-includes `urn:uma4agents:format:myterms-agreement-v1+jws`.
+`https://u4a.ai/spec/terms/1.0#myterms-agreement` and whose `claim_token_format` array
+includes `https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws`.
 
 The required claim MUST additionally carry a `terms_template` member: the terms
 document of {{terms-document}}, plus
@@ -245,9 +253,9 @@ resource_id:
   "error": "need_info",
   "ticket": "MWRlNzE4ZjgtMGY0OS00NDg2",
   "required_claims": [{
-    "claim_type": "urn:uma4agents:claim:myterms-agreement",
+    "claim_type": "https://u4a.ai/spec/terms/1.0#myterms-agreement",
     "claim_token_format": [
-      "urn:uma4agents:format:myterms-agreement-v1+jws"
+      "https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws"
     ],
     "friendly_name": "Alice's terms: Holdings summary",
     "terms_template": {
@@ -284,7 +292,7 @@ terms_endpoint:
 # The Agreement {#agreement}
 
 The requesting side agrees by presenting a claim token whose
-`claim_token_format` is `urn:uma4agents:format:myterms-agreement-v1+jws` and
+`claim_token_format` is `https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws` and
 whose value is the base64url encoding of a JWS {{RFC7515}} in compact
 serialization with a `typ` of `myterms-agreement-v1+jws`. The compact
 serialization is encoded as a whole, so decoding the claim token yields the JWS.
@@ -525,8 +533,8 @@ requests no registration.
 | `receipt` | Token endpoint response member | {{receipt}} |
 | `application/myterms-agreement-v1+jws` | Media type | {{agreement}} |
 | `application/myterms-receipt+jws` | Media type | {{receipt}} |
-| `urn:uma4agents:claim:myterms-agreement` | URN | {{proffering}} |
-| `urn:uma4agents:format:myterms-agreement-v1+jws` | URN | {{agreement}} |
+| `https://u4a.ai/spec/terms/1.0#myterms-agreement` | URI | {{proffering}} |
+| `https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws` | URI | {{agreement}} |
 {: title="Identifiers used by this document."}
 
 # Implementation Status {#implementation-status}

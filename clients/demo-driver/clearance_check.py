@@ -37,6 +37,7 @@ Run against the full stack with `make clearance-check`, or in the cluster with
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import base64
 import json
 import os
@@ -56,7 +57,40 @@ GATEWAY = os.environ.get("UMA4A_GATEWAY", "https://gateway.uma.lab/mcp")
 KEYCLOAK = os.environ.get("UMA4A_OIDC", "https://keycloak.uma.lab")
 AS_PUBLIC = os.environ.get("UMA4A_AS", "https://alice-as.uma.lab")
 ORG = os.environ.get("UMA4A_ORG", "https://northwind-org.uma.lab")
-ADMIN = {"Authorization": f"Bearer {os.environ.get('ORG_ADMIN_TOKEN', 'org-admin-dev-token')}"}
+class _OrgAdmin(Mapping):
+    """Dana, signed in at Northwind's administration realm, as request headers.
+
+    The credential the console holds, not a static token beside it. Fetched
+    on first use and again a minute before it lapses, so a long run never
+    sends an expired one."""
+
+    def __init__(self) -> None:
+        self._token, self._expires = "", 0.0
+
+    def _headers(self) -> dict:
+        if time.time() > self._expires - 60:
+            r = httpx.post(
+                f"{KEYCLOAK}/realms/northwind/protocol/openid-connect/token",
+                data={"grant_type": "password", "client_id": "meridian-org-console",
+                      "username": os.environ.get("ORG_ADMIN_USER", "dana"),
+                      "password": os.environ.get("ORG_ADMIN_PASSWORD", "dana-demo")},
+                verify=CA, timeout=15.0)
+            r.raise_for_status()
+            self._token = r.json()["access_token"]
+            self._expires = time.time() + r.json().get("expires_in", 300)
+        return {"Authorization": f"Bearer {self._token}"}
+
+    def __getitem__(self, key: str) -> str:
+        return self._headers()[key]
+
+    def __iter__(self):
+        return iter(self._headers())
+
+    def __len__(self) -> int:
+        return 1
+
+
+ADMIN = _OrgAdmin()
 JOIN_CODE = os.environ.get("ORG_JOIN_CODE", "NW-7K2F-QX")
 OPERATOR = os.environ.get("UMA4A_AGENT_OPERATOR", "https://agent.uma.lab")
 PUBLISHED_KEYS = os.environ.get("UMA4A_PUBLISHED_KEYS")
@@ -375,7 +409,7 @@ def main() -> int:                                             # noqa: C901
                 "grant_type": "urn:ietf:params:oauth:grant-type:uma-ticket",
                 "ticket": ticket.ticket,
                 "claim_token": "eyJhbGciOiJub25lIn0.e30.",
-                "claim_token_format": "urn:uma4agents:format:clearance+jwt"},
+                "claim_token_format": "https://u4a.ai/spec/policy/1.0#clearance+jwt"},
                 timeout=15.0)
             check("a clearance the agent offers is not a claim this authority takes",
                   offered.status_code == 400

@@ -106,9 +106,8 @@ def forget_agents(client: httpx.Client) -> int:
     for conn in client.get(f"{AS_PUBLIC}/owner/connections", headers=hdrs,
                            timeout=15.0).json():
         if conn.get("status") == "active":
-            client.post(
-                f"{AS_PUBLIC}/owner/connections/{conn['handle']}/revoke",
-                headers=hdrs, timeout=15.0)
+            client.post(f"{AS_PUBLIC}/owner/connections/revoke",
+                        json={"handle": conn["handle"]}, headers=hdrs, timeout=15.0)
             n += 1
     return n
 
@@ -285,6 +284,33 @@ def main() -> int:
         check("metadata that does not resolve buys nothing", l_ok and l_asked)
         l_ok, l_asked, _ = negotiate(client, liar, "get_positions")
         check("and is still worth nothing on the second try", l_ok and l_asked)
+
+        print("\n== A rule may turn a stranger away; none may let one in ==")
+        # She would rather not hear from agents nobody stands behind. Her rule
+        # names no agent, and it is the one kind of rule that may act before
+        # she has met the agent: it can only close the door.
+        hdrs = owner_hdrs(client)
+        tiers = client.get(f"{AS_PUBLIC}/owner/policies", headers=hdrs,
+                           timeout=15.0).json()
+        tid, held = next((t, v) for t, v in tiers.items()
+                         if "alice-vault/get_positions" in (v.get("resources") or []))
+        screen = {"when": ["standing.none", "assurance.accountability_below:1"],
+                  "then": "refuse"}
+        r = client.put(f"{AS_PUBLIC}/owner/policies/{tid}", headers=hdrs, timeout=15.0,
+                       json={"rules": (held.get("rules") or []) + [screen]})
+        check("she can write a rule that refuses nameless strangers", r.status_code < 300,
+              r.text[:160])
+        nobody = AgentKeys.load_or_create(f"{KEYS}/assurance-screened-{RUN}.pem")
+        s_ok, s_asked, why = negotiate(client, nobody, "get_positions", max_wait_s=5)
+        check("a nameless stranger is turned away without reaching her",
+              not s_ok and not s_asked and not pending(client), why or "")
+        turned = [e for e in client.get(f"{AS_PUBLIC}/owner/ledger", headers=hdrs,
+                                        timeout=15.0).json()
+                  if e.get("kind") == "refused"
+                  and "standing.none" in (e.get("because") or [])]
+        check("and her record says her rule did it", bool(turned))
+        client.put(f"{AS_PUBLIC}/owner/policies/{tid}", headers=hdrs, timeout=15.0,
+                   json={"rules": held.get("rules") or []})
 
         print("\n== Her attention has a depth limit ==")
         # She stops answering. A cap on the queue is only observable while

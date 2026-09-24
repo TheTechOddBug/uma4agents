@@ -29,7 +29,7 @@ disk):
 | Memory in use once up | 6.3 GB of 15 |
 | Disk in use once up | 13 GB of 32 |
 | `make k8s-smoke-test` | 15 passed, 0 failed |
-| `make k8s-policy-test` | 22 passed, 0 failed |
+| `make k8s-policy-test` | 23 passed, 0 failed |
 
 That machine is a 2× tier, so it spends the monthly Codespaces allowance at
 twice the rate of the smallest one — about 60 hours a month on a free
@@ -129,7 +129,7 @@ action she personally approved. **Click** Revoke on the agent — then re-run
 ### 5. The part that needs a cluster
 
 ```bash
-make k8s-policy-test            # expect 22 passed, 0 failed
+make k8s-policy-test            # expect 23 passed, 0 failed
 ```
 
 **Notice** how many of them are refusals. A policy suite that only proves the
@@ -201,9 +201,13 @@ held like one. Full detail in [KAGENT.md](KAGENT.md).
 
 ```bash
 make k8s-paios                  # Kwaai's pAI-OS, holding her key
-make k8s-paios-check            # expect PASS
+make k8s-paios-check            # expect PASS; stops it again afterwards
 make k8s-paios-down             # hand the decisions back to her portal
 ```
+
+While it runs, the other checks refuse to start. It answers her pending
+requests the moment they arrive, and a check whose simulated owner races it
+measures the race.
 
 A second surface onto her decisions, not a replacement for her portal — both
 demos are worth showing, and [DEMOS.md](DEMOS.md) puts them side by side. It

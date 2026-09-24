@@ -23,6 +23,7 @@ author:
 normative:
   RFC7519:
   RFC8693:
+  RFC8785:
   RFC9421:
   RFC9728:
   I-D.hardt-aauth-protocol:
@@ -94,6 +95,10 @@ resource may publish its structure in AAuth's resource metadata beside RFC
 --- middle
 
 # Introduction
+
+This binding is written against revision 02 of {{I-D.hardt-aauth-protocol}},
+since replaced by draft-hardt-oauth-aauth-protocol. Where this document
+describes AAuth, it describes that revision.
 
 {{I-D.hardt-aauth-protocol}} defines agent identity bound to a session key, a
 signature convention over HTTP requests, and four access modes, of which the
@@ -208,8 +213,10 @@ jwks_uri:
 
 r3_vocabularies:
 : An array of vocabularies, each with `format`, an `operations` array naming
-  each operation and its `resource_scopes`, and a `digest` that is `s256`
-  over the canonical serialization of `operations` with keys sorted.
+  each operation and its `resource_scopes`, and a `digest` that is `s256` over
+  `operations` serialized as {{RFC8785}}. For the `mcp` format the member
+  naming an operation is `tool`, as in the {{RFC9728}} document's
+  `tool_surfaces`.
 
 owner_resources_endpoint:
 : The protected listing of {{U4AFedAuthz}} Section 2.2. The same URL as in

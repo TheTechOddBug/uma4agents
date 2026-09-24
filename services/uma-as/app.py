@@ -40,6 +40,7 @@ import uma4a_clearance
 import uma4a_consequence
 import uma4a_joint
 import uma4a_profiles
+from uma4a_http_sig import KeyDirectories
 import policy
 import store
 
@@ -177,7 +178,7 @@ RPT_AUDIENCE = os.environ.get("UMA_AS_RPT_AUDIENCE", "https://gateway.uma.lab")
 # roster; the counterparty agrees; both sides keep a record. The URN is ours —
 # a MyTerms-shaped profile for agentic access terms, not a claim of
 # conformance to the IEEE document's schema.
-AGREEMENT_FORMAT = "urn:uma4agents:format:myterms-agreement-v1+jws"
+AGREEMENT_FORMAT = "https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws"
 
 # The enterprise half, when a member's organization federates identity.
 #
@@ -199,7 +200,7 @@ RS_RESOURCE_URI = os.environ.get("UMA_AS_RS_RESOURCE_URI",
 # negotiation and one authorization server; replaying one is not a thing a
 # well-behaved client does.
 _ID_JAG_SPENT: dict[str, float] = {}
-AGREEMENT_CLAIM = "urn:uma4agents:claim:myterms-agreement"
+AGREEMENT_CLAIM = "https://u4a.ai/spec/terms/1.0#myterms-agreement"
 TICKET_TTL = 300
 # How long a held "ask-me" ticket stays valid. The demo's own premise is that
 # Alice may be asleep, so ten minutes was never right — and it is only safe to
@@ -1247,11 +1248,12 @@ async def _decode_rpt(token: str) -> tuple[dict | None, dict | None, str]:
 async def introspect(request: Request, token: str = Form(...), consume: str = Form(None)) -> dict:
     pat_owner = await require_pat(request)
     claims, rec, err = await _decode_rpt(token)
-    if not err and (claims.get("owner") or DEFAULT_OWNER) != pat_owner:
+    if claims is not None and (claims.get("owner") or DEFAULT_OWNER) != pat_owner:
         # The PAT says whose resources this resource server is asking about.
         # A grant against somebody else's is not one it may learn anything
-        # about — not whether it is live, not whose it is — so the answer is
-        # the one an unknown token gets. `/consume` draws the same line.
+        # about — not whether it is live, spent or revoked, not whose it is —
+        # so it gets the answer an unknown token gets, before any other.
+        # `/consume` draws the same line.
         event("rpt.introspected", corr=None, result="owner_mismatch")
         return {"active": False, "error": "unknown_token"}
     if err:
@@ -1322,16 +1324,16 @@ async def consume_rpt(request: Request, token: str = Form(...)) -> dict:
     """
     pat_owner = await require_pat(request)
     claims, rec, err = await _decode_rpt(token)
+    owner = (claims or {}).get("owner") or DEFAULT_OWNER
+    if claims is not None and owner != pat_owner:
+        # The enforcement point holds one PAT per owner it serves. A grant of
+        # Alice's under Carol's PAT gets what introspection would say of it.
+        event("rpt.consume_refused", corr=None, reason="owner_mismatch")
+        return {"consumed": False, "error": "unknown_token"}
     if err:
         return {"consumed": False, "error": err}
     if not claims.get("single_use"):
         return {"consumed": False, "error": "not_single_use"}
-    owner = claims.get("owner") or DEFAULT_OWNER
-    if owner != pat_owner:
-        # The enforcement point holds one PAT per owner it serves. Presenting
-        # a grant of Alice's under Carol's PAT is not a mix-up to tolerate.
-        event("rpt.consume_refused", corr=None, reason="owner_mismatch")
-        return {"consumed": False, "error": "owner_mismatch"}
     family = await st(owner).consume_rpt(claims.get("jti", ""))
     if family is None:
         return {"consumed": False, "error": "already_consumed"}
@@ -2136,8 +2138,8 @@ async def org_admin_connections(owner: str, request: Request) -> list:
     return await org_related_connections(owner)
 
 
-@app.post("/org/admin/{owner}/connections/{handle}/revoke")
-async def org_admin_revoke(owner: str, handle: str, request: Request) -> dict:
+@app.post("/org/admin/{owner}/connections/revoke")
+async def org_admin_revoke(owner: str, request: Request) -> dict:
     """Shut an agent out of the organization's resources.
 
     Not a revocation of the connection. Her relationship with this agent is
@@ -2148,6 +2150,7 @@ async def org_admin_revoke(owner: str, handle: str, request: Request) -> dict:
     else about its standing with her is untouched.
     """
     actor = await require_org_admin(request, owner)
+    handle = await handle_in(request)
     if not any(c["handle"] == handle for c in await org_related_connections(owner)):
         raise HTTPException(
             status_code=404,
@@ -2165,9 +2168,10 @@ async def org_admin_revoke(owner: str, handle: str, request: Request) -> dict:
     return {"handle": handle, "status": "blocked-for-organization"}
 
 
-@app.post("/org/admin/{owner}/connections/{handle}/restore")
-async def org_admin_restore(owner: str, handle: str, request: Request) -> dict:
+@app.post("/org/admin/{owner}/connections/restore")
+async def org_admin_restore(owner: str, request: Request) -> dict:
     actor = await require_org_admin(request, owner)
+    handle = await handle_in(request)
     await org_block(owner, handle=handle, remove=True)
     await ledger_add(owner, "org_acted", "-", {
         "what": "let an agent reach the organization's resources again",
@@ -2922,9 +2926,9 @@ async def trajectory_facts(owner: str, handle: str) -> dict:
 # how it stops vouching for an agent, and a cache with no expiry would keep
 # attesting one it had disowned. Bounded as well as timed: the URL is named by
 # the requesting side, so an unbounded map is something an agent can grow.
-_DIRECTORY_TTL = float(os.environ.get("UMA_AS_DIRECTORY_TTL", "300"))
-_DIRECTORY_MAX = 256
-_DIRECTORY_CACHE: dict[str, tuple[float, list]] = {}
+DIRECTORIES = KeyDirectories(
+    ttl_s=float(os.environ.get("UMA_AS_DIRECTORY_TTL", "300")),
+    verify=AGENT_ISSUER_CA or True)
 
 
 def operator_origin(identity: dict) -> str | None:
@@ -2971,53 +2975,19 @@ def operator_published_key(client_id: str, directory: str,
       the agent, and treating it as such makes any operator's outage look
       like an attack.
     """
-    import httpx
-
     if not same_origin(client_id, directory):
         event("operator_directory.rejected", client_id=client_id,
               directory=directory, reason="not same origin as client_id")
         return False
-    def fetch() -> list:
-        r = httpx.get(directory, timeout=5.0, follow_redirects=False,
-                      verify=AGENT_ISSUER_CA or True)
-        r.raise_for_status()
-        keys = r.json().get("keys") or []
-        if len(_DIRECTORY_CACHE) >= _DIRECTORY_MAX:
-            _DIRECTORY_CACHE.pop(next(iter(_DIRECTORY_CACHE)), None)
-        _DIRECTORY_CACHE[directory] = (now(), keys)
-        return keys
-
     try:
-        wanted = jwk_thumbprint(signer_jwk)
-
-        def holds(keys: list) -> bool:
-            for k in keys:
-                try:                   # a directory may hold key types we do
-                    if jwk_thumbprint(k) == wanted:   # not profile; skip them
-                        return True
-                except (KeyError, TypeError):
-                    continue
-            return False
-
-        # Only a *hit* may be served from cache. A miss is re-fetched, because
-        # the two errors are not the same size: a stale hit keeps attesting a
-        # key the operator has disowned, while a stale miss merely fails to
-        # recognise one it has just published — which is the common case, since
-        # an agent enrols and then immediately negotiates. So the TTL bounds
-        # how long a withdrawal takes to land, and a newly published key is
-        # picked up on the next request rather than in five minutes.
-        cached = _DIRECTORY_CACHE.get(directory)
-        fresh = cached is not None and now() - cached[0] < _DIRECTORY_TTL
-        found = fresh and holds(cached[1])
-        if not found:
-            found = holds(fetch())
-        event("operator_directory.checked", directory=directory,
-              published=found, from_cache=bool(fresh and found))
-        return found
+        found, cached = DIRECTORIES.publishes(directory, jwk_thumbprint(signer_jwk))
     except Exception as exc:                                       # noqa: BLE001
         event("operator_directory.unresolved", directory=directory,
               reason=str(exc)[:120])
         return False
+    event("operator_directory.checked", directory=directory,
+          published=found, from_cache=cached)
+    return found
 
 
 
@@ -3057,7 +3027,7 @@ _RS_META_CACHE: dict[str, tuple[float, dict]] = {}
 # remembered "no" costs nothing and is the only thing bounding the amplifier.
 _RS_MISS_TTL = float(os.environ.get("UMA_AS_RS_MISS_TTL", "30"))
 _RS_MAX_BYTES = int(os.environ.get("UMA_AS_RS_MAX_BYTES", "65536"))
-_RS_MISS_CACHE: dict[str, float] = {}
+_RS_MISS_CACHE: dict[str, tuple[float, str]] = {}
 
 
 def _fetch_json(url: str, what: str) -> dict | None:
@@ -3083,7 +3053,7 @@ def _fetch_json(url: str, what: str) -> dict | None:
         return None
 
 
-def resource_server_metadata(resource_uri: str) -> dict:
+def resource_server_metadata(resource_uri: str) -> tuple[dict, str]:
     """The RFC 9728 document the named resource publishes about itself.
 
     Three things have to hold, and each closes a way of registering as
@@ -3100,31 +3070,33 @@ def resource_server_metadata(resource_uri: str) -> dict:
     refusal rather than a shrug. That check attests a claim already made by
     other means; this one *is* the authentication, and a credential that
     cannot be fetched has not been presented.
+
+    Returns the document, or an empty one and the reason it was refused.
     """
     from urllib.parse import urlparse
 
     cached = _RS_META_CACHE.get(resource_uri)
     if cached and now() - cached[0] < _RS_META_TTL:
-        return cached[1]
+        return cached[1], ""
     missed = _RS_MISS_CACHE.get(resource_uri)
-    if missed is not None and now() - missed < _RS_MISS_TTL:
-        return {}
+    if missed is not None and now() - missed[0] < _RS_MISS_TTL:
+        return {}, missed[1]
 
-    def refuse() -> dict:
+    def refuse(why: str) -> tuple[dict, str]:
         if len(_RS_MISS_CACHE) >= 1024:
             _RS_MISS_CACHE.pop(next(iter(_RS_MISS_CACHE)), None)
-        _RS_MISS_CACHE[resource_uri] = now()
-        return {}
+        _RS_MISS_CACHE[resource_uri] = (now(), why)
+        return {}, why
 
     p = urlparse(resource_uri)
     if p.scheme != "https" or not p.netloc:
-        return refuse()
+        return refuse("the resource is not an https URL")
     origin = f"{p.scheme}://{p.netloc}"
     url = (f"{origin}/.well-known/oauth-protected-resource"
            f"{p.path.rstrip('/')}")
     doc = _fetch_json(url, "metadata_unreachable")
     if not isinstance(doc, dict):
-        return refuse()
+        return refuse("that origin publishes no resource metadata for it")
 
     reasons = []
     if doc.get("resource") != resource_uri:
@@ -3137,30 +3109,31 @@ def resource_server_metadata(resource_uri: str) -> dict:
     if reasons:
         event("resource_server.metadata_rejected", resource_uri=resource_uri,
               reasons=reasons)
-        return refuse()
+        return refuse("its metadata " + "; ".join(reasons))
 
     if len(_RS_META_CACHE) >= 256:
         _RS_META_CACHE.pop(next(iter(_RS_META_CACHE)), None)
     _RS_META_CACHE[resource_uri] = (now(), doc)
-    return doc
+    return doc, ""
 
 
-def resource_server_keys(resource_uri: str) -> list:
-    """The public keys the named resource publishes, as JWKs. Empty on any
-    failure, which the callers all read as "not authenticated"."""
-    doc = resource_server_metadata(resource_uri)
+def resource_server_keys(resource_uri: str) -> tuple[list, str]:
+    """The public keys the named resource publishes, as JWKs, or none and the
+    reason, which the callers read as "not authenticated"."""
+    doc, why = resource_server_metadata(resource_uri)
     if not doc:
-        return []
+        return [], why
     keys = _fetch_json(doc["jwks_uri"], "jwks_unreachable")
-    if not isinstance(keys, dict):
-        return []
-    found = keys.get("keys")
-    return found if isinstance(found, list) else []
+    if not isinstance(keys, dict) or not isinstance(keys.get("keys"), list):
+        return [], "its jwks_uri could not be read"
+    return keys["keys"], ""
 
 
 async def verify_resource_server_signature(request: Request, body: bytes,
-                                           resource_uri: str) -> bool:
-    """Did the origin behind `resource_uri` sign this request?
+                                           resource_uri: str) -> str:
+    """Did the origin behind `resource_uri` sign this request? Empty when it
+    did; otherwise why not, which a registrant may be told — every input to
+    it is public.
 
     Off the event loop, because deciding it means dereferencing a host named
     by the caller. This runs on the PAT path, which every resource server
@@ -3179,11 +3152,14 @@ async def verify_resource_server_signature(request: Request, body: bytes,
     sig_input = request.headers.get("signature-input")
     sig = request.headers.get("signature")
     if not sig_input or not sig:
-        return False
+        return "the request is not signed"
     path = request.url.path
     if request.url.query:
         path = f"{path}?{request.url.query}"
-    keys = await asyncio.to_thread(resource_server_keys, resource_uri)
+    keys, why = await asyncio.to_thread(resource_server_keys, resource_uri)
+    if why:
+        return why
+    last = "that origin publishes no key this could be checked against"
     for jwk in keys:
         try:
             key = OKPAlgorithm.from_jwk(json.dumps(jwk))
@@ -3202,10 +3178,11 @@ async def verify_resource_server_signature(request: Request, body: bytes,
                 require_digest=bool(body),
                 digest_header=request.headers.get("content-digest"),
             )
-            return True
-        except VerifyError:
-            continue
-    return False
+            return ""
+        except VerifyError as exc:
+            last = ("no key that origin publishes verifies the signature"
+                    if str(exc) == "signature verification failed" else str(exc))
+    return last
 
 
 _CIMD_CACHE: dict[str, dict] = {}
@@ -3332,49 +3309,18 @@ def contract_identity(claim_token_b64: str,
     return contract, signer_jwk, identity
 
 
-def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
-    """Verify the contract *and* its echo of the terms this server dictated.
+def requester_claims(contract: dict) -> None:
+    """Bound and normalise, in place, the claims the requesting side authors.
 
-    Returns (contract_claims, signer_jwk). Everything below the split is
-    about one negotiation this server is running: the nonce it issued, the
-    template it proffered, and that nothing in the document came back
-    weakened.
+    Applied wherever an agreement is accepted, the grant path and the joint
+    one alike: both store these claims and show them to her.
     """
-    contract, signer_jwk, identity = contract_identity(claim_token_b64, ISSUER)
-
-    template = rec["template"]
-    if contract.get("nonce") != template["nonce"]:
-        raise ValueError("nonce mismatch")
-    if contract.get("family") != rec["family"]:
-        raise ValueError("negotiation family mismatch")
-    if contract.get("template_id") != template["template_id"]:
-        raise ValueError("template version mismatch")
-    if contract.get("terms_uri") != template["terms_uri"]:
-        raise ValueError("agreement must name the proffered terms document")
-    if contract.get("purpose") != template["purpose"]:
-        raise ValueError("purpose was altered")
-    if not set(template["prohibited"]).issubset(set(contract.get("prohibited", []))):
-        raise ValueError("prohibited-actions list was weakened")
-    agreed_for = contract.get("expires_in")
-    if not isinstance(agreed_for, int) or isinstance(agreed_for, bool) or agreed_for <= 0:
-        raise ValueError("expires_in must be a positive number of seconds")
-    if agreed_for > template["expires_in"]:
-        raise ValueError("expiry was extended beyond dictated terms")
-    # The agent may agree to less than was offered and never to more. A scope
-    # it added is not one she offered; recording it in the agreement would
-    # make the signed record say something the grant does not.
-    if not set(contract.get("scope") or []) <= set(template.get("scope") or []):
-        raise ValueError("scope was widened beyond the proffered terms")
-    if template.get("per_operation") and not contract.get("operation"):
-        raise ValueError("per-operation tier requires a proposed operation in the contract")
-
-    # The one claim the requesting side authors. It is bounded and nothing
-    # else: not compared to her purpose, not parsed, not scored. Reading it
-    # would put a judgement about natural language inside the grant, which
-    # would make the same request answerable two ways and end the property
-    # `make flow-check` asserts. It is checked for size because it is stored
-    # and shown to her, and because a field with no ceiling is a place to put
-    # a megabyte.
+    # `reason` is bounded and nothing else: not compared to her purpose, not
+    # parsed, not scored. Reading it would put a judgement about natural
+    # language inside the grant, which would make the same request answerable
+    # two ways and end the property `make flow-check` asserts. It is checked
+    # for size because it is stored and shown to her, and because a field
+    # with no ceiling is a place to put a megabyte.
     if (reason := contract.get("reason")) is not None:
         if not isinstance(reason, str):
             raise ValueError("reason must be a string")
@@ -3399,6 +3345,55 @@ def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
         # Normalised down to the two fields AAuth's own header carries, so a
         # citation with extra baggage cannot use her ledger as storage.
         contract["mission"] = {"approver": approver, "s256": digest}
+
+
+def verify_contract(claim_token_b64: str, rec: dict) -> tuple[dict, dict]:
+    """Verify the contract *and* its echo of the terms this server dictated.
+
+    Returns (contract_claims, signer_jwk). Everything below the split is
+    about one negotiation this server is running: the nonce it issued, the
+    template it proffered, and that nothing in the document came back
+    weakened.
+    """
+    contract, signer_jwk, identity = contract_identity(claim_token_b64, ISSUER)
+
+    template = rec["template"]
+    if contract.get("nonce") != template["nonce"]:
+        raise ValueError("nonce mismatch")
+    if contract.get("family") != rec["family"]:
+        raise ValueError("negotiation family mismatch")
+    if contract.get("template_id") != template["template_id"]:
+        raise ValueError("template version mismatch")
+    if contract.get("terms_uri") != template["terms_uri"]:
+        raise ValueError("agreement must name the proffered terms document")
+    if contract.get("purpose") != template["purpose"]:
+        raise ValueError("purpose was altered")
+    for member in ("scope", "prohibited"):
+        value = contract.get(member)
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ValueError(f"{member} must be an array of strings")
+    if not set(template["prohibited"]).issubset(set(contract["prohibited"])):
+        raise ValueError("prohibited-actions list was weakened")
+    agreed_for = contract.get("expires_in")
+    if not isinstance(agreed_for, int) or isinstance(agreed_for, bool) or agreed_for <= 0:
+        raise ValueError("expires_in must be a positive number of seconds")
+    if agreed_for > template["expires_in"]:
+        raise ValueError("expiry was extended beyond dictated terms")
+    # The agent may agree to less than was offered and never to more. A scope
+    # it added is not one she offered; recording it in the agreement would
+    # make the signed record say something the grant does not.
+    if not set(contract["scope"]) <= set(template.get("scope") or []):
+        raise ValueError("scope was widened beyond the proffered terms")
+    # Checked in full here, before she is asked, because issuance relies on
+    # it after she has answered.
+    if template.get("per_operation"):
+        op = contract.get("operation")
+        if not (isinstance(op, dict) and isinstance(op.get("tool"), str) and op["tool"]
+                and isinstance(op.get("params"), dict)):
+            raise ValueError("per-operation tier requires an operation naming a tool "
+                             "and an object of params")
+
+    requester_claims(contract)
 
     # A sibling agent's introduction of this one, verified as far as the
     # document itself goes. Whether the introducing key means anything to this
@@ -3627,6 +3622,27 @@ async def tally_request(request: Request) -> tuple[str, dict, dict]:
     return owner, record, claims
 
 
+async def mandate_moved(owner: str, record: dict) -> list[str]:
+    """How the published mandate differs from the one she agreed to, in her
+    words. The first time a given change is seen it goes to her ledger and her
+    portal; agreeing again, at `POST /owner/joint`, is what clears it."""
+    try:
+        fresh = await fetch_mandate(record["tally"], record["account"])
+    except HTTPException:
+        return ["the tally's published mandate could not be read"]
+    changes = joint.moved(record, fresh)
+    stored = await st(owner).mandate(record["account"]) or record
+    if changes and stored.get("moved") != changes:
+        await st(owner).set_mandate(record["account"], {**stored, "moved": changes})
+        event("joint.mandate_moved", owner=owner, account=record["account"],
+              changes=changes)
+        await ledger_add(owner, "joint_moved", "-",
+                         {"account": record["account"], "changes": changes})
+        await owner_notify(owner, {"type": "joint", "state": "moved",
+                                   "account": record["account"]})
+    return changes
+
+
 async def joint_tier(owner: str, resource_id: str) -> tuple[str | None, dict]:
     return policy.tier_for_resource(await st(owner).tiers(), resource_id)
 
@@ -3675,6 +3691,11 @@ async def joint_verdict(request: Request) -> dict:
 
     if not joint.claims_match(resource_id, mandate.get("resources") or []):
         return refuse("that resource is not part of this mandate")
+    # She agreed to one electorate. A tally now publishing another — a holder
+    # added, a threshold lowered — has not been agreed to, so nothing is
+    # signed under it until she has been asked again.
+    if changes := await mandate_moved(owner, record):
+        return refuse("the mandate changed after this holder agreed to it", *changes)
 
     # She may already have answered. Read before anything is re-evaluated:
     # the tally polls, and a question she has decided must not be re-asked or
@@ -3722,6 +3743,7 @@ async def joint_verdict(request: Request) -> dict:
     try:
         contract, signer_jwk, identity = contract_identity(
             agreement, record["tally"])
+        requester_claims(contract)
     except Exception as exc:                                    # noqa: BLE001
         return refuse(f"the agreement did not verify: {exc}")
     if s256(base64.urlsafe_b64decode(
@@ -3866,7 +3888,7 @@ async def token(request: Request) -> JSONResponse:
         if rs.get("secret"):
             if not secrets.compare_digest(client_secret or "", rs["secret"]):
                 return JSONResponse({"error": "invalid_client"}, status_code=401)
-        elif not await verify_resource_server_signature(
+        elif await verify_resource_server_signature(
                 request, body, rs.get("resource_uri") or ""):
             return JSONResponse({"error": "invalid_client"}, status_code=401)
         if rs["status"] == "pending":
@@ -4594,15 +4616,14 @@ async def rs_register(request: Request) -> JSONResponse:
             status_code=403)
 
     resource_uri = (req.get("resource_uri") or "").strip()
-    if not await verify_resource_server_signature(request, body, resource_uri):
+    if why := await verify_resource_server_signature(request, body, resource_uri):
         event("resource_server.registration_refused", owner=owner,
-              resource_uri=resource_uri,
-              reason="no signature from a key published at that origin")
+              resource_uri=resource_uri, reason=why)
         return JSONResponse(
             {"error": "invalid_client",
              "error_description":
-                 "register by signing with a key published at the origin of "
-                 "the resource you claim to serve"},
+                 f"register by signing with a key published at the origin of "
+                 f"the resource you claim to serve: {why}"},
             status_code=401)
 
     client_id = _origin_of(resource_uri)
@@ -4962,6 +4983,11 @@ async def owner_create_policy(request: Request) -> dict:
     owner = await require_owner(request)
     spec = await request.json()
     tier_id = (spec.get("id") or "").strip()
+    # The registry is per replica, and refreshed when something here triggers
+    # a pull. A resource this replica has not seen yet may be one another has,
+    # so a miss re-reads the listings before refusing — as /perm does.
+    if set(spec.get("resources") or []) - set(resources_for(owner)):
+        await pull_registrations_now(owner)
     try:
         tier = policy.new_tier(tier_id, spec, await st(owner).tiers(),
                                set(resources_for(owner)), await jointly_held(owner),
@@ -5146,7 +5172,17 @@ async def owner_decline_invitation(request: Request) -> dict:
     found = await pending_invitation(owner)
     if found is None:
         raise HTTPException(status_code=404, detail="nothing is waiting on you")
-    await org.decline(ORG_ISSUER, owner, found["code"])
+    # The code she was given. The organization does not serve it to anyone,
+    # her authority included, so a decline carries it the way a join does.
+    try:
+        code = ((await request.json()) or {}).get("code") or ""
+    except ValueError:
+        code = ""
+    try:
+        await org.decline(ORG_ISSUER, owner, code)
+    except Exception as exc:                                    # noqa: BLE001
+        raise HTTPException(status_code=403,
+                            detail="that is not the code the invitation came with") from exc
     event("org.invitation_declined", owner=owner, org=found.get("org"))
     await ledger_add(owner, "org_declined", "-", {
         "organization": found.get("name"), "by": found.get("by")})
@@ -5407,6 +5443,7 @@ async def owner_joint_list(request: Request) -> list:
                         for h in mandate.get("holders") or []],
             "rule": mandate.get("rule") or {},
             "summary": uma4a_joint.describe(mandate),
+            "moved": record.get("moved") or [],
         })
     return out
 
@@ -5436,10 +5473,26 @@ async def owner_connections(request: Request) -> list:
     return await st(owner).connections()
 
 
-@app.post("/owner/connections/{handle}/revoke")
-async def owner_revoke_connection(handle: str, request: Request) -> dict:
+async def handle_in(request: Request) -> str:
+    """The connection a request is about, from its body.
+
+    Not a path segment: an identified agent's handle carries its issuer, and
+    an issuer's path survives neither a path segment nor a proxy that decodes
+    `%2F` — the reason `client_id` travels in a body too.
+    """
+    try:
+        handle = (await request.json()).get("handle")
+    except ValueError:
+        handle = None
+    if not isinstance(handle, str) or not handle:
+        raise HTTPException(status_code=400, detail="name the connection as {\"handle\": …}")
+    return handle
+
+
+@app.post("/owner/connections/revoke")
+async def owner_revoke_connection(request: Request) -> dict:
     owner = await require_owner(request)
-    return await revoke_connection_for(owner, handle, actor=None)
+    return await revoke_connection_for(owner, await handle_in(request), actor=None)
 
 
 async def revoke_connection_for(owner: str, handle: str,

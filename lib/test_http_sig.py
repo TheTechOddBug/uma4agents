@@ -69,6 +69,11 @@ must_fail("a swapped Signature-Agent must not verify",
                          signature=h2["Signature"], public_key=pub,
                          signature_agent="https://evil.example"))
 
+must_fail("a Signature-Agent the signature does not cover is refused",
+          lambda: verify(**A, signature_input=h["Signature-Input"],
+                         signature=h["Signature"], public_key=pub,
+                         signature_agent="https://evil.example"))
+
 must_fail("verifier that cannot resolve a covered component refuses",
           lambda: verify(**A, signature_input=h2["Signature-Input"],
                          signature=h2["Signature"], public_key=pub))
@@ -77,6 +82,18 @@ stripped = h["Signature-Input"].replace('"authorization" ', "").replace(' "autho
 must_fail("dropping a required component is rejected",
           lambda: verify(**A, signature_input=stripped,
                          signature=h["Signature"], public_key=pub))
+
+_covered = ('"@method"', '"@authority"', '"@path"', '"authorization"')
+_params = (f'({" ".join(_covered)});created={int(__import__("time").time())}'
+           ';keyid="agent-1";alg="rsa-pss-sha512"')
+_values = {'"@method"': A["method"], '"@authority"': A["authority"],
+           '"@path"': A["path"], '"authorization"': A["authorization"]}
+_lines = "\n".join([f"{c}: {_values[c]}" for c in _covered]
+                   + [f'"@signature-params": {_params}'])
+_sig = __import__("base64").b64encode(k.sign(_lines.encode())).decode()
+must_fail("a signature claiming another algorithm is refused",
+          lambda: verify(**A, signature_input=f"sig1={_params}",
+                         signature=f"sig1=:{_sig}:", public_key=pub))
 
 h3 = sign(**A, key=k, keyid="agent-1", expires_in=-10)
 must_fail("an expired signature is rejected",
@@ -150,6 +167,79 @@ must_fail("a tampered body-bound header is rejected",
                          authorization="PoP DIFFERENT",
                          signature_input=h["Signature-Input"],
                          signature=h["Signature"], public_key=pub))
+
+# The owner's authority's keys, as a resource verifies its queries. A forced
+# refetch is rate-limited so an unsigned request cannot make the resource call
+# the authority on its behalf — but the limit is between forced refetches, so
+# the first failure after a rotation always gets a fresh look.
+import asyncio                                                   # noqa: E402
+import types                                                     # noqa: E402
+
+from uma4a_publish import AuthorityKeys                          # noqa: E402
+
+_FETCHES: list = []
+
+
+class _Client:                                   # the network, counted
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get(self, url, timeout=None):
+        _FETCHES.append(url)
+        return types.SimpleNamespace(raise_for_status=lambda: None,
+                                     json=lambda: {"keys": []})
+
+
+sys.modules["httpx"] = types.SimpleNamespace(AsyncClient=_Client)
+_keys = AuthorityKeys("https://as.example/jwks")
+asyncio.run(_keys.get())                         # filled on schedule
+asyncio.run(_keys.get(refresh=True))             # a rotation: looked at again
+
+
+def _fetched(n):
+    if len(_FETCHES) != n:
+        raise VerifyError(f"{len(_FETCHES)} fetches")
+
+
+ok("a signature that fails right after the cache filled still forces a fresh look",
+   lambda: _fetched(2))
+for _ in range(50):
+    asyncio.run(_keys.get(refresh=True))         # a flood of bad signatures
+ok("and a flood of bad signatures forces no more than that one", lambda: _fetched(2))
+
+# An operator's key directory. A hit may come from cache; a miss is always
+# looked at again, so a key the operator has just published is recognised at
+# once rather than after the cache expires.
+from uma4a_http_sig import KeyDirectories, jwk_thumbprint      # noqa: E402
+
+_published = [pub_jwk_a := {"kty": "OKP", "crv": "Ed25519", "x": "A" * 43}]
+
+
+def _dir_get(url, timeout=None, follow_redirects=None, verify=None):
+    _FETCHES.append(url)
+    return types.SimpleNamespace(raise_for_status=lambda: None,
+                                 json=lambda: {"keys": list(_published)})
+
+
+sys.modules["httpx"] = types.SimpleNamespace(get=_dir_get)
+_FETCHES.clear()
+_dirs = KeyDirectories()
+_where = "https://operator.example/.well-known/http-message-signatures-directory"
+_new = {"kty": "OKP", "crv": "Ed25519", "x": "B" * 43}
+_dirs.publishes(_where, jwk_thumbprint(pub_jwk_a))
+_dirs.publishes(_where, jwk_thumbprint(pub_jwk_a))
+ok("a key the directory holds is answered from cache the second time",
+   lambda: _fetched(1))
+_published.append(_new)
+ok("and a key it has just published is recognised at once, not after the TTL",
+   lambda: _dirs.publishes(_where, jwk_thumbprint(_new))[0]
+   or (_ for _ in ()).throw(VerifyError("not recognised")))
+ok("a directory that is not https is not consulted",
+   lambda: not _dirs.publishes("http://operator.example/d", jwk_thumbprint(_new))[0]
+   or (_ for _ in ()).throw(VerifyError("consulted")))
 
 if FAILED:
     print(f"\nhttp-sig: {PASSED} passed, {FAILED} failed")

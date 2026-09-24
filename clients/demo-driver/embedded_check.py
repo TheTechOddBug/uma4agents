@@ -163,6 +163,19 @@ def main() -> int:
         say(f"capabilities.extensions names the AS: {mine['authorization_servers']}")
         say(f"protocol negotiated: {d['result']['supportedVersions']}")
 
+        # The same registry in the AAuth binding's encoding, served by the
+        # resource itself. Built by the code the gateway uses, so the two
+        # enforcement modes publish the same document.
+        base = VAULT.rsplit("/mcp", 1)[0]
+        aauth = client.get(f"{base}/.well-known/aauth-resource.json", timeout=15.0).json()
+        vocab = (aauth.get("r3_vocabularies") or [{}])[0]
+        if not (aauth.get("access_servers") and vocab.get("format") == "mcp"
+                and str(vocab.get("digest", "")).startswith("s256:")
+                and aauth.get("signed_metadata")):
+            print(f"FAIL: the AAuth resource document is not the binding's shape: {aauth}")
+            return 1
+        say("its AAuth resource document is the binding's shape, and signed")
+
         print("\n== Beat 0.5: Alice admits a resource server she has never seen ==")
         # Before beat 1, because until she has admitted it there is no ticket
         # to be had: a resource server holding no secret from her authority
@@ -239,12 +252,28 @@ def main() -> int:
                   f"{json.dumps(r)[:200]}")
             return 1
         say(f"a tools/call with no routing headers on 2026-07-28 is refused, by {by}")
-        r = rpc(client, "tools/call", {"name": "get_positions", "arguments": {}},
-                {"Origin": "https://evil.example"})
-        if not (by := refused(r)):
-            print(f"FAIL: a foreign Origin was not refused: {json.dumps(r)[:200]}")
+        # Origin is checked at the transport, for every request to the
+        # endpoint — including the ones the tool-call hook never sees.
+        foreign = {"Origin": "https://evil.example", "content-type": "application/json",
+                   "accept": "application/json, text/event-stream",
+                   "MCP-Protocol-Version": "2026-07-28"}
+        attempts = {
+            "tools/call": client.post(VAULT, headers={**foreign, "Mcp-Method": "tools/call",
+                                                      "Mcp-Name": "get_positions"},
+                                      json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                            "params": {"name": "get_positions",
+                                                       "arguments": {}, "_meta": META}}),
+            "initialize": client.post(VAULT, headers={**foreign, "Mcp-Method": "initialize"},
+                                      json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                                            "params": {"_meta": META}}),
+            "the stream GET": client.get(VAULT, headers=foreign),
+        }
+        let_through = [k for k, r in attempts.items() if r.status_code != 403]
+        if let_through:
+            print(f"FAIL: a foreign Origin was not refused for {', '.join(let_through)}")
             return 1
-        say(f"a request from an origin the resource does not serve is refused, by {by}")
+        say("a request from an origin the resource does not serve is refused")
+        say("and so are an initialize and a stream GET from it, which no tool-call hook sees")
 
         print("\n== Beats 2-4: the same negotiation at Alice's AS ==")
         keys = AgentKeys.load_or_create("/driver/keys/embedded-check.pem")

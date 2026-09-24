@@ -49,11 +49,14 @@ POST   /perm            register attempted permissions -> ticket
 POST   /introspect      RPT introspection (permissions array). Never consumes by
                         default; an inactive answer carries an `error` reason
                         (invalid_signature | unknown_token | connection_revoked |
-                        already_consumed | revoked | expired) so the PEP can tell a
-                        re-negotiable failure from a settled one
+                        organization_revoked | already_consumed | revoked |
+                        expired) so the PEP can tell a re-negotiable failure from
+                        a settled one. A grant over another owner's resources is
+                        unknown_token, whatever its state
 POST   /consume         burn a single-use RPT — the atomic last step of
                         enforcement, called only after PoP and operation binding
-                        have passed
+                        have passed. {consumed: false} carries `error`:
+                        already_consumed | not_single_use | an introspection reason
 POST   /audit/access    the PEP reports an allowed call (grounds the ledger's "touched")
 
 # Token endpoint (agent-facing UMA 2.0 Grant shape, plus RS-facing PAT issuance)
@@ -107,7 +110,7 @@ POST /owner/resource-servers/{id}/revoke   the same withdrawal, by path. Kept fo
                                            the seeded relationships, whose ids
                                            are plain names
 GET  /owner/connections                    standing agent relationships
-POST /owner/connections/{handle}/revoke    revoke a connection + its live RPTs
+POST /owner/connections/revoke            {handle}: revoke a connection + its live RPTs
 GET  /owner/operators                      operators behind those connections
 POST /owner/operators/block                shut out every agent one operator
                                            runs, revoking what is connected in
@@ -139,8 +142,8 @@ GET  /org/admin/{owner}/connections        charter's claims before it is answere
 GET  /org/admin/{owner}/operators
 GET  /org/admin/{owner}/ledger
 POST /org/admin/{owner}/pending/{f}/decision
-POST /org/admin/{owner}/connections/{h}/revoke   out of the organization's
-POST /org/admin/{owner}/connections/{h}/restore  resources, not out of hers
+POST /org/admin/{owner}/connections/revoke   {handle}: out of the organization's
+POST /org/admin/{owner}/connections/restore  resources, not out of hers
 POST /org/admin/{owner}/operators/{block|unblock}
 ```
 
@@ -273,7 +276,7 @@ JSON it defines; `scope` is RFC 6750 §3. Decoded:
 ```json
 {
   "authorization_details": [{
-    "type": "urn:uma4agents:authorization-details:tool-call",
+    "type": "https://u4a.ai/spec/core/1.0#tool-call",
     "locations": ["https://gateway.uma.lab"],
     "identifier": "alice-vault/execute_trade",
     "actions": ["execute_trade"],
@@ -334,8 +337,8 @@ reciprocal agreement.
   "error": "need_info",
   "ticket": "<rotated>",
   "required_claims": [{
-    "claim_type": "urn:uma4agents:claim:myterms-agreement",
-    "claim_token_format": ["urn:uma4agents:format:myterms-agreement-v1+jws"],
+    "claim_type": "https://u4a.ai/spec/terms/1.0#myterms-agreement",
+    "claim_token_format": ["https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws"],
     "friendly_name": "Alice's terms: Holdings summary",
     "terms_template": {
       "template_id": "alice/advisor-tier1/v2",
@@ -366,7 +369,7 @@ POST /token
 grant_type         = urn:ietf:params:oauth:grant-type:uma-ticket
 ticket             = <rotated>
 claim_token        = <base64url(myterms-agreement JWS)>
-claim_token_format = urn:uma4agents:format:myterms-agreement-v1+jws
+claim_token_format = https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws
 ```
 
 The **agreement** is the terms template echoed and signed by the agent's key.
@@ -555,7 +558,7 @@ first-seen/last-access timestamps, and status.
 - While no active connection exists, first contact pends regardless of tier.
 - Once active, non-ask-me tiers auto-grant for that agent; ask-me tiers still
   pend per operation.
-- `POST /owner/connections/{handle}/revoke` sets the connection inactive and
+- `POST /owner/connections/revoke` with `{"handle": …}` sets the connection inactive and
   marks every live RPT bound to that handle consumed, so introspection fails
   immediately.
 
@@ -612,11 +615,11 @@ The activity ledger is a projection of that stream: **promised** =
 **revoked** = `connection.revoked`.
 
 Those five are what her portal shows. The table itself is append-only and holds
-twenty-three kinds — the five above plus `relaxed`, `refused`,
+twenty-four kinds — the five above plus `relaxed`, `refused`,
 `identity_refused`, `claimed`, `disclaimed`, the organization set (`org_joined`,
 `org_left`, `org_declined`, `org_role`, `org_clamped`, `org_acted`,
 `org_refused`, `break_glass`) and the joint set (`joint_joined`, `joint_left`,
-`joint_allowed`, `joint_refused`). A row is
+`joint_moved`, `joint_allowed`, `joint_refused`). A row is
 `seq, owner, kind, family, ts, handle, entry`, where `handle` is a column rather
 than a field inside `entry` so one agent's whole trajectory is an index lookup,
 and is null for entries with no agent. Every kind and the fields its `entry`
@@ -715,10 +718,11 @@ catches but misreports. The enforcement point checks
 
 **The resource server must not be able to read the owner's policy.** This is
 the cross-principal property the whole profile exists for, and it is
-structural, not advisory: the Protection API is PAT-scoped, and in the
-Kubernetes reference the mesh denies the path outright. The paired assertion —
-the enforcement point is refused Alice's policy (403) and allowed her published
-keys (200) on the same port and workload — is the shortest statement of it.
+enforced twice. The owner API takes only her credential, which the resource
+server never holds, so a call reaching it through the public hostname is
+refused (401). And in the Kubernetes reference the mesh refuses the direct hop
+to it from any workload but her portal (403), while the same port serves her
+published keys (200). `k8s-policy-test` asserts both paths.
 
 **Agent-token issuers are trusted by dereference.** `verify_agent_token`
 resolves `iss` via AAuth discovery over TLS and believes the published keys.

@@ -50,7 +50,7 @@ WWW-Authenticate: UMA realm="alice-vault",
 ```json
 {
   "authorization_details": [{
-    "type": "urn:uma4agents:authorization-details:tool-call",
+    "type": "https://u4a.ai/spec/core/1.0#tool-call",
     "locations": ["https://gateway.uma.lab"],
     "identifier": "alice-vault/execute_trade",
     "actions": ["execute_trade"],
@@ -85,8 +85,8 @@ Answered with `403 need_info`, a rotated ticket, and the owner's terms:
   "error": "need_info",
   "ticket": "<rotated>",
   "required_claims": [{
-    "claim_type": "urn:uma4agents:claim:myterms-agreement",
-    "claim_token_format": ["urn:uma4agents:format:myterms-agreement-v1+jws"],
+    "claim_type": "https://u4a.ai/spec/terms/1.0#myterms-agreement",
+    "claim_token_format": ["https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws"],
     "friendly_name": "Alice's terms: Holdings summary",
     "terms_template": {
       "template_id": "alice/advisor-tier1/v2",
@@ -114,7 +114,7 @@ POST /token
 grant_type         = urn:ietf:params:oauth:grant-type:uma-ticket
 ticket             = <rotated>
 claim_token        = <base64url(agreement JWS)>
-claim_token_format = urn:uma4agents:format:myterms-agreement-v1+jws
+claim_token_format = https://u4a.ai/spec/terms/1.0#myterms-agreement-v1+jws
 ```
 
 The agreement is the template echoed and signed by the agent's key:
@@ -249,11 +249,19 @@ distinguishable from a settled one:
 | Reason | Enforcement point's response |
 |---|---|
 | `connection_revoked` | `403 access_revoked` — terminal, do not re-challenge |
+| `organization_revoked` | `403 access_revoked` — terminal: her organization ended the agent's reach to resources it claims |
 | `already_consumed` | Fresh challenge |
 | `revoked` | Fresh challenge — the grant ended with a connection she revoked, and the agent has since been admitted again |
 | `expired` | Fresh challenge |
-| `unknown_token` | Fresh challenge |
+| `unknown_token` | Fresh challenge. Also the answer for a grant over another owner's resources, whatever its state |
 | `invalid_signature` | Fresh challenge |
+| anything else | `403 access_revoked` — a reason the enforcement point does not recognise is treated as terminal |
+
+`/consume` answers `{"consumed": true}` to the caller that spent the grant.
+Otherwise `consumed` is false and `error` says why: `already_consumed`,
+`not_single_use`, or the reason introspection would give now. A caller that
+could not reach `/consume` has learned nothing about the grant, and answers
+`503`, not `already_consumed`.
 
 ## Ticket lifecycle
 

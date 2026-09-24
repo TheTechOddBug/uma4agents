@@ -34,6 +34,7 @@ Run with `make joint-check`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
 import os
 import sys
@@ -57,8 +58,40 @@ BOTH = os.environ.get("UMA4A_JOINT_ACCOUNT", "meridian-joint")
 EITHER = os.environ.get("UMA4A_EITHER_ACCOUNT", "meridian-either")
 VERIFY = os.environ.get("UMA4A_CA_BUNDLE", "/driver/rootCA.pem")
 ORG = os.environ.get("UMA4A_ORG", "https://northwind-org.uma.lab")
-ORG_ADMIN = {"Authorization":
-             f"Bearer {os.environ.get('ORG_ADMIN_TOKEN', 'org-admin-dev-token')}"}
+class _OrgAdmin(Mapping):
+    """Dana, signed in at Northwind's administration realm, as request headers.
+
+    The credential the console holds, not a static token beside it. Fetched
+    on first use and again a minute before it lapses, so a long run never
+    sends an expired one."""
+
+    def __init__(self) -> None:
+        self._token, self._expires = "", 0.0
+
+    def _headers(self) -> dict:
+        if time.time() > self._expires - 60:
+            r = httpx.post(
+                f"{KEYCLOAK}/realms/northwind/protocol/openid-connect/token",
+                data={"grant_type": "password", "client_id": "meridian-org-console",
+                      "username": os.environ.get("ORG_ADMIN_USER", "dana"),
+                      "password": os.environ.get("ORG_ADMIN_PASSWORD", "dana-demo")},
+                verify=VERIFY, timeout=15.0)
+            r.raise_for_status()
+            self._token = r.json()["access_token"]
+            self._expires = time.time() + r.json().get("expires_in", 300)
+        return {"Authorization": f"Bearer {self._token}"}
+
+    def __getitem__(self, key: str) -> str:
+        return self._headers()[key]
+
+    def __iter__(self):
+        return iter(self._headers())
+
+    def __len__(self) -> int:
+        return 1
+
+
+ORG_ADMIN = _OrgAdmin()
 ORG_CODE = os.environ.get("ORG_JOIN_CODE", "NW-7K2F-QX")
 META = mcp_meta("joint-check")
 
@@ -271,7 +304,13 @@ def live(wait_s: int) -> int:
 
 
 def _live_body(c: httpx.Client, wait_s: int) -> int:
-    doc = c.get(f"{TALLY}/mandate/{BOTH}", timeout=15.0).json()
+    # Read from where the tally says it publishes mandates, as a holder's
+    # authority and an enforcement point would.
+    meta = c.get(f"{TALLY}/.well-known/uma2-configuration", timeout=15.0).json()
+    where = (meta.get("u4a_mandate_endpoint") or "").replace("{account}", BOTH)
+    doc = c.get(where, timeout=15.0).json() if where else {}
+    check("the tally names where each mandate is published, and publishes it there",
+          len(doc.get("holders") or []) >= 2, f"{where} -> {sorted(doc)}")
     holders = [h["owner"] for h in doc["holders"]]
     rule = doc["rule"]
 
